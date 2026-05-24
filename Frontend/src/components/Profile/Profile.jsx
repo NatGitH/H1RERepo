@@ -29,7 +29,10 @@ export default function Profile() {
   }, []);
 
   return (
-    <section className="px-4 pt-8 pb-12 bg-[#0f172a] min-h-[calc(100vh-88px)]">
+    <section className="px-4 pt-8 pb-12 bg-[#0B2447] min-h-[calc(100vh-80px)]">
+      <div className="max-w-[1200px] mx-auto bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
+        style={{ boxShadow: "6px 6px 0px #0B2447" }}
+      >
 
       {/* Layout: left + right */}
       <div className="max-w-[1200px] mx-auto grid grid-cols-[1fr_380px] gap-6 items-start max-[900px]:grid-cols-1">
@@ -50,8 +53,10 @@ export default function Profile() {
             </div>
 
             {/* Name + Tags */}
-            <div className="flex flex-col gap-3 flex-1">
-              <div className="text-[1.3rem] font-extrabold text-[#0f172a] border-2 border-[#0f172a] rounded-full px-5 py-1.5 inline-block self-start">
+              <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+                 <div className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-lg tracking-wide"
+                  style={{ boxShadow: "3px 3px 0px #0B2447" }}
+               >
                 {company?.name || "Company Name"}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -67,7 +72,7 @@ export default function Profile() {
             </div>
 
             {/* Menu Button */}
-            <button className="absolute top-0 right-0 bg-transparent border-2 border-violet-600 rounded-lg text-violet-600 text-base font-bold px-2 py-0.5 cursor-pointer leading-none">
+            <button className="absolute top-0 right-0 bg-transparent rounded-lg text-black-600 text-base font-bold px-2 py-0.5 cursor-pointer leading-none">
               ⋯
             </button>
           </div>
@@ -83,8 +88,12 @@ export default function Profile() {
         {/* RIGHT: For Interview Applicants */}
         <div className="bg-[#f8fafc] rounded-[40px] p-8 shadow-[0_35px_80px_rgba(15,23,42,0.18)] border border-slate-200/20 flex flex-col">
 
-          <div className="text-2xl font-extrabold text-[#0f172a] px-6 py-3 rounded-full bg-white shadow-[0_18px_35px_rgba(15,23,42,0.12)] border border-[#0f172a] tracking-wide uppercase mb-5 self-start">
+          <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+          <div className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-lg tracking-wide"
+            style={{ boxShadow: "3px 3px 0px #0B2447" }}
+          >
             For Interview Applicants
+          </div>
           </div>
 
           <div className="flex flex-col gap-5">
@@ -134,8 +143,8 @@ export default function Profile() {
             )}
           </div>
         </div>
-
       </div>
+    </div>
     </section>
   );
 }

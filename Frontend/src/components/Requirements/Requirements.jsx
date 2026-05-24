@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import SearchIcon from "@mui/icons-material/Search";
 
 export default function Requirements() {
   const [requirements, setRequirements] = useState([]);
@@ -49,26 +50,28 @@ export default function Requirements() {
   );
 
   return (
-    <section className="px-4 pt-8 pb-12 bg-[#0f172a] min-h-[calc(100vh-88px)]">
-      <div className="max-w-[1200px] mx-auto bg-[#f8fafc] rounded-[40px] p-8 shadow-[0_35px_80px_rgba(15,23,42,0.18)] border border-slate-200/20">
+    <section className="px-4 pt-8 pb-12 bg-[#0B2447] min-h-[calc(100vh-80px)]">
+      <div className="max-w-[1200px] mx-auto bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
+        style={{ boxShadow: "6px 6px 0px #0B2447" }}
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
-          <div className="text-2xl font-extrabold text-[#0f172a] px-6 py-3 rounded-full bg-white shadow-[0_18px_35px_rgba(15,23,42,0.12)] border border-[#0f172a] tracking-wide uppercase">
+          <div className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-lg tracking-wide"
+            style={{ boxShadow: "3px 3px 0px #0B2447" }}
+          >
             Requirements
           </div>
-          <div className="flex items-center gap-3 bg-white border border-slate-300 rounded-full px-4 py-2 max-w-[300px] w-full">
+
+          <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
             <input
               type="search"
               placeholder="Search"
-              aria-label="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border-none outline-none w-full text-[0.95rem] text-[#0f172a] bg-transparent placeholder-slate-400"
+              className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400"
             />
-            <button type="button" className="bg-transparent border-none text-[1.15rem] cursor-pointer text-[#0f172a]">
-              🔍
-            </button>
+            <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
           </div>
         </div>
 
@@ -76,9 +79,11 @@ export default function Requirements() {
         <div className="grid grid-cols-[minmax(320px,1fr)_minmax(300px,1fr)] gap-7 max-[850px]:grid-cols-1">
 
           {/* Left: Pending Requirements */}
-          <div className="p-7 rounded-[36px] min-h-[420px] bg-[#f9e3bb] border border-[#f3d8a1]">
-            <div className="text-[1.6rem] font-extrabold mb-5 text-[#0f172a]">
+          <div className="bg-[#fde8c0] rounded-[24px] p-6 min-h-[420px]">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
               Pending Requirements
+              </h2>
             </div>
             <div className="flex flex-col gap-4">
               {filtered.map((req) => (
@@ -110,9 +115,9 @@ export default function Requirements() {
           </div>
 
           {/* Right: Create New */}
-          <div className="p-7 rounded-[36px] min-h-[420px] border-[3px] border-dashed border-teal-300 max-w-[220px] grid place-items-center">
+          <div className="p-7 rounded-[36px] min-h-[420px] border-[3px] border-dashed border-teal-300 max-w-[220px] grid place-items-center hover:bg-teal-50 transition-colors px-4 py-8">
             {showForm ? (
-              <div className="bg-white border border-slate-200 rounded-[24px] px-6 py-5 flex flex-col gap-4 shadow-[0_20px_40px_rgba(15,23,42,0.08)] w-full">
+              <div className=" rounded-[24px] px-6 py-5 flex flex-col gap-4 shadow-[0_20px_40px_rgba(15,23,42,0.08)] w-full">
                 <input
                   placeholder="Role (e.g. Software Tester)"
                   value={newReq.type}
@@ -143,9 +148,9 @@ export default function Requirements() {
             ) : (
               <div
                 onClick={() => setShowForm(true)}
-                className="bg-white rounded-[32px] min-w-[130px] min-h-[360px] flex flex-col items-center justify-center gap-4 text-center px-6 py-8 shadow-[0_20px_40px_rgba(15,23,42,0.08)] cursor-pointer"
+                className=" flex flex-col items-center gap-3 cursor-pointer"
               >
-                <span className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-teal-300 text-white text-[2.5rem] shadow-[0_20px_40px_rgba(94,234,212,0.35)]">
+                <span className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-teal-300 text-white text-[1.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
                   +
                 </span>
                 <h2 className="m-0 text-[1.3rem] font-extrabold text-[#0f172a]">Create new</h2>

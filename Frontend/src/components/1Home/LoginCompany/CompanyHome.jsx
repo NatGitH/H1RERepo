@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 
 export default function CompanyHome() {
   const navigate = useNavigate();
@@ -12,8 +13,9 @@ export default function CompanyHome() {
         <div className="relative flex items-center justify-center mb-1">
     <button
         onClick={() => navigate(-1)}
-        className="absolute left-0 w-8 h-8 flex items-center justify-center rounded-full border border-slate-300 text-slate-500 hover:bg-slate-100 transition"
+        className="absolute left-0 w-8 h-8 flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
     >
+      <ArrowBackIosNewIcon style={{ fontSize: 14 }} />
     </button>
     <h1 className="text-[2.2rem] font-extrabold tracking-tight leading-none">
         <span className="text-black">H</span>

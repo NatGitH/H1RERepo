@@ -30,8 +30,6 @@ import Profile from './components/Profile/Profile'
 function App() {
   return (
     <>
-      <link href="/src/style.css" rel="stylesheet"></link>
-
       <Routes>
           /* Home */
           <Route path="" element={<Home/>}/>

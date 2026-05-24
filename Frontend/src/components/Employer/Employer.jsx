@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import SearchIcon from "@mui/icons-material/Search";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -62,26 +63,27 @@ export default function Employer() {
     );
 
   return (
-    <section className="px-4 pt-8 pb-12 bg-[#0f172a] min-h-[calc(100vh-88px)]">
-      <div className="max-w-[1200px] mx-auto bg-[#f8fafc] rounded-[40px] p-8 shadow-[0_35px_80px_rgba(15,23,42,0.18)] border border-slate-200/20">
-
+    <section className="px-4 pt-8 pb-12 bg-[#0B2447] min-h-[calc(100vh-80px)]">
+      <div className="max-w-[1200px] mx-auto bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
+        style={{ boxShadow: "6px 6px 0px #0B2447" }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
-          <div className="text-2xl font-extrabold text-[#0f172a] px-6 py-3 rounded-full bg-white shadow-[0_18px_35px_rgba(15,23,42,0.12)] border border-[#0f172a] tracking-wide uppercase">
+          <div className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-lg tracking-wide"
+            style={{ boxShadow: "3px 3px 0px #0B2447" }}
+          >
             Employer
           </div>
-          <div className="flex items-center gap-3 bg-white border border-slate-300 rounded-full px-4 py-2 max-w-[300px] w-full">
+
+          <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
             <input
               type="search"
               placeholder="Search"
-              aria-label="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border-none outline-none w-full text-[0.95rem] text-[#0f172a] bg-transparent placeholder-slate-400"
+              className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400"
             />
-            <button type="button" className="bg-transparent border-none text-[1.15rem] cursor-pointer text-[#0f172a]">
-              🔍
-            </button>
+            <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
           </div>
         </div>
 

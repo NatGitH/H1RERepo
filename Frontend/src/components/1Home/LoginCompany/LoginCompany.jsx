@@ -16,13 +16,11 @@ export default function LoginCompany() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e]">
       
-      {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-      {/* Card - left aligned */}
       <div
         className="bg-white rounded-2xl px-8 pt-7 pb-8 w-full max-w-sm mx-4"
         style={{
@@ -30,7 +28,7 @@ export default function LoginCompany() {
           boxShadow: "6px 6px 0px #000000",
         }}
       >
-        {/* Header with back arrow*/}
+
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => navigate(-1)}
@@ -75,6 +73,7 @@ export default function LoginCompany() {
           <button
             type="submit"
             className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2"
+      
           >
             Login to Company
           </button>
@@ -83,7 +82,6 @@ export default function LoginCompany() {
         <div className="mt-6 text-center text-sm text-gray-500">
           Don't have an account?{" "}
           <button
-            onClick={() => navigate("/create-company")}
             className="text-blue-600 hover:underline font-medium"
           >
             Create company

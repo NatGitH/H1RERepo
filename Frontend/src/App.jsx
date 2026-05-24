@@ -15,7 +15,12 @@ import Receipt from './components/1Home/CreateCompany/Subscriptions/Receipt'
 
 import LoginCompany from './components/1Home/LoginCompany/LoginCompany'
 import CompanyHome from './components/1Home/LoginCompany/CompanyHome'
-
+import CreateHRAccount from './components/1Home/LoginCompany/CreateHRAccount'
+import CreateHRProfile from './components/1Home/LoginCompany/CreateHRProfile'
+import LoginHRAccount from './components/1Home/LoginCompany/LoginHRAccount'
+import HRForgotPassword from './components/1Home/LoginCompany/HRForgotPassword'
+import VerifyCode from './components/1Home/LoginCompany/VerifyCode'
+import HRNewPassword from './components/1Home/LoginCompany/HRNewPassword'
 
 import Applicants from './components/Applicants/Applicants'
 
@@ -30,6 +35,7 @@ import Profile from './components/Profile/Profile'
 function App() {
   return (
     <>
+      <Navbar />
       <Routes>
           /* Home */
           <Route path="" element={<Home/>}/>
@@ -45,6 +51,12 @@ function App() {
           /* Login Company */
           <Route path="/Login-Company" element={<LoginCompany />} />
           <Route path="/Company-Home" element={<CompanyHome />} />
+          <Route path="/Create-HR-Account" element={<CreateHRAccount />} />
+          <Route path="/Create-HR-Profile" element={<CreateHRProfile />} />
+          <Route path="/Login-HR-Account" element={<LoginHRAccount />} />
+          <Route path="/HR-Forgot-Password" element={<HRForgotPassword />} />
+          <Route path="/Verify-Code" element={<VerifyCode />} />
+          <Route path="/HR-New-Password" element={<HRNewPassword />} />
 
           <Route element={<DashboardLayout />}>
             /* Applicants */

@@ -3,9 +3,21 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 
 export default function Receipt() {
   const navigate = useNavigate();
+  const plan = localStorage.getItem("plan");
+
+const planDetails =
+  plan === "enterprise"
+    ? {
+        plan: "Enterprise — ₱1,999/month",
+        total: "₱1,999.00",
+      }
+    : {
+        plan: "Standard — ₱899/month",
+        total: "₱899.00",
+      };
 
   const rows = [
-    { label: "Plan", value: "Standard — ₱899/month" },
+    { label: "Plan", value: planDetails.plan },
     { label: "Billing", value: "Monthly, billed on activation" },
     { label: "Payment method", value: "QR Ph" },
     { label: "Mayor's Permit", value: "✓ Uploaded" },
@@ -16,18 +28,19 @@ export default function Receipt() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden px-4">
 
-      {/* Glow */}
+
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-      {/* Card */}
-      <div
-        className="relative z-10 bg-white rounded-2xl px-8 pt-6 pb-6 w-full max-w-2xl mx-4"
-        style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
-      >
-        {/* Header */}
+
+        <div
+          className="relative z-10 bg-white rounded-2xl px-8 pt-6 pb-8 w-full max-w-2xl mx-4"
+          style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
+        >
+
+
         <div className="flex items-center gap-3 mb-1">
           <button
             onClick={() => navigate(-1)}
@@ -42,7 +55,8 @@ export default function Receipt() {
           Please confirm all details before submitting
         </p>
 
-        {/* Rows */}
+
+
         <div className="divide-y divide-slate-100">
           {rows.map((row) => (
             <div key={row.label} className="flex justify-between items-center py-2.5 text-sm">
@@ -51,22 +65,24 @@ export default function Receipt() {
             </div>
           ))}
 
-          {/* Total */}
+
+
           <div className="flex justify-between items-center py-2.5">
             <span className="text-sm font-bold text-slate-900">Total</span>
-            <span className="text-sm font-bold text-slate-900">₱899.00</span>
+            <span className="text-sm font-bold text-slate-900">{planDetails.total}</span>
           </div>
         </div>
 
-        {/* Disclaimer */}
+
         <p className="text-xs text-slate-400 mt-4 mb-6 leading-relaxed text-center">
           By submitting, you agree to our Terms of Service. Your account will be reviewed by
           the System Admin before access is granted. You will receive an email once approved.
         </p>
 
-        {/* Button */}
+
+
         <button
-          onClick={() => navigate("/payment")}
+          onClick={() => navigate("/Payment")}
           className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white text-sm font-semibold py-3 rounded-lg transition duration-200"
         >
           Continue to Payment

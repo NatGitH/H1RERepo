@@ -3,12 +3,11 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import CloseIcon from "@mui/icons-material/Close";
 
-export default function CreateCompany() {
+export default function CreateCompanyPage() {
   const navigate = useNavigate();
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [form, setForm] = useState({
     companyName: "",
-    email: "",
     password: "",
     confirmPassword: "",
     agreed: false,
@@ -23,7 +22,7 @@ export default function CreateCompany() {
   };
 
   const handleSubmit = () => {
-    if (!form.companyName || !form.email || !form.password || !form.confirmPassword) {
+    if (!form.companyName || !form.password || !form.confirmPassword) {
       alert("Please fill in all fields.");
       return;
     }
@@ -35,40 +34,35 @@ export default function CreateCompany() {
       alert("You must agree to the Data Policies.");
       return;
     }
-    navigate("/company-documents");
+    navigate("/dashboard");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447]">
-
 
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-
       <div
         className="bg-white rounded-2xl px-8 pt-6 pb-6 w-full max-w-sm mx-4 relative z-10"
         style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
 
-
         <div className="flex items-center gap-3 mb-5">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(-1)}
             className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-black hover:bg-slate-100 transition cursor-pointer"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />
           </button>
-          <h2 className="text-xl font-bold text-black">Create Company</h2>
+          <h2 className="text-xl font-bold text-black">Company Page</h2>
         </div>
-
 
         <div className="flex flex-col gap-2">
           {[
             { label: "Company Name", name: "companyName", type: "text", placeholder: "Tech Stack" },
-            { label: "Email", name: "email", type: "email", placeholder: "TechStack@gmail.com" },
             { label: "Password", name: "password", type: "password", placeholder: "••••••••••" },
             { label: "Re-Enter Password", name: "confirmPassword", type: "password", placeholder: "••••••••••" },
           ].map(({ label, name, type, placeholder }) => (
@@ -86,19 +80,10 @@ export default function CreateCompany() {
           ))}
         </div>
 
-
         <p className="text-center text-xs text-slate-400 mt-3">
-          Already have a company?{" "}
-          <button
-            type="button"
-            onClick={() => navigate("/login-company")}
-            className="text-[#1a4ccc] font-semibold hover:underline bg-transparent border-none p-0 text-xs cursor-pointer"
-          >
-            Click Here
-          </button>
+          This will be your company password for HR Staffs
         </p>
 
-   
         <div className="flex items-start gap-2 mt-3">
           <input
             type="checkbox"
@@ -120,12 +105,11 @@ export default function CreateCompany() {
           </p>
         </div>
 
-
         <button
-          onClick={handleSubmit}
+          onClick={() => navigate("/Login-Company")}
           className="mt-5 w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
         >
-          Next
+          Create Company Page
         </button>
       </div>
 
@@ -140,8 +124,6 @@ export default function CreateCompany() {
             style={{ height: "85vh", border: "2px solid #1a1a2e", boxShadow: "8px 8px 0px #000000" }}
             onClick={(e) => e.stopPropagation()}
           >
-
-
             <div className="relative flex items-center justify-center px-6 py-5 border-b border-slate-200 flex-shrink-0">
               <h3 className="text-2xl font-bold text-black">Data Privacy Notice</h3>
               <button
@@ -152,7 +134,6 @@ export default function CreateCompany() {
               </button>
             </div>
 
-   
             <div className="flex-1 overflow-y-auto px-8 py-4 text-xs text-slate-700 leading-relaxed space-y-4 text-left">
               <p>At H!RE, we are committed to protecting your privacy. This Data Privacy Notice explains how we collect, use, and secure your personal information when you use our AI-powered platform to manage recruitment, evaluate candidates, and apply for jobs.</p>
 
@@ -194,8 +175,6 @@ export default function CreateCompany() {
                 </div>
               ))}
             </div>
-
-
 
             <div className="px-8 py-5 border-t border-slate-200 flex-shrink-0">
               <button

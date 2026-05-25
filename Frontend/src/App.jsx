@@ -7,10 +7,12 @@ import Navbar from './components/.Navbar/Navbar'
 import Home from './components/1Home/Home'
 
 import CreateCompany from './components/1Home/CreateCompany/CreateCompany'
+import CreateCompanyPage from './components/1Home/CreateCompany/CreateCompanyPage'
 import CompanyDocuments from './components/1Home/CreateCompany/CompanyDocuments'
 import AccountVerification from './components/1Home/CreateCompany/AccountVerification'
 import SubscriptionPlan from './components/1Home/CreateCompany/Subscriptions/SubscriptionPlan'
 import Receipt from './components/1Home/CreateCompany/Subscriptions/Receipt'
+import Payment from './components/1Home/CreateCompany/Subscriptions/Payment'
 
 import LoginCompany from './components/1Home/LoginCompany/LoginCompany'
 import CompanyHome from './components/1Home/LoginCompany/CompanyHome'
@@ -40,10 +42,12 @@ function App() {
 
           /* Create Company */
           <Route path="/Create-Company" element={<CreateCompany/>}/>
+          <Route path="/Create-Company-Page" element={<CreateCompanyPage />} />
           <Route path="/Company-Documents" element={<CompanyDocuments />} />
           <Route path="/Account-Verification" element={<AccountVerification />} />
           <Route path="/Subscription-Plan" element={<SubscriptionPlan />} />
           <Route path="/Receipt" element={<Receipt />} />
+          <Route path="/Payment" element={<Payment />} />
 
           /* Login Company */
           <Route path="/Login-Company" element={<LoginCompany />} />

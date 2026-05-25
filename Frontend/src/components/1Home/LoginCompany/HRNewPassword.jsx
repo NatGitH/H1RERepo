@@ -99,8 +99,7 @@ export default function HRNewPassword() {
               boxShadow: "1px 1px 0px #000000",
             }}
           >
-
-            {/* ai to gusto ko makuha yung green na icon ba yon huhu*/}
+            
             <div className="flex justify-center mb-4">
               <div className="w-14 h-14 rounded-full bg-green-500 flex items-center justify-center">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">

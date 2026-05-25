@@ -11,18 +11,21 @@ export default function AccountVerification() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden">
 
-      {/* Glow */}
+
+
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-      {/* Card — mas malaki: max-w-md, mas malaking padding */}
+
+
       <div
         className="bg-white rounded-2xl px-12 pt-8 pb-8 w-full max-w-md mx-4 relative z-10"
         style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
-        {/* Back button */}
+
+
         <button
           onClick={() => navigate("/company-documents")}
           className="absolute top-6 left-6 w-9 h-9 flex items-center justify-center rounded-full border-2 border-black hover:bg-slate-100 transition cursor-pointer"
@@ -30,10 +33,12 @@ export default function AccountVerification() {
           <ArrowBackIosNewIcon style={{ fontSize: 15 }} />
         </button>
 
-        {/* Centered content */}
+  
+
         <div className="flex flex-col items-center text-center pt-6">
 
-          {/* Email Icon — bigger */}
+
+
           <div className="w-20 h-20 rounded-full border-2 border-[#1a1a2e] flex items-center justify-center mb-5">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -74,20 +79,23 @@ export default function AccountVerification() {
         </div>
       </div>
 
-      {/* ── Modal Overlay ── */}
+
+
       {modal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
           onClick={() => setModal(null)}
         >
-          {/* Modal — wider: max-w-lg, bigger padding */}
+
+
           <div
             className="bg-white rounded-2xl px-12 pt-10 pb-10 w-full max-w-lg relative"
             style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close X */}
+
+
             <button
               onClick={() => setModal(null)}
               className="absolute top-5 right-5 w-9 h-9 flex items-center justify-center rounded-full border-2 border-gray-300 hover:bg-slate-100 transition"
@@ -97,7 +105,8 @@ export default function AccountVerification() {
 
             <div className="flex flex-col items-center text-center">
 
-              {/* Icon */}
+
+
               {modal === "activated" ? (
                 <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mb-6">
                   <CheckIcon style={{ fontSize: 42, color: "white" }} />
@@ -108,12 +117,12 @@ export default function AccountVerification() {
                 </div>
               )}
 
-              {/* Title */}
+
               <h2 className="text-2xl font-bold text-black mb-2">
                 {modal === "activated" ? "Account Activated!" : "Account Denied"}
               </h2>
 
-              {/* Subtitle */}
+
               <p className="text-sm text-slate-400 mb-6 leading-relaxed">
                 {modal === "activated"
                   ? "Your company account is now active. You can start posting jobs and evaluating candidates."
@@ -122,7 +131,7 @@ export default function AccountVerification() {
 
               <hr className="w-full border-slate-200 mb-6" />
 
-              {/* Action buttons */}
+
               {modal === "activated" ? (
                 <button
                   onClick={() => navigate("/subscription-plan")}

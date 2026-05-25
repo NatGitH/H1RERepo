@@ -9,7 +9,6 @@ import Home from './components/1Home/Home'
 import CreateCompany from './components/1Home/CreateCompany/CreateCompany'
 import CompanyDocuments from './components/1Home/CreateCompany/CompanyDocuments'
 import AccountVerification from './components/1Home/CreateCompany/AccountVerification'
-import AccountActivated from './components/1Home/CreateCompany/AccountActivated'
 import SubscriptionPlan from './components/1Home/CreateCompany/Subscriptions/SubscriptionPlan'
 import Receipt from './components/1Home/CreateCompany/Subscriptions/Receipt'
 
@@ -35,7 +34,6 @@ import Profile from './components/Profile/Profile'
 function App() {
   return (
     <>
-      <Navbar />
       <Routes>
           /* Home */
           <Route path="" element={<Home/>}/>
@@ -44,7 +42,6 @@ function App() {
           <Route path="/Create-Company" element={<CreateCompany/>}/>
           <Route path="/Company-Documents" element={<CompanyDocuments />} />
           <Route path="/Account-Verification" element={<AccountVerification />} />
-          <Route path="/Account-Activated" element={<AccountActivated />} />
           <Route path="/Subscription-Plan" element={<SubscriptionPlan />} />
           <Route path="/Receipt" element={<Receipt />} />
 

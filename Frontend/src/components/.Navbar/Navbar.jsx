@@ -45,7 +45,7 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* Nav links — pushed to the right */}
+        {/* Nav links */}
         <ul className="flex items-center gap-8 list-none m-0 p-0 ml-auto">
           {NAV_LINKS.map(({ label, path }) => {
             const active = pathname === path;

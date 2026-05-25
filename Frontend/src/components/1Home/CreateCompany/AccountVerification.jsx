@@ -1,41 +1,43 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 
 export default function AccountVerification() {
   const navigate = useNavigate();
+  const [modal, setModal] = useState(null);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden">
 
-      {/* Background glow */}
+      {/* Glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-      {/* Card */}
+      {/* Card — mas malaki: max-w-md, mas malaking padding */}
       <div
-        className="relative z-10 bg-white rounded-2xl px-8 pt-7 pb-10 w-full max-w-md mx-4"
-        style={{
-          boxShadow: "0 8px 48px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3)",
-          animation: "fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both",
-        }}
+        className="bg-white rounded-2xl px-12 pt-8 pb-8 w-full max-w-md mx-4 relative z-10"
+        style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
-        {/* Back Button */}
-        <div className="mb-4">
-          <button
-            onClick={() => navigate("/company-documents")}
-            className="w-8 h-8 flex items-center justify-center rounded-full border border-slate-300 text-slate-500 hover:bg-slate-100 transition"
-          >
-            ←
-          </button>
-        </div>
+        {/* Back button */}
+        <button
+          onClick={() => navigate("/company-documents")}
+          className="absolute top-6 left-6 w-9 h-9 flex items-center justify-center rounded-full border-2 border-black hover:bg-slate-100 transition cursor-pointer"
+        >
+          <ArrowBackIosNewIcon style={{ fontSize: 15 }} />
+        </button>
 
-        {/* Email Icon */}
-        <div className="flex justify-center mb-5">
-          <div className="w-16 h-16 rounded-full border-2 border-slate-800 flex items-center justify-center">
+        {/* Centered content */}
+        <div className="flex flex-col items-center text-center pt-6">
+
+          {/* Email Icon — bigger */}
+          <div className="w-20 h-20 rounded-full border-2 border-[#1a1a2e] flex items-center justify-center mb-5">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="w-8 h-8 text-slate-800"
+              className="w-10 h-10 text-slate-800"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -48,45 +50,108 @@ export default function AccountVerification() {
               />
             </svg>
           </div>
-        </div>
 
-        {/* Title */}
-        <h2 className="text-center text-xl font-bold mb-1" style={{ color: "#000000" }}>
-          Account for Verification
-        </h2>
+          <h2 className="text-xl font-bold text-black mb-1">
+            Account for Verification
+          </h2>
+          <p className="text-sm text-slate-400 mb-5">
+            Wait for the Email Confirmation...
+          </p>
 
-        {/* Subtitle */}
-        <p className="text-center text-sm text-slate-400 mb-6">
-          Wait for the Email Confirmation...
-        </p>
+          <hr className="w-full border-slate-200 mb-5" />
 
-        {/* Divider */}
-        <hr className="border-slate-200 mb-5" />
+          <p className="text-sm text-slate-500 leading-relaxed mb-6">
+            The System Admin will review your company and subscription. You'll receive an email once approved.
+          </p>
 
-        {/* Description */}
-        <p className="text-center text-sm text-slate-500 leading-relaxed mb-8">
-          The System Admin will review your company and subscription. You'll receive an email once approved.
-        </p>
-
-        {/* ✅ Temp Test Button */}
-        <div className="flex justify-center">
           <button
-            onClick={() => navigate("/account-activated")}
-            className="bg-[#1a3a6b] hover:bg-[#15306a] text-white text-sm font-semibold px-10 py-2.5 rounded-full transition"
+            onClick={() => setModal("activated")}
+            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-3 rounded-lg transition duration-200 text-sm"
           >
-            NEXT
+            Next
           </button>
-        </div>
 
+        </div>
       </div>
 
-      {/* Keyframe */}
-      <style>{`
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
+      {/* ── Modal Overlay ── */}
+      {modal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+          onClick={() => setModal(null)}
+        >
+          {/* Modal — wider: max-w-lg, bigger padding */}
+          <div
+            className="bg-white rounded-2xl px-12 pt-10 pb-10 w-full max-w-lg relative"
+            style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close X */}
+            <button
+              onClick={() => setModal(null)}
+              className="absolute top-5 right-5 w-9 h-9 flex items-center justify-center rounded-full border-2 border-gray-300 hover:bg-slate-100 transition"
+            >
+              <CloseIcon style={{ fontSize: 16 }} />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+
+              {/* Icon */}
+              {modal === "activated" ? (
+                <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mb-6">
+                  <CheckIcon style={{ fontSize: 42, color: "white" }} />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center mb-6">
+                  <CloseIcon style={{ fontSize: 42, color: "white" }} />
+                </div>
+              )}
+
+              {/* Title */}
+              <h2 className="text-2xl font-bold text-black mb-2">
+                {modal === "activated" ? "Account Activated!" : "Account Denied"}
+              </h2>
+
+              {/* Subtitle */}
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                {modal === "activated"
+                  ? "Your company account is now active. You can start posting jobs and evaluating candidates."
+                  : "Your company account was not approved. Please review your submitted documents and try again."}
+              </p>
+
+              <hr className="w-full border-slate-200 mb-6" />
+
+              {/* Action buttons */}
+              {modal === "activated" ? (
+                <button
+                  onClick={() => navigate("/subscription-plan")}
+                  className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-3 rounded-lg transition duration-200 text-sm"
+                >
+                  Continue
+                </button>
+              ) : (
+                <div className="flex flex-col gap-3 w-full">
+                  <button
+                    onClick={() => navigate("/company-documents")}
+                    className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-3 rounded-lg transition duration-200 text-sm"
+                  >
+                    Re-submit Documents
+                  </button>
+                  <button
+                    onClick={() => setModal(null)}
+                    className="w-full border-2 border-gray-300 text-gray-600 font-semibold py-3 rounded-lg hover:bg-slate-50 transition duration-200 text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

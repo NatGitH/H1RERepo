@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 
 export default function CompanyDocuments() {
   const navigate = useNavigate();
@@ -22,101 +23,88 @@ export default function CompanyDocuments() {
       alert("Please upload all required documents.");
       return;
     }
-    // TODO: connect to Django API
-    console.log("Documents submitted:", files);
     navigate("/account-verification");
   };
 
-  const DocumentUpload = ({ label, description, field }) => (
-    <div className="mb-5">
-      <p className="text-sm font-bold text-slate-800 mb-0.5 text-left">{label}</p>
-      <p className="text-xs text-slate-400 mb-2 text-left">{description}</p>
-      <div className="flex items-center border border-dashed border-slate-300 rounded-lg overflow-hidden">
-        <span className="flex-1 px-3 py-2 text-xs text-slate-400 truncate text-left">
-          {files[field] ? files[field].name : "No file chosen — PDF or Image accepted"}
+  const DocumentUpload = ({ label, description, field, inputId }) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+      </label>
+      <p className="text-xs text-slate-400 mb-1">{description}</p>
+      <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-1.5">
+        <span className="text-xs text-slate-400 flex-1 truncate">
+          {files[field] ? files[field].name : "No file chosen — PDF or image accepted"}
         </span>
         <label
-          htmlFor={field}
-          className="px-4 py-2 bg-white border-l border-slate-300 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-50 transition whitespace-nowrap"
+          htmlFor={inputId}
+          className="text-xs font-medium px-3 py-1 border border-gray-300 rounded-md cursor-pointer bg-slate-50 hover:bg-slate-100 transition whitespace-nowrap"
         >
           Browse file
-          <input
-            id={field}
-            type="file"
-            accept=".pdf,image/*"
-            className="hidden"
-            onChange={(e) => handleFileChange(e, field)}
-          />
         </label>
+        <input
+          id={inputId}
+          type="file"
+          accept=".pdf,image/*"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, field)}
+        />
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#0B2447]">
 
-      {/* Background glow */}
+      {/* Glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-      {/* Card */}
       <div
-        className="relative z-10 bg-white rounded-2xl px-8 pt-7 pb-8 w-full max-w-md mx-4"
-        style={{
-          boxShadow: "0 8px 48px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3)",
-          animation: "fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both",
-        }}
+        className="bg-white rounded-2xl px-8 pt-6 pb-6 w-full max-w-sm mx-4 relative z-10"
+        style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-1">
+        <div className="flex items-center gap-3 mb-5">
           <button
             onClick={() => navigate("/create-company")}
-            className="w-8 h-8 flex items-center justify-center rounded-full border border-slate-300 text-slate-500 hover:bg-slate-100 transition"
+            className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-black hover:bg-slate-100 transition cursor-pointer"
           >
-            ←
+            <ArrowBackIosNewIcon style={{ fontSize: 14 }} />
           </button>
-          <h2 className="font-semibold" style={{ color: "#000000" }}>Company documents</h2>
+          <h2 className="text-xl font-bold text-black">Company Documents</h2>
         </div>
 
-        <p className="text-xs text-slate-400 mb-6 ml-11 text-left">
-          Upload the required business verification documents
-        </p>
 
-        {/* Document Uploads */}
-        <DocumentUpload
-          label="Business Permit"
-          description="Issued by the Business Permits and Licensing Office (BPLO)"
-          field="businessPermit"
-        />
-        <DocumentUpload
-          label="DTI / SEC Registration"
-          description="Proof of ownership — DTI for sole proprietors, SEC for corporations"
-          field="dtiSec"
-        />
-        <DocumentUpload
-          label="BIR Certificate of Registration"
-          description="Form 2303 confirms tax compliance with the Bureau of Internal Revenue"
-          field="bir"
-        />
+        <div className="flex flex-col gap-2">
+          <DocumentUpload
+            label="Business Permit"
+            description="Issued by the Business Permits and Licensing Office (BPLO)"
+            field="businessPermit"
+            inputId="businessPermit"
+          />
+          <DocumentUpload
+            label="DTI / SEC Registration"
+            description="Proof of ownership — DTI for sole proprietors, SEC for corporations"
+            field="dtiSec"
+            inputId="dtiSec"
+          />
+          <DocumentUpload
+            label="BIR Certificate of Registration"
+            description="Form 2303 confirms tax compliance with the Bureau of Internal Revenue"
+            field="bir"
+            inputId="bir"
+          />
+        </div>
 
-        {/* Submit Button */}
         <button
           onClick={handleSubmit}
-          className="mt-2 w-full bg-[#1a4ccc] hover:bg-[#1440b0] text-white text-sm font-semibold py-2.5 rounded-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
+          className="mt-5 w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
         >
-          Submit
+          Submit Documents
         </button>
       </div>
-
-      {/* Keyframe */}
-      <style>{`
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
     </div>
   );
 }

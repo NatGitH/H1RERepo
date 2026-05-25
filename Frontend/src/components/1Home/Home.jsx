@@ -23,44 +23,37 @@ export default function Home() {
 
       {/* Card */}
       <div
-        className="bg-white rounded-2xl px-10 pt-10 pb-8 w-full max-w-sm mx-4"
+        className="bg-white rounded-2xl px-10 pt-9 pb-9 w-full max-w-md mx-4 relative z-10"
         style={{
           border: "2px solid #1a1a2e",
-          boxShadow: "6px 6px 0px rgb(0, 0, 0)",
+          boxShadow: "6px 6px 0px #000000",
         }}
       >
         {/* Logo */}
         <div className="text-center mb-6">
-          <h1 className="text-[2rem] font-extrabold tracking-tight leading-none">
+          <h1 className="text-[2.5rem] font-extrabold tracking-tight leading-none">
             <span className="text-black">H</span>
             <span className="text-[#1a4ccc]">!</span>
             <span className="text-black">RE</span>
           </h1>
-          <p className="text-sm text-slate-500 mt-2">
+
+          <p className="text-base text-gray-400 mt-2">
             Choose your form of action
           </p>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-slate-100 my-6" />
-
         {/* Action Buttons Grid */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4 mt-7">
           {actions.map((action) => (
             <button
               key={action.route}
               onClick={() => navigate(action.route)}
-              className="
-                w-full py-3.5 rounded-full
-                text-white text-sm font-semibold
-                transition-all duration-150
-                active:scale-95
-                border-2 border-black
-                cursor-pointer
-              "
-              style={{
-                background: action.variant === "dark" ? "#1a2a6c" : "#1a4ccc",
-              }}
+              className={` w-full py-3.5 rounded-full text-white text-[0.95rem] font-semibold transition duration-200 ${
+                  action.variant === "dark"
+                    ? "bg-[#0d1b3e] hover:bg-[#162553]"
+                    : "bg-[#2255cc] hover:bg-[#1a44bb]"
+                }
+              `}
             >
               {action.label}
             </button>

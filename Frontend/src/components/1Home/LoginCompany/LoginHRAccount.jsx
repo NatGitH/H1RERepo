@@ -93,8 +93,11 @@ export default function LoginHRAccount() {
 
         <div className="mt-5">
           <button
-            onClick={() => navigate("/dashboard")}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
+            onClick={() => {
+              localStorage.setItem("role", "hr_staff");
+              navigate("/applicants");
+            }}
+            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200"
           >
             Login
           </button>

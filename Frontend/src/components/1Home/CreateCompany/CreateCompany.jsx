@@ -41,18 +41,15 @@ export default function CreateCompany() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447]">
 
-
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-
       <div
         className="bg-white rounded-2xl px-8 pt-6 pb-6 w-full max-w-sm mx-4 relative z-10"
         style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
-
 
         <div className="flex items-center gap-3 mb-5">
           <button
@@ -63,7 +60,6 @@ export default function CreateCompany() {
           </button>
           <h2 className="text-xl font-bold text-black">Create Company</h2>
         </div>
-
 
         <div className="flex flex-col gap-2">
           {[
@@ -86,7 +82,6 @@ export default function CreateCompany() {
           ))}
         </div>
 
-
         <p className="text-center text-xs text-slate-400 mt-3">
           Already have a company?{" "}
           <button
@@ -98,7 +93,6 @@ export default function CreateCompany() {
           </button>
         </p>
 
-   
         <div className="flex items-start gap-2 mt-3">
           <input
             type="checkbox"
@@ -120,7 +114,6 @@ export default function CreateCompany() {
           </p>
         </div>
 
-
         <button
           onClick={handleSubmit}
           className="mt-5 w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
@@ -128,7 +121,6 @@ export default function CreateCompany() {
           Next
         </button>
       </div>
-
 
       {showPrivacy && (
         <div
@@ -141,7 +133,6 @@ export default function CreateCompany() {
             onClick={(e) => e.stopPropagation()}
           >
 
-
             <div className="relative flex items-center justify-center px-6 py-5 border-b border-slate-200 flex-shrink-0">
               <h3 className="text-2xl font-bold text-black">Data Privacy Notice</h3>
               <button
@@ -152,7 +143,6 @@ export default function CreateCompany() {
               </button>
             </div>
 
-   
             <div className="flex-1 overflow-y-auto px-8 py-4 text-xs text-slate-700 leading-relaxed space-y-4 text-left">
               <p>At H!RE, we are committed to protecting your privacy. This Data Privacy Notice explains how we collect, use, and secure your personal information when you use our AI-powered platform to manage recruitment, evaluate candidates, and apply for jobs.</p>
 
@@ -194,8 +184,6 @@ export default function CreateCompany() {
                 </div>
               ))}
             </div>
-
-
 
             <div className="px-8 py-5 border-t border-slate-200 flex-shrink-0">
               <button

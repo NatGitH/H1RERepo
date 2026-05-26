@@ -11,20 +11,15 @@ export default function AccountVerification() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden">
 
-
-
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-
-
       <div
         className="bg-white rounded-2xl px-12 pt-8 pb-8 w-full max-w-md mx-4 relative z-10"
         style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
-
 
         <button
           onClick={() => navigate("/company-documents")}
@@ -33,11 +28,7 @@ export default function AccountVerification() {
           <ArrowBackIosNewIcon style={{ fontSize: 15 }} />
         </button>
 
-  
-
         <div className="flex flex-col items-center text-center pt-6">
-
-
 
           <div className="w-20 h-20 rounded-full border-2 border-[#1a1a2e] flex items-center justify-center mb-5">
             <svg
@@ -79,8 +70,6 @@ export default function AccountVerification() {
         </div>
       </div>
 
-
-
       {modal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -95,7 +84,6 @@ export default function AccountVerification() {
             onClick={(e) => e.stopPropagation()}
           >
 
-
             <button
               onClick={() => setModal(null)}
               className="absolute top-5 right-5 w-9 h-9 flex items-center justify-center rounded-full border-2 border-gray-300 hover:bg-slate-100 transition"
@@ -104,8 +92,6 @@ export default function AccountVerification() {
             </button>
 
             <div className="flex flex-col items-center text-center">
-
-
 
               {modal === "activated" ? (
                 <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mb-6">
@@ -117,11 +103,9 @@ export default function AccountVerification() {
                 </div>
               )}
 
-
               <h2 className="text-2xl font-bold text-black mb-2">
                 {modal === "activated" ? "Account Activated!" : "Account Denied"}
               </h2>
-
 
               <p className="text-sm text-slate-400 mb-6 leading-relaxed">
                 {modal === "activated"
@@ -130,7 +114,6 @@ export default function AccountVerification() {
               </p>
 
               <hr className="w-full border-slate-200 mb-6" />
-
 
               {modal === "activated" ? (
                 <button

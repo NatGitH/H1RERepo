@@ -188,7 +188,7 @@ export default function CreateHRProfile() {
           </button>
         </div>
       
-      {/*eto yung modal for verification */}
+      {/*modal for verification */}
         {showVerification && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
 
@@ -214,7 +214,6 @@ export default function CreateHRProfile() {
             >
               Back to Login
             </button>
-
           </div>
         </div>
       )}

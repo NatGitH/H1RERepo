@@ -56,8 +56,6 @@ export default function CompanyDocuments() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447]">
 
-
-
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
@@ -76,7 +74,6 @@ export default function CompanyDocuments() {
           </button>
           <h2 className="text-xl font-bold text-black">Company Documents</h2>
         </div>
-
 
         <div className="flex flex-col gap-2">
           <DocumentUpload

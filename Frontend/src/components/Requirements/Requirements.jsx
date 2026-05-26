@@ -50,19 +50,19 @@ export default function Requirements() {
   );
 
   return (
-    <section className="px-4 pt-8 pb-12 bg-[#0B2447] min-h-[calc(100vh-80px)]">
-      <div className="max-w-[1200px] mx-auto bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
+    <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
+      <div
+        className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-4 px-10 pb-6 border-2 border-[#0B2447]"
         style={{ boxShadow: "6px 6px 0px #0B2447" }}
       >
-
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
-          <div className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-lg tracking-wide"
+        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+          <div
+            className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
             style={{ boxShadow: "3px 3px 0px #0B2447" }}
           >
             Requirements
           </div>
-
           <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
             <input
               type="search"
@@ -76,13 +76,12 @@ export default function Requirements() {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-[minmax(320px,1fr)_minmax(300px,1fr)] gap-7 max-[850px]:grid-cols-1">
-
-          {/* Left: Pending Requirements */}
+        <div className="grid grid-cols-2 gap-7 max-[850px]:grid-cols-1">
+          {/* Pending Requirements */}
           <div className="bg-[#fde8c0] rounded-[24px] p-6 min-h-[420px]">
             <div className="flex items-start justify-between gap-4 mb-5">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
-              Pending Requirements
+                Pending Requirements
               </h2>
             </div>
             <div className="flex flex-col gap-4">
@@ -114,10 +113,10 @@ export default function Requirements() {
             </div>
           </div>
 
-          {/* Right: Create New */}
-          <div className="p-7 rounded-[36px] min-h-[420px] border-[3px] border-dashed border-teal-300 max-w-[220px] grid place-items-center hover:bg-teal-50 transition-colors px-4 py-8">
+          {/* Create New */}
+          <div className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 min-h-[400px]">
             {showForm ? (
-              <div className=" rounded-[24px] px-6 py-5 flex flex-col gap-4 shadow-[0_20px_40px_rgba(15,23,42,0.08)] w-full">
+              <div className="rounded-[24px] px-6 py-5 flex flex-col gap-4 shadow-[0_20px_40px_rgba(15,23,42,0.08)] w-full">
                 <input
                   placeholder="Role (e.g. Software Tester)"
                   value={newReq.type}
@@ -148,7 +147,7 @@ export default function Requirements() {
             ) : (
               <div
                 onClick={() => setShowForm(true)}
-                className=" flex flex-col items-center gap-3 cursor-pointer"
+                className="flex flex-col items-center gap-3 cursor-pointer"
               >
                 <span className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-teal-300 text-white text-[1.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
                   +
@@ -158,7 +157,6 @@ export default function Requirements() {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </section>

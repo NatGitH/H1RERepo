@@ -15,7 +15,6 @@ export default function HRForgotPassword() {
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-10 rounded-full blur-3xl" />
       </div>
 
-
       <div
         className="bg-white rounded-2xl px-8 pt-7 pb-8 w-full max-w-sm mx-4 relative z-10"
         style={{
@@ -23,7 +22,6 @@ export default function HRForgotPassword() {
           boxShadow: "6px 6px 0px #000000",
         }}
       >
-
 
         <div className="flex items-center gap-3 mb-6">
           <button
@@ -35,7 +33,6 @@ export default function HRForgotPassword() {
 
           <h2 className="text-xl font-bold text-black">Forgot Password</h2>
         </div>
-
 
         <div className="space-y-4">
           <div>
@@ -50,14 +47,12 @@ export default function HRForgotPassword() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
           </div>
-
-       
+      
           <p className="text-center text-sm text-gray-400">
             We'll send a verification code to this email if it matches an existing account.
           </p>
         </div>
 
- 
         <div className="mt-6">
           <button
             onClick={() => navigate("/verify-code")}

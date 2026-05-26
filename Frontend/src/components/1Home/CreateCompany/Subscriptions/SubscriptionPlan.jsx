@@ -167,8 +167,7 @@ export default function SubscriptionPlan() {
               <button
                 onClick={() => {
                   localStorage.setItem("plan", plan.planType);
-                  navigate(
-                    plan.planType === "free" ? "/login-company" : "/receipt");
+                  navigate(plan.planType === "free" ? "/login-company" : "/receipt");
                 }}
                 className="w-full flex items-center justify-between bg-white text-[#1a2e6b] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-slate-100 transition"
               >

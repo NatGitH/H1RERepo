@@ -57,19 +57,21 @@ export default function Employer() {
       });
   }, []);
 
-  const filterMembers = (members) =>
-    members.filter((m) =>
-      m.name.toLowerCase().includes(search.toLowerCase())
-    );
+    const filterMembers = (members) =>
+      members.filter((m) =>
+        m.name.toLowerCase().includes(search.toLowerCase())
+      );
 
-  return (
-    <section className="px-4 pt-8 pb-12 bg-[#0B2447] min-h-[calc(100vh-80px)]">
-      <div className="max-w-[1200px] mx-auto bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
-        style={{ boxShadow: "6px 6px 0px #0B2447" }}
-      >
+      return (
+        <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
+          <div
+            className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-4 px-10 pb-6 border-2 border-[#0B2447]"
+            style={{ boxShadow: "6px 6px 0px #0B2447" }}
+          >
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
-          <div className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-lg tracking-wide"
+        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+          <div
+            className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
             style={{ boxShadow: "3px 3px 0px #0B2447" }}
           >
             Employer

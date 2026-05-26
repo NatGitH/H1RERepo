@@ -23,12 +23,16 @@ import HRForgotPassword from './components/1Home/LoginCompany/HRForgotPassword'
 import VerifyCode from './components/1Home/LoginCompany/VerifyCode'
 import HRNewPassword from './components/1Home/LoginCompany/HRNewPassword'
 
+import LoginOwner from './components/1Home/LoginOwner/LoginOwner'
+
 import Applicants from './components/Applicants/Applicants'
 
+import HRAccountRequirements from './components/Requirements/HRAccountRequirements'
 import Requirements from './components/Requirements/Requirements'
 
 import Employer from './components/Employer/Employer'
 
+import MyProfile from './components/Profile/MyProfile'
 import Profile from './components/Profile/Profile'
 
 
@@ -59,15 +63,20 @@ function App() {
           <Route path="/Verify-Code" element={<VerifyCode />} />
           <Route path="/HR-New-Password" element={<HRNewPassword />} />
 
+           /* Login Owner */
+          <Route path="/Login-Owner" element={<LoginOwner />} />
+
           <Route element={<DashboardLayout />}>
             /* Applicants */
             <Route path="/Applicants" element={<Applicants/>}/>
 
             /* Requirements */
             <Route path="/Requirements" element={<Requirements />} />
-
+            <Route path="/HR-Account-Requirements" element={<HRAccountRequirements />} />
+           
             /* Profile */
             <Route path="/Profile" element={<Profile />} />
+            <Route path="/My-Profile" element={<MyProfile />} />
 
             /* Employer */
             <Route path="/Employer" element={<Employer/>}/>

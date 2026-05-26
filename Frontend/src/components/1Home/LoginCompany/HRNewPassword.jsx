@@ -89,7 +89,7 @@ export default function HRNewPassword() {
 
       </div>
 
-       {/*eto yung modal for success */}
+       {/*modal for success */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
@@ -118,7 +118,6 @@ export default function HRNewPassword() {
             >
               Go to Login
             </button>
-
           </div>
         </div>
       )}

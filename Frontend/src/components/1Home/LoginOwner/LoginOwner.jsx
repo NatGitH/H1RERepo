@@ -1,0 +1,91 @@
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+
+export default function LoginCompany() {
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({
+    company: "",
+    password: "",
+  });
+
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    localStorage.setItem("role", "owner");
+    navigate("/applicants");
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e]">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
+      </div>
+
+      <div
+        className="bg-white rounded-2xl px-8 pt-7 pb-8 w-full max-w-sm mx-4"
+        style={{
+          border: "2px solid #1a1a2e",
+          boxShadow: "6px 6px 0px #000000",
+        }}
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
+          >
+            <ArrowBackIosNewIcon style={{ fontSize: 14 }} />
+          </button>
+
+          <h2 className="text-xl font-bold text-black">Login as Owner</h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Owner
+            </label>
+
+            <input
+              type="text"
+              name="company"
+              value={form.company}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              placeholder="owner name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
+
+            <input
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2"
+          >
+            Login as Owner
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

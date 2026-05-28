@@ -4,12 +4,13 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import qrCode from "../../../../assets/qr code.svg";
+import { useCompanyRegistration } from "../../../../.Context/CompanyRegistrationContext";
 
 export default function Payment() {
   const navigate = useNavigate();
   const [modal, setModal] = useState(null);
-
-  const plan = localStorage.getItem("plan");
+  const { registrationData } = useCompanyRegistration();
+  const plan = registrationData.planType;
 
   const planDetails =
     plan === "enterprise"
@@ -169,10 +170,10 @@ export default function Payment() {
   
               {modal === "success" ? (
                 <button
-                  onClick={() => navigate("/Create-Company-Page")}
+                  onClick={() => navigate("/login-owner")}
                   className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-3 rounded-lg transition duration-200 text-sm"
                 >
-                  Continue to Create Company Page
+                  Continue to Login Page
                 </button>
               ) : (
                 <div className="flex flex-col gap-2 w-full">

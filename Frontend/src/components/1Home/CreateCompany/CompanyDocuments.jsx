@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationContext";
+
 
 export default function CompanyDocuments() {
   const navigate = useNavigate();
+  const { updateData } = useCompanyRegistration();
 
   const [files, setFiles] = useState({
     businessPermit: null,
@@ -13,9 +16,7 @@ export default function CompanyDocuments() {
 
   const handleFileChange = (e, field) => {
     const file = e.target.files[0];
-    if (file) {
-      setFiles((prev) => ({ ...prev, [field]: file }));
-    }
+    if (file) setFiles((prev) => ({ ...prev, [field]: file }));
   };
 
   const handleSubmit = () => {
@@ -23,14 +24,17 @@ export default function CompanyDocuments() {
       alert("Please upload all required documents.");
       return;
     }
+    updateData({
+      businessPermit: files.businessPermit,
+      dtiSec: files.dtiSec,
+      bir: files.bir,
+    });
     navigate("/account-verification");
   };
 
   const DocumentUpload = ({ label, description, field, inputId }) => (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label}
-      </label>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       <p className="text-xs text-slate-400 mb-1">{description}</p>
       <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-1.5">
         <span className="text-xs text-slate-400 flex-1 truncate">
@@ -55,7 +59,6 @@ export default function CompanyDocuments() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447]">
-
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />

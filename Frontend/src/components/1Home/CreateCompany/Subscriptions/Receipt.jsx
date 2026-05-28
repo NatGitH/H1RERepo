@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useCompanyRegistration } from "../../../../.Context/CompanyRegistrationContext";
 
 export default function Receipt() {
   const navigate = useNavigate();
-  const plan = localStorage.getItem("plan");
+  const { registrationData } = useCompanyRegistration();
+  const plan = registrationData.planType;
 
 const planDetails =
   plan === "enterprise"

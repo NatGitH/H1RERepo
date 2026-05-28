@@ -77,7 +77,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',  # fixed: removed trailing slash
 ]
 
-AUTH_USER_MODEL = 'api.CustomUser'
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

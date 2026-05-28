@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import CloseIcon from "@mui/icons-material/Close";
+import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationContext";
 
 export default function CreateCompany() {
   const navigate = useNavigate();
+  const { updateData } = useCompanyRegistration();
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [form, setForm] = useState({
     companyName: "",
@@ -35,6 +37,11 @@ export default function CreateCompany() {
       alert("You must agree to the Data Policies.");
       return;
     }
+    updateData({
+      companyName: form.companyName,
+      email: form.email,
+      password: form.password,
+    });
     navigate("/company-documents");
   };
 
@@ -50,7 +57,6 @@ export default function CreateCompany() {
         className="bg-white rounded-2xl px-8 pt-6 pb-6 w-full max-w-sm mx-4 relative z-10"
         style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
-
         <div className="flex items-center gap-3 mb-5">
           <button
             onClick={() => navigate("/")}
@@ -132,7 +138,6 @@ export default function CreateCompany() {
             style={{ height: "85vh", border: "2px solid #1a1a2e", boxShadow: "8px 8px 0px #000000" }}
             onClick={(e) => e.stopPropagation()}
           >
-
             <div className="relative flex items-center justify-center px-6 py-5 border-b border-slate-200 flex-shrink-0">
               <h3 className="text-2xl font-bold text-black">Data Privacy Notice</h3>
               <button

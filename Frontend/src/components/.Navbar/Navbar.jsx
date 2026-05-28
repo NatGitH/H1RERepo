@@ -19,9 +19,6 @@ export default function Navbar() {
   const [showProfile, setShowProfile] = useState(false);
   const dropdownRef = useRef(null);
 
-  const role = localStorage.getItem("role");
-  if (role !== "owner") return null;
-
   const unreadCount = notifList.filter((n) => n.unread).length;
 
   const markAllRead = () =>

@@ -1,25 +1,42 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useAuth } from "../../../.Context/AuthContext";
 
 export default function LoginCompany() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [form, setForm] = useState({
-    company: "",
+    email: "",
     password: "",
   });
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const res = await fetch("http://localhost:8000/api/auth/login-owner/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: form.email, password: form.password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Login failed");
 
-    localStorage.setItem("role", "owner");
+    login({
+      token: data.token,
+      role: data.role,
+      companyId: data.company_id,
+      email: form.email,
+    });
     navigate("/applicants");
-  };
-
+  } catch (err) {
+    alert(err.message);
+  }
+};
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e]">
       <div className="absolute inset-0 pointer-events-none">
@@ -48,17 +65,17 @@ export default function LoginCompany() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Owner
+              Email
             </label>
 
             <input
-              type="text"
-              name="company"
-              value={form.company}
+              type="email"
+              name="email"
+              value={form.email}
               onChange={handleChange}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="owner name"
+              placeholder="owner@company.com"
             />
           </div>
 

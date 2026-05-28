@@ -1,15 +1,14 @@
 import { Outlet } from 'react-router'
 import Navbar from '../.Navbar/Navbar'
-import NavbarHrStaff from '../.Navbar/NavbarHrStaff'
-
+import { useAuth } from '../../.context/AuthContext'
 
 export default function DashboardLayout() {
-
-  const role = localStorage.getItem("role");
+  const { auth } = useAuth();
+  const role = auth.role;
 
   return (
     <>
-      {role === "hr_staff" ? <NavbarHrStaff /> : <Navbar />}
+      <Navbar />
       <Outlet />
     </>
   )

@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Routes, Route } from 'react-router'
-import DashboardLayout from './components/..Functions/DashboardLayout'
+import DashboardLayout from './components/Functions/DashboardLayout'
 
 import Navbar from './components/.Navbar/Navbar'
 
 import Home from './components/1Home/Home'
 
 import CreateCompany from './components/1Home/CreateCompany/CreateCompany'
-import CreateCompanyPage from './components/1Home/CreateCompany/CreateCompanyPage'
 import CompanyDocuments from './components/1Home/CreateCompany/CompanyDocuments'
 import AccountVerification from './components/1Home/CreateCompany/AccountVerification'
 import SubscriptionPlan from './components/1Home/CreateCompany/Subscriptions/SubscriptionPlan'
@@ -46,7 +45,6 @@ function App() {
 
           /* Create Company */
           <Route path="/Create-Company" element={<CreateCompany/>}/>
-          <Route path="/Create-Company-Page" element={<CreateCompanyPage />} />
           <Route path="/Company-Documents" element={<CompanyDocuments />} />
           <Route path="/Account-Verification" element={<AccountVerification />} />
           <Route path="/Subscription-Plan" element={<SubscriptionPlan />} />

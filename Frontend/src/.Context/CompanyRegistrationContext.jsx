@@ -7,6 +7,7 @@ export function CompanyRegistrationProvider({ children }) {
     companyName: "",
     email: "",
     password: "",
+    staffPassword: "",
     businessPermit: null,
     dtiSec: null,
     bir: null,

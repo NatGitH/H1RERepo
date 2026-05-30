@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Routes, Route } from 'react-router'
 import DashboardLayout from './components/Functions/DashboardLayout'
-
-import Navbar from './components/.Navbar/Navbar'
+import ProtectedRoute from './components/Functions/ProtectedRoute'
 
 import Home from './components/1Home/Home'
 
@@ -14,13 +13,13 @@ import Receipt from './components/1Home/CreateCompany/Subscriptions/Receipt'
 import Payment from './components/1Home/CreateCompany/Subscriptions/Payment'
 
 import LoginCompany from './components/1Home/LoginCompany/LoginCompany'
-import CompanyHome from './components/1Home/LoginCompany/CompanyHome'
-import CreateHRAccount from './components/1Home/LoginCompany/CreateHRAccount'
-import CreateHRProfile from './components/1Home/LoginCompany/CreateHRProfile'
-import LoginHRAccount from './components/1Home/LoginCompany/LoginHRAccount'
-import HRForgotPassword from './components/1Home/LoginCompany/HRForgotPassword'
-import VerifyCode from './components/1Home/LoginCompany/VerifyCode'
-import HRNewPassword from './components/1Home/LoginCompany/HRNewPassword'
+import CompanyHome from './components/1Home/LoginCompany/LoginHR/CompanyHome'
+import CreateHRAccount from './components/1Home/LoginCompany/LoginHR/CreateHRAccount'
+import CreateHRProfile from './components/1Home/LoginCompany/LoginHR/CreateHRProfile'
+import LoginHRAccount from './components/1Home/LoginCompany/LoginHR/LoginHRAccount'
+import HRForgotPassword from './components/1Home/LoginCompany/LoginHR/HRForgotPassword'
+import VerifyCode from './components/1Home/LoginCompany/LoginHR/VerifyCode'
+import HRNewPassword from './components/1Home/LoginCompany/LoginHR/HRNewPassword'
 
 import LoginOwner from './components/1Home/LoginOwner/LoginOwner'
 
@@ -64,7 +63,11 @@ function App() {
            /* Login Owner */
           <Route path="/Login-Owner" element={<LoginOwner />} />
 
-          <Route element={<DashboardLayout />}>
+          <Route element={
+            <ProtectedRoute allowedRoles={["owner", "HRManager", "HRStaff"]}>
+              <DashboardLayout />
+            </ProtectedRoute>
+            }>
             /* Applicants */
             <Route path="/Applicants" element={<Applicants/>}/>
 

@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useLogin } from '../../../../.Context/LoginContext';
+import { useAuth } from '../../../../.Context/AuthContext';
 
 export default function LoginHRAccount() {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    usernameOrEmail: "",
-    password: "",
-  });
+  const { loginData } = useLogin();
+  const { login } = useAuth();
+
+  const [form, setForm] = useState({ email: "", password: "" });
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -44,12 +46,12 @@ export default function LoginHRAccount() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Username or Email
+              Email
             </label>
             <input
-              type="text"
-              name="usernameOrEmail"
-              value={form.usernameOrEmail}
+              type="email"
+              name="email"
+              value={form.email}
               onChange={handleChange}
               placeholder="name@example.com"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
@@ -93,9 +95,30 @@ export default function LoginHRAccount() {
 
         <div className="mt-5">
           <button
-            onClick={() => {
-              localStorage.setItem("role", "hr_staff");
-              navigate("/applicants");
+            onClick={async () => {
+              try {
+                const res = await fetch("http://localhost:8000/api/auth/login-hr/", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    email: form.email,
+                    password: form.password,
+                    company_id: loginData.companyId,
+                  }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Login failed");
+
+                login({
+                  token: data.token,
+                  role: data.role,
+                  companyId: data.company_id,
+                  email: form.email,
+                });
+                navigate("/Applicants");
+              } catch (err) {
+                alert(err.message);
+              }
             }}
             className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200"
           >

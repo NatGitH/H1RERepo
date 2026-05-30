@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useLogin } from '../../../../.Context/LoginContext';
+import { useAuth } from '../../../../.Context/AuthContext';
 
 export default function CreateHRAccount() {
   const navigate = useNavigate();
 
+  const { loginData } = useLogin();
+  const { auth } = useAuth();
+  
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -15,14 +20,30 @@ export default function CreateHRAccount() {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (form.password !== form.confirmPassword) {
       alert("Passwords do not match.");
       return;
     }
-
-    console.log("Sign up:", form);
-    navigate("/company-dashboard");
+    try {
+      const company_id = loginData.companyId || auth.companyId;
+      const res = await fetch("http://localhost:8000/api/auth/create-hr-account/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: form.username,
+          email: form.email,
+          password: form.password,
+          company_id: company_id,
+          role: "HRStaff",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create account");
+      navigate("/Create-HR-Profile");
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   return (
@@ -128,7 +149,7 @@ export default function CreateHRAccount() {
 
         <div className="mt-5">
           <button
-            onClick={() => navigate("/Create-HR-Profile")}
+            onClick={handleSubmit}
             className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-4 rounded-2xl transition duration-200"
             >
             Create Account

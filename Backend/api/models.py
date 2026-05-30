@@ -1,7 +1,8 @@
+import uuid
 from django.db import models
 
 class Company(models.Model):
-    company_id        = models.UUIDField(primary_key=True)
+    company_id        = models.UUIDField(primary_key=True, default=uuid.uuid4)
     admin_id          = models.UUIDField(null=True, blank=True)
     document_id       = models.UUIDField(null=True, blank=True)
     company_name      = models.CharField(max_length=255)
@@ -17,7 +18,7 @@ class Company(models.Model):
         managed  = False
 
 class Roles(models.Model):
-    role_id     = models.AutoField(primary_key=True)
+    role_id     = models.UUIDField(primary_key=True, default=uuid.uuid4)
     role_name   = models.CharField(max_length=255)
     description = models.CharField(max_length=255, null=True, blank=True)
 
@@ -26,9 +27,9 @@ class Roles(models.Model):
         managed  = False
 
 class HRUser(models.Model):
-    user_id         = models.AutoField(primary_key=True)
-    role_id         = models.IntegerField(null=True, blank=True)
-    company_id      = models.IntegerField(null=True, blank=True)
+    user_id         = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    role_id         = models.UUIDField(null=True, blank=True)
+    company_id      = models.UUIDField(null=True, blank=True)
     firstname       = models.CharField(max_length=255, null=True, blank=True)
     lastname        = models.CharField(max_length=255, null=True, blank=True)
     username        = models.CharField(max_length=255, null=True, blank=True)

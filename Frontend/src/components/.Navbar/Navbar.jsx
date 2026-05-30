@@ -4,12 +4,8 @@ import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import LogoutIcon from "@mui/icons-material/Logout";
+import { useAuth } from '../../.Context/AuthContext';
 
-const NAV_LINKS = [
-  { label: "Applicants", path: "/applicants" },
-  { label: "Employer", path: "/employer" },
-  { label: "Requirements", path: "/requirements" },
-];
 
 export default function Navbar() {
   const { pathname } = useLocation();
@@ -33,6 +29,29 @@ export default function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const NAV_LINKS_BY_ROLE = {
+    owner: [
+      { label: "Applicants", path: "/Applicants" },
+      { label: "Employer", path: "/Employer" },
+      { label: "Requirements", path: "/Requirements" },
+    ],
+    HRManager: [
+      { label: "Applicants", path: "/Applicants" },
+      { label: "Employer", path: "/Employer" },
+      { label: "Requirements", path: "/Requirements" },
+    ],
+    HRStaff: [
+      { label: "Applicants", path: "/Applicants" },
+      { label: "Requirements", path: "/Requirements" },
+    ],
+  };
+
+  const { auth, logout } = useAuth();
+  const role = auth.role;
+  if (!role) return null;
+  const NAV_LINKS = NAV_LINKS_BY_ROLE[role] || [];
+
 
   return (
     <nav className="bg-[#0B2447] text-white px-6">
@@ -80,46 +99,62 @@ export default function Navbar() {
           })}
 
           {/* Company Profile Dropdown */}
-          <li className="relative h-full flex items-center" ref={dropdownRef}>
-            <button
-              onClick={() => setShowProfile((v) => !v)}
-              className="flex items-center gap-1 text-lg no-underline transition-colors pb-1 bg-transparent border-none cursor-pointer"
-              style={{
-                color: pathname === "/profile" || showProfile ? "white" : "rgb(148,163,184)",
-                fontWeight: pathname === "/profile" || showProfile ? 700 : 400,
-                borderBottom: pathname === "/profile" || showProfile ? "2px solid #38bdf8" : "2px solid transparent",
-              }}
-            >
-              Company Profile
-              {showProfile ? (
-                <KeyboardArrowUpIcon style={{ fontSize: 24 }} />
-              ) : (
-                <KeyboardArrowDownIcon style={{ fontSize: 24 }} />
-              )}
-            </button>
-            {showProfile && (
-              <div
-                className="absolute right-0 top-14 bg-white rounded-xl py-3 px-4 w-52 z-50"
-                style={{ border: "2px solid #1a1a2e", boxShadow: "1px 1px 0px #000000" }}
+          {role === "owner" ? (
+            <li className="relative h-full flex items-center" ref={dropdownRef}>
+              <button
+                onClick={() => setShowProfile((v) => !v)}
+                className="flex items-center gap-1 text-lg no-underline transition-colors pb-1 bg-transparent border-none cursor-pointer"
+                style={{
+                  color: pathname === "/profile" || showProfile ? "white" : "rgb(148,163,184)",
+                  fontWeight: pathname === "/profile" || showProfile ? 700 : 400,
+                  borderBottom: pathname === "/profile" || showProfile ? "2px solid #38bdf8" : "2px solid transparent",
+                }}
               >
-                <Link
-                  to="/profile"
-                  onClick={() => setShowProfile(false)}
-                  className="flex items-center gap-2 text-[#0B2447] hover:text-teal-600 text-sm font-semibold no-underline transition mb-3"
+                Company Profile
+                {showProfile ? (
+                  <KeyboardArrowUpIcon style={{ fontSize: 24 }} />
+                ) : (
+                  <KeyboardArrowDownIcon style={{ fontSize: 24 }} />
+                )}
+              </button>
+              {showProfile && (
+                <div
+                  className="absolute right-0 top-14 bg-white rounded-xl py-3 px-4 w-52 z-50"
+                  style={{ border: "2px solid #1a1a2e", boxShadow: "1px 1px 0px #000000" }}
                 >
-                  Company Profile
-                </Link>
-                <hr className="border-gray-200 mb-3" />
-                <button
-                  onClick={() => navigate("")}
-                  className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-medium transition w-full bg-transparent p-0 m-0 cursor-pointer border-none"
-                >
-                  <LogoutIcon style={{ fontSize: 16 }} />
-                  Sign out
-                </button>
-              </div>
-            )}
-          </li>
+                  <Link
+                    to="/Profile"
+                    onClick={() => setShowProfile(false)}
+                    className="flex items-center gap-2 text-[#0B2447] hover:text-teal-600 text-sm font-semibold no-underline transition mb-3"
+                  >
+                    Company Profile
+                  </Link>
+                  <hr className="border-gray-200 mb-3" />
+                  <button
+                    onClick={() => { logout(); navigate("/"); }}
+                    className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-medium transition w-full bg-transparent p-0 m-0 cursor-pointer border-none"
+                  >
+                    <LogoutIcon style={{ fontSize: 16 }} />
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </li>
+          ) : (
+            <li className="h-full flex items-center">
+              <Link
+                to="/Profile"
+                className="flex items-center text-lg no-underline transition-colors pb-1"
+                style={{
+                  color: pathname === "/Profile" ? "white" : "rgb(148,163,184)",
+                  fontWeight: pathname === "/Profile" ? 700 : 400,
+                  borderBottom: pathname === "/Profile" ? "2px solid #38bdf8" : "2px solid transparent",
+                }}
+              >
+                Profile
+              </Link>
+            </li>
+          )}
         </ul>
 
         {/* Notification Panel */}

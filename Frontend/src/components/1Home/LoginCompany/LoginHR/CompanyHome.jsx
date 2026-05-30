@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useLogin } from '../../../../.Context/LoginContext';
 
 export default function CompanyHome() {
   const navigate = useNavigate();
+  const { loginData } = useLogin();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e] relative overflow-hidden">
@@ -38,7 +40,7 @@ export default function CompanyHome() {
             </h1>
 
             <p className="text-gray-400 font-semibold">
-              Tech Stack
+              {loginData.companyName || "Company"}
             </p>
           </div>
         </div>

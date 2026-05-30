@@ -7,7 +7,7 @@ import { useAuth } from '../../../../.Context/AuthContext';
 export default function CreateHRAccount() {
   const navigate = useNavigate();
 
-  const { loginData } = useLogin();
+  const { loginData, setCompany } = useLogin();
   const { auth } = useAuth();
   
   const [form, setForm] = useState({
@@ -40,6 +40,11 @@ export default function CreateHRAccount() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create account");
+      setCompany({ 
+        companyId: loginData.companyId, 
+        companyName: loginData.companyName,
+        pendingUserEmail: form.email 
+      });
       navigate("/Create-HR-Profile");
     } catch (err) {
       alert(err.message);

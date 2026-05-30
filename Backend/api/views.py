@@ -105,6 +105,11 @@ def find_company(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+# HR Account Management
+# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+
+
 @csrf_exempt
 @require_POST
 def create_hr_account(request):
@@ -181,5 +186,31 @@ def login_hr(request):
 
     except HRUser.DoesNotExist:
         return JsonResponse({"error": "Invalid credentials"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+@require_POST
+def update_hr_profile(request):
+    try:
+        data       = json.loads(request.body)
+        email      = data.get("email", "").strip()
+        company_id = data.get("company_id", "").strip()
+        firstname  = data.get("firstname", "").strip()
+        lastname   = data.get("lastname", "").strip()
+        birthdate  = data.get("birthdate", None)
+        bio        = data.get("bio", "").strip()
+
+        user = HRUser.objects.get(email=email, company_id=company_id)
+        if firstname:  user.firstname = firstname
+        if lastname:   user.lastname  = lastname
+        if birthdate:  user.birthdate = birthdate
+        if bio:        user.bio       = bio
+
+        user.save()
+        return JsonResponse({"message": "Profile updated successfully"})
+
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

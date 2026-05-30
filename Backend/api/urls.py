@@ -7,4 +7,5 @@ urlpatterns = [
     path("auth/find-company/", views.find_company),
     path("auth/login-hr/",     views.login_hr),
     path("auth/create-hr-account/", views.create_hr_account),
+    path("auth/update-hr-profile/", views.update_hr_profile),
 ]

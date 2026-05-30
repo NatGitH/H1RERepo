@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useLogin } from '../../../.Context/LoginContext';
 
 export default function CreateHRProfile() {
   const navigate = useNavigate();
   
   const [avatar, setAvatar] = useState(null);
   const [showVerification, setShowVerification] = useState(false);
+  const { loginData } = useLogin();
 
   const [form, setForm] = useState({
     firstName: "",
@@ -181,7 +183,27 @@ export default function CreateHRProfile() {
 
         <div className="mt-4">
           <button
-            onClick={() => setShowVerification(true)}
+            onClick={async () => {
+              try {
+                const res = await fetch("http://localhost:8000/api/auth/update-hr-profile/", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    email:      loginData.pendingUserEmail,
+                    company_id: loginData.companyId,
+                    firstname:  form.firstName,
+                    lastname:   form.lastName,
+                    birthdate:  form.dateOfBirth,
+                    bio:        form.bio,
+                  }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Failed to update profile");
+                setShowVerification(true);
+              } catch (err) {
+                alert(err.message);
+              }
+            }}
             className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2 rounded-lg transition duration-200"
           >
             Create Profile

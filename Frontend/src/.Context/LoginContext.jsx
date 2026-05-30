@@ -6,6 +6,7 @@ export function LoginProvider({ children }) {
   const [loginData, setLoginData] = useState({
     companyId: null,
     companyName: null,
+    pendingUserEmail: null,
   });
 
   const setCompany = (data) => setLoginData(data);

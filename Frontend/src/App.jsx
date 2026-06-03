@@ -25,12 +25,10 @@ import LoginOwner from './components/1Home/LoginOwner/LoginOwner'
 
 import Applicants from './components/Applicants/Applicants'
 
-import HRAccountRequirements from './components/Requirements/HRAccountRequirements'
 import Requirements from './components/Requirements/Requirements'
 
 import Employer from './components/Employer/Employer'
 
-import MyProfile from './components/Profile/MyProfile'
 import Profile from './components/Profile/Profile'
 
 
@@ -73,11 +71,9 @@ function App() {
 
             /* Requirements */
             <Route path="/Requirements" element={<Requirements />} />
-            <Route path="/HR-Account-Requirements" element={<HRAccountRequirements />} />
            
             /* Profile */
             <Route path="/Profile" element={<Profile />} />
-            <Route path="/My-Profile" element={<MyProfile />} />
 
             /* Employer */
             <Route path="/Employer" element={<Employer/>}/>

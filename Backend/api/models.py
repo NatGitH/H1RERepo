@@ -45,3 +45,31 @@ class HRUser(models.Model):
     class Meta:
         db_table = '"Users"'
         managed  = False
+
+class JobRequirement(models.Model):
+    requirement_id   = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    company_id       = models.UUIDField()
+    created_by_user_id = models.UUIDField()
+    job_title        = models.CharField(max_length=255)
+    description      = models.TextField()
+    qualifications   = models.TextField()
+    current_status   = models.CharField(max_length=50, default="pending")
+    is_deleted       = models.BooleanField(default=False)
+    date_created     = models.DateTimeField(auto_now_add=True)
+    date_updated     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = '"Job_Requirements"'
+        managed  = False
+
+class ApprovalRequirement(models.Model):
+    ap_requirement_id  = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    requirement_id     = models.UUIDField()
+    reviewed_by_user_id = models.UUIDField()
+    action_status      = models.CharField(max_length=50)
+    time_of_action     = models.DateTimeField(auto_now_add=True)
+    created_at         = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Approval_Requirements"'
+        managed  = False

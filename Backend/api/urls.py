@@ -13,4 +13,6 @@ urlpatterns = [
 
     path("profile/hr/",    views.get_hr_profile),
     path("profile/owner/", views.get_owner_profile),
+    path("profile/update-status/", views.update_hr_status),
+    path("profile/update-picture/", views.update_profile_picture),
 ]

@@ -8,10 +8,13 @@ export function AuthProvider({ children }) {
     role: null,
     companyId: null,
     email: null,
+    profile_picture: null,
+    firstname: null,
+    lastname: null,
   });
 
   const login = (data) => setAuth(data);
-  const logout = () => setAuth({ token: null, role: null, companyId: null, email: null });
+  const logout = () => setAuth({ token: null, role: null, companyId: null, email: null, profile_picture: null, firstname: null, lastname: null });
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>

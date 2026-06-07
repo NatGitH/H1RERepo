@@ -109,12 +109,22 @@ export default function LoginHRAccount() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || "Login failed");
 
-                login({
-                  token: data.token,
-                  role: data.role,
-                  companyId: data.company_id,
-                  email: form.email,
+                // Fetch profile picture after login
+                const profileRes = await fetch("http://localhost:8000/api/profile/hr/", {
+                  headers: { Authorization: `Bearer ${data.token}` },
                 });
+                const profileData = await profileRes.json();
+
+                login({
+                  token:           data.token,
+                  role:            data.role,
+                  companyId:       data.company_id,
+                  email:           form.email,
+                  profile_picture: profileData.profile_picture || null,
+                  firstname:       profileData.firstname || null,
+                  lastname:        profileData.lastname || null,
+                });
+
                 navigate("/Applicants");
               } catch (err) {
                 alert(err.message);

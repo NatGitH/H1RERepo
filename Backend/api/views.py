@@ -384,3 +384,53 @@ def get_owner_profile(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+def update_hr_status(request):
+    try:
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
+
+        data   = json.loads(request.body)
+        status = data.get("status", "").strip()
+
+        if status not in ["active", "on_break", "on_leave"]:
+            return JsonResponse({"error": "Invalid status"}, status=400)
+
+        user = HRUser.objects.get(user_id=user_id)
+        user.account_status = status
+        user.save()
+
+        return JsonResponse({"message": "Status updated", "status": status})
+
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+def update_profile_picture(request):
+    try:
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
+
+        data            = json.loads(request.body)
+        profile_picture = data.get("profile_picture", "").strip()
+
+        if not profile_picture:
+            return JsonResponse({"error": "No image URL provided"}, status=400)
+
+        user = HRUser.objects.get(user_id=user_id)
+        user.profile_picture = profile_picture
+        user.save()
+
+        return JsonResponse({"message": "Profile picture updated", "profile_picture": profile_picture})
+
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

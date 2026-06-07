@@ -6,7 +6,6 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from '../../.Context/AuthContext';
 
-
 export default function Navbar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -14,6 +13,9 @@ export default function Navbar() {
   const [notifList, setNotifList] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
   const dropdownRef = useRef(null);
+
+  const { auth, logout } = useAuth();
+  const role = auth.role;
 
   const unreadCount = notifList.filter((n) => n.unread).length;
 
@@ -47,15 +49,28 @@ export default function Navbar() {
     ],
   };
 
-  const { auth, logout } = useAuth();
-  const role = auth.role;
   if (!role) return null;
   const NAV_LINKS = NAV_LINKS_BY_ROLE[role] || [];
 
+  const getInitials = () => {
+    if (auth.firstname && auth.lastname) {
+      return `${auth.firstname[0]}${auth.lastname[0]}`.toUpperCase();
+    }
+    if (auth.email) return auth.email.substring(0, 2).toUpperCase();
+    return "HR";
+  };
+
+  const getRoleLabel = () => {
+    if (role === "HRManager") return "Manager";
+    if (role === "HRStaff") return "Recruiter";
+    if (role === "owner") return "Owner";
+    return role;
+  };
 
   return (
     <nav className="bg-[#0B2447] text-white px-6">
       <div className="max-w-[1350px] mx-auto flex items-center gap-12 h-14">
+
         {/* Logo + Bell */}
         <div className="flex items-center gap-2 shrink-0 h-full">
           <Link
@@ -98,63 +113,77 @@ export default function Navbar() {
             );
           })}
 
-          {/* Company Profile Dropdown */}
-          {role === "owner" ? (
-            <li className="relative h-full flex items-center" ref={dropdownRef}>
-              <button
-                onClick={() => setShowProfile((v) => !v)}
-                className="flex items-center gap-1 text-lg no-underline transition-colors pb-1 bg-transparent border-none cursor-pointer"
-                style={{
-                  color: pathname === "/profile" || showProfile ? "white" : "rgb(148,163,184)",
-                  fontWeight: pathname === "/profile" || showProfile ? 700 : 400,
-                  borderBottom: pathname === "/profile" || showProfile ? "2px solid #38bdf8" : "2px solid transparent",
-                }}
-              >
-                Company Profile
-                {showProfile ? (
-                  <KeyboardArrowUpIcon style={{ fontSize: 24 }} />
-                ) : (
-                  <KeyboardArrowDownIcon style={{ fontSize: 24 }} />
-                )}
-              </button>
-              {showProfile && (
-                <div
-                  className="absolute right-0 top-14 bg-white rounded-xl py-3 px-4 w-52 z-50"
-                  style={{ border: "2px solid #1a1a2e", boxShadow: "1px 1px 0px #000000" }}
-                >
-                  <Link
-                    to="/Profile"
-                    onClick={() => setShowProfile(false)}
-                    className="flex items-center gap-2 text-[#0B2447] hover:text-teal-600 text-sm font-semibold no-underline transition mb-3"
-                  >
-                    Company Profile
-                  </Link>
-                  <hr className="border-gray-200 mb-3" />
-                  <button
-                    onClick={() => { logout(); navigate("/"); }}
-                    className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-medium transition w-full bg-transparent p-0 m-0 cursor-pointer border-none"
-                  >
-                    <LogoutIcon style={{ fontSize: 16 }} />
-                    Sign out
-                  </button>
-                </div>
+          {/* My Profile Dropdown — all roles */}
+          <li className="relative h-full flex items-center" ref={dropdownRef}>
+            <button
+              onClick={() => setShowProfile((v) => !v)}
+              className="flex items-center gap-1 text-lg no-underline transition-colors pb-1 bg-transparent border-none cursor-pointer"
+              style={{
+                color: pathname === "/Profile" || showProfile ? "white" : "rgb(148,163,184)",
+                fontWeight: pathname === "/Profile" || showProfile ? 700 : 400,
+                borderBottom: pathname === "/Profile" || showProfile ? "2px solid #38bdf8" : "2px solid transparent",
+              }}
+            >
+              {role === "owner" ? "Company Profile" : "My Profile"}
+              {showProfile ? (
+                <KeyboardArrowUpIcon style={{ fontSize: 24 }} />
+              ) : (
+                <KeyboardArrowDownIcon style={{ fontSize: 24 }} />
               )}
-            </li>
-          ) : (
-            <li className="h-full flex items-center">
-              <Link
-                to="/Profile"
-                className="flex items-center text-lg no-underline transition-colors pb-1"
-                style={{
-                  color: pathname === "/Profile" ? "white" : "rgb(148,163,184)",
-                  fontWeight: pathname === "/Profile" ? 700 : 400,
-                  borderBottom: pathname === "/Profile" ? "2px solid #38bdf8" : "2px solid transparent",
-                }}
+            </button>
+
+            {showProfile && (
+              <div
+                className="absolute right-0 top-14 bg-white rounded-xl py-3 px-4 w-56 z-50"
+                style={{ border: "2px solid #1a1a2e", boxShadow: "3px 3px 0px #000000" }}
               >
-                Profile
-              </Link>
-            </li>
-          )}
+                {/* User info */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden">
+                    {auth.profile_picture ? (
+                      <img
+                        src={auth.profile_picture}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{getInitials()}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-bold text-[#0B2447] truncate">
+                      {auth.firstname && auth.lastname
+                        ? `${auth.firstname} ${auth.lastname}`
+                        : auth.email || "User"}
+                    </span>
+                    <span className="text-xs text-slate-400">{getRoleLabel()}</span>
+                  </div>
+                </div>
+
+                <hr className="border-gray-200 mb-3" />
+
+                {/* Profile link */}
+                <Link
+                  to="/Profile"
+                  onClick={() => setShowProfile(false)}
+                  className="flex items-center gap-2 text-[#0B2447] hover:text-teal-600 text-sm font-semibold no-underline transition mb-3"
+                >
+                  {role === "owner" ? "Company Profile" : "My Profile"}
+                </Link>
+
+                <hr className="border-gray-200 mb-3" />
+
+                {/* Sign out */}
+                <button
+                  onClick={() => { logout(); navigate("/"); }}
+                  className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-medium transition w-full bg-transparent p-0 m-0 cursor-pointer border-none"
+                >
+                  <LogoutIcon style={{ fontSize: 16 }} />
+                  Sign out
+                </button>
+              </div>
+            )}
+          </li>
         </ul>
 
         {/* Notification Panel */}

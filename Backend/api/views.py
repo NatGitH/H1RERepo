@@ -8,6 +8,9 @@ import uuid
 import argon2
 from argon2 import PasswordHasher
 from .models import JobRequirement, ApprovalRequirement
+from django.core.mail import send_mail
+from django.core.cache import cache
+import random
 
 
 ph = PasswordHasher()
@@ -332,6 +335,64 @@ def requirement_detail(request, req_id):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+def requirement_edit(request, req_id):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
+
+        if role != "HRManager":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        req  = JobRequirement.objects.get(requirement_id=req_id, is_deleted=False)
+        data = json.loads(request.body)
+
+        if "job_title" in data:    req.job_title      = data["job_title"]
+        if "description" in data:  req.description    = data["description"]
+        if "qualifications" in data: req.qualifications = data["qualifications"]
+
+        req.save()
+
+        return JsonResponse({
+            "id":           str(req.requirement_id),
+            "job_title":    req.job_title,
+            "description":  req.description,
+            "qualifications": req.qualifications,
+            "status":       req.current_status,
+            "date_created": req.date_created.strftime("%m/%d/%Y"),
+            "date_updated": req.date_updated.strftime("%m/%d/%Y"),
+        })
+
+    except JobRequirement.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def requirement_delete(request, req_id):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
+
+        if role != "HRManager":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        req            = JobRequirement.objects.get(requirement_id=req_id, is_deleted=False)
+        req.is_deleted = True
+        req.save()
+
+        return JsonResponse({"message": "Requirement deleted"})
+
+    except JobRequirement.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
     
     # Profile
 # --------------------------------------------------------------------------------------------------------------------
@@ -432,5 +493,92 @@ def update_profile_picture(request):
         return JsonResponse({"error": "User not found"}, status=404)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+     # Email Notifications
+# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+@csrf_exempt
+@require_POST
+def send_reset_code(request):
+    try:
+        data  = json.loads(request.body)
+        email = data.get("email", "").strip()
+
+        # Check if user exists
+        user = HRUser.objects.get(email=email)
+
+        # Generate 6-digit code
+        code = str(random.randint(100000, 999999))
+
+        # Store in cache for 10 minutes
+        cache.set(f"reset_code_{email}", code, timeout=600)
+
+        # Send email
+        send_mail(
+            subject="H!RE - Password Reset Code",
+            message=f"Your password reset code is: {code}\n\nThis code expires in 10 minutes.",
+            from_email="hiree.noreply@gmail.com",
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
+        return JsonResponse({"message": "Code sent successfully"})
+
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "No account found with that email"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def verify_reset_code(request):
+    try:
+        data  = json.loads(request.body)
+        email = data.get("email", "").strip()
+        code  = data.get("code", "").strip()
+
+        cached_code = cache.get(f"reset_code_{email}")
+
+        if not cached_code:
+            return JsonResponse({"error": "Code expired. Please request a new one."}, status=400)
+
+        if cached_code != code:
+            return JsonResponse({"error": "Invalid code"}, status=400)
+
+        return JsonResponse({"message": "Code verified"})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def reset_password(request):
+    try:
+        data         = json.loads(request.body)
+        email        = data.get("email", "").strip()
+        code         = data.get("code", "").strip()
+        new_password = data.get("new_password", "").strip()
+
+        # Verify code one more time before changing
+        cached_code = cache.get(f"reset_code_{email}")
+
+        if not cached_code or cached_code != code:
+            return JsonResponse({"error": "Invalid or expired code"}, status=400)
+
+        user          = HRUser.objects.get(email=email)
+        user.password = ph.hash(new_password)
+        user.save()
+
+        # Delete code from cache after use
+        cache.delete(f"reset_code_{email}")
+
+        return JsonResponse({"message": "Password changed successfully"})
+
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

@@ -6,6 +6,7 @@ import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationCon
 
 export default function CreateCompany() {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
   const { updateData } = useCompanyRegistration();
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [form, setForm] = useState({
@@ -26,26 +27,46 @@ export default function CreateCompany() {
     }));
   };
 
-  const handleSubmit = () => {
+    const handleSubmit = async () => {
+      setError("");
+
     if (!form.companyName || !form.email || !form.password || !form.confirmPassword) {
-      alert("Please fill in all fields.");
+      setError("Please fill in all fields.");
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match.");
+      setError("Passwords do not match.");
       return;
     }
 
     if (form.staffPassword !== form.confirmStaffPassword) {
-      alert("Staff passwords do not match.");
+      setError("Staff passwords do not match.");
       return;
     }
 
     if (!form.agreed) {
-      alert("You must agree to the Data Policies.");
+      setError("You must agree to the Data Policies.");
       return;
     }
+
+    // Check if company name already exists
+    try {
+      const res = await fetch("http://localhost:8000/api/auth/check-company-name/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_name: form.companyName }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error);
+        return;
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      return;
+    }
+
     updateData({
       companyName: form.companyName,
       email: form.email,
@@ -132,12 +153,18 @@ export default function CreateCompany() {
           </p>
         </div>
 
-        <button
-          onClick={handleSubmit}
-          className="mt-5 w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
-        >
-          Next
-        </button>
+        {error && (
+        <div className="mt-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+        </div>
+      )}
+
+      <button
+        onClick={handleSubmit}
+        className="mt-5 w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
+      >
+        Next
+      </button>
       </div>
 
       {showPrivacy && (

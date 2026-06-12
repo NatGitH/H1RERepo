@@ -8,18 +8,31 @@ urlpatterns = [
     path("auth/login-hr/",     views.login_hr),
     path("auth/create-hr-account/", views.create_hr_account),
     path("auth/update-hr-profile/", views.update_hr_profile),
+    path("auth/check-company-name/", views.check_company_name),
 
     path("requirements/",                    views.requirements_list),
     path("requirements/<uuid:req_id>/",      views.requirement_detail),
-    path("requirements/<uuid:req_id>/edit/",   views.requirement_edit),
-    path("requirements/<uuid:req_id>/delete/", views.requirement_delete),
 
     path("profile/hr/",    views.get_hr_profile),
     path("profile/owner/", views.get_owner_profile),
     path("profile/update-status/", views.update_hr_status),
+    path("profile/update-bio/", views.update_bio),
     path("profile/update-picture/", views.update_profile_picture),
 
-    path("auth/send-reset-code/",   views.send_reset_code),
-    path("auth/verify-reset-code/", views.verify_reset_code),
+    path("auth/forgot-password/",   views.forgot_password),
     path("auth/reset-password/",    views.reset_password),
+
+    path("employers/",                views.get_employers),
+    path("employers/approve-reject/", views.approve_reject_account),
+    path("employers/change-role/",    views.change_role),
+    path("employers/delete/", views.delete_employer),
+
+    path("auth/login-admin/", views.login_admin),
+
+    path("evaluate/", views.evaluate_resume),
+    path("evaluations/", views.get_evaluations),
+    path("evaluations/<uuid:evaluation_id>/status/", views.update_evaluation_status),
+
+    path("notifications/",           views.get_notifications),
+    path("notifications/mark-read/", views.mark_notifications_read),
 ]

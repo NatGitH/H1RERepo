@@ -1,17 +1,16 @@
+import email
+
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-import json, datetime, jwt
+import json, datetime, jwt, requests
 from django.conf import settings
+import requests
 from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement
-from django.core.mail import send_mail
-from django.core.cache import cache
-import random
-
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification
 
 ph = PasswordHasher()
 
@@ -24,7 +23,9 @@ def decode_token(request):
     token = auth_header.replace("Bearer ", "").strip()
     return jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
 
-
+# LOGINS
+# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 @require_POST
@@ -54,7 +55,6 @@ def login_owner(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def register_company(request):
@@ -71,6 +71,9 @@ def register_company(request):
         if Company.objects.filter(owner_email=email).exists():
             return JsonResponse({"error": "Email already registered"}, status=400)
 
+        if Company.objects.filter(company_name__iexact=company_name).exists():
+            return JsonResponse({"error": "Company name already exists."}, status=400)
+
         hashed       = ph.hash(password)
         hashed_staff = ph.hash(staff_password) if staff_password else None
 
@@ -82,11 +85,68 @@ def register_company(request):
             subscription_plan=plan,
         )
 
+        # Notify n8n to send welcome email
+        try:
+            requests.post(
+                "http://localhost:5678/webhook/register-confirmation",
+                json={
+                    "email":      email,
+                    "first_name": company_name,
+                    "last_name":  "",
+                },
+                timeout=5,
+            )
+        except Exception as n8n_err:
+            print("n8n error:", n8n_err)
+
         return JsonResponse({"message": "Company registered successfully"})
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+@require_POST
+def delete_employer(request):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
 
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can delete employers"}, status=403)
+
+        data    = json.loads(request.body)
+        user_id = data.get("user_id", "").strip()
+
+        user = HRUser.objects.get(user_id=user_id)
+        user.delete()
+
+        return JsonResponse({"message": "Employer deleted successfully"})
+
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def check_company_name(request):
+    try:
+        data         = json.loads(request.body)
+        company_name = data.get("company_name", "").strip()
+
+        if Company.objects.filter(company_name__iexact=company_name).exists():
+            return JsonResponse(
+                {"error": "A company with this name already exists. If this is a branch, "
+                "please use a unique name like 'Company - Branch'."},
+                status=400
+            )
+
+        return JsonResponse({"message": "Company name is available"})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
 @require_POST
@@ -116,10 +176,8 @@ def find_company(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-# HR Account Management
+# HR Account
 # --------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
-
 
 @csrf_exempt
 @require_POST
@@ -141,15 +199,38 @@ def create_hr_account(request):
         role   = Roles.objects.get(role_name=role_name)
         hashed = ph.hash(password)
 
-        HRUser.objects.create(
+        user = HRUser.objects.create(
             user_id=uuid.uuid4(),
             role_id=role.role_id,
             company_id=company_id,
             username=username,
             email=email,
             password=hashed,
-            account_status="active",
+            account_status="pending",
         )
+
+        # Log into Employer_Account_Requests
+        EmployerAccountRequest.objects.create(
+            request_id=uuid.uuid4(),
+            requested_user_id=user.user_id,
+            company_id=company_id,
+            requested_email=email,
+            request_status="pending",
+        )
+
+        # Notify n8n to send welcome email
+        try:
+            requests.post(
+                "http://localhost:5678/webhook/register-confirmation",
+                json={
+                    "email":      email,
+                    "first_name": username,
+                    "last_name":  "",
+                },
+                timeout=5,
+            )
+        except Exception as n8n_err:
+            print("n8n error:", n8n_err)
 
         return JsonResponse({"message": "Account created successfully"})
 
@@ -178,6 +259,12 @@ def login_hr(request):
         except argon2.exceptions.VerifyMismatchError:
             return JsonResponse({"error": "Invalid credentials"}, status=401)
 
+        if user.account_status == "pending":
+            return JsonResponse({"error": "Your account is pending approval. Please wait for an admin to approve your account."}, status=403)
+
+        if user.account_status == "rejected":
+            return JsonResponse({"error": "Your account has been rejected. Please contact your administrator."}, status=403)
+
         role_obj = Roles.objects.get(role_id=user.role_id)
         role     = role_obj.role_name
 
@@ -199,7 +286,8 @@ def login_hr(request):
         return JsonResponse({"error": "Invalid credentials"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+
 @csrf_exempt
 @require_POST
 def update_hr_profile(request):
@@ -227,9 +315,369 @@ def update_hr_profile(request):
         return JsonResponse({"error": "User not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-# Requirement 
+    
+    
+# Password Reset
 # --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+
+@csrf_exempt
+@require_POST
+def forgot_password(request):
+    try:
+        data  = json.loads(request.body)
+        email = data.get("email", "").strip()
+
+        try:
+            user = HRUser.objects.get(email=email)
+        except HRUser.DoesNotExist:
+            print(f"DEBUG: email '{email}' not found in HRUser table")
+            return JsonResponse({"message": "If that email exists, a reset link was sent."})
+
+        # Generate a reset token (reuse JWT, expires in 30 min)
+        token = make_token({"user_id": str(user.user_id), "purpose": "password_reset"})
+
+        reset_link = f"http://localhost:5173/hr-new-password?token={token}"
+
+        # Notify n8n to send reset email
+        try:
+            requests.post(
+                "http://localhost:5678/webhook/password-reset",
+                json={
+                    "email":      email,
+                    "username":   user.username,
+                    "reset_link": reset_link,
+                },
+                timeout=5,
+            )
+        except Exception as n8n_err:
+            print("n8n error:", n8n_err)
+
+        return JsonResponse({"message": "If that email exists, a reset link was sent."})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def reset_password(request):
+    try:
+        data      = json.loads(request.body)
+        token     = data.get("token", "").strip()
+        new_pass  = data.get("new_password", "").strip()
+
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+
+        if payload.get("purpose") != "password_reset":
+            return JsonResponse({"error": "Invalid token"}, status=400)
+
+        user = HRUser.objects.get(user_id=payload["user_id"])
+        user.password = ph.hash(new_pass)
+        user.save()
+
+        return JsonResponse({"message": "Password reset successfully"})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Reset link has expired"}, status=401)
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+    
+# Applicants / AI Evaluation 
+# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+
+@csrf_exempt
+@require_POST
+def evaluate_resume(request):
+    try:
+        payload    = decode_token(request)
+        user_id    = payload.get("user_id") or payload.get("company_id")
+        company_id = payload.get("company_id")
+
+        # Get the uploaded file
+        resume_file    = request.FILES.get("resume")
+        requirement_id = request.POST.get("requirement_id", "").strip()
+
+        if not resume_file:
+            return JsonResponse({"error": "No resume file uploaded"}, status=400)
+        if not requirement_id:
+            return JsonResponse({"error": "No requirement selected"}, status=400)
+
+        # Get the job requirement from DB
+        req = JobRequirement.objects.get(
+            requirement_id=requirement_id,
+            company_id=company_id,
+            is_deleted=False
+        )
+
+        # Read file bytes
+        file_bytes = resume_file.read()
+        file_name  = resume_file.name
+        file_type  = resume_file.content_type
+
+        # Run AI evaluation
+        from .ai_engine import evaluate_resume as run_evaluation
+        result = run_evaluation(
+            file_bytes         = file_bytes,
+            file_name          = file_name,
+            file_type          = file_type,
+            requirement_id     = str(req.requirement_id),
+            job_title          = req.job_title,
+            description        = req.description,
+            qualifications     = req.qualifications,
+            uploaded_by_user_id = str(user_id),
+        )
+
+        return JsonResponse(result, status=201)
+
+    except JobRequirement.DoesNotExist:
+        return JsonResponse({"error": "Requirement not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def get_evaluations(request):
+    try:
+        payload    = decode_token(request)
+        company_id = payload.get("company_id")
+
+        from supabase import create_client
+        from django.conf import settings
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+        # Get all evaluations for this company's requirements
+        reqs = JobRequirement.objects.filter(
+            company_id=company_id,
+            is_deleted=False
+        ).values_list("requirement_id", flat=True)
+
+        req_ids = [str(r) for r in reqs]
+
+        if not req_ids:
+            return JsonResponse([], safe=False)
+
+        # Fetch evaluations
+        evals = sb.table("Evaluations").select("*").in_(
+            "requirement_id", req_ids
+        ).execute().data
+
+        results = []
+        for ev in evals:
+            # Get resume info
+            resume = sb.table("Resumes").select("*").eq(
+                "resume_id", ev["resume_id"]
+            ).execute().data
+
+            # Get pros
+            pros = sb.table("Evaluation_Pros").select("pros_text").eq(
+                "evaluation_id", ev["evaluation_id"]
+            ).execute().data
+
+            # Get cons
+            cons = sb.table("Evaluation_Cons").select("cons_text").eq(
+                "evaluation_id", ev["evaluation_id"]
+            ).execute().data
+
+            # Get requirement info
+            req_info = sb.table("Job_Requirements").select(
+                "job_title"
+            ).eq("requirement_id", ev["requirement_id"]).execute().data
+
+            results.append({
+                "evaluation_id":  ev["evaluation_id"],
+                "resume_id":      ev["resume_id"],
+                "hire_score":     float(ev["hire_score"]),
+                "summary":        ev["ai_summary"],
+                "status":         ev["applicationtion_status"],
+                "pros":           [p["pros_text"] for p in pros],
+                "cons":           [c["cons_text"] for c in cons],
+                "file_name":      resume[0]["file_name"] if resume else "",
+                "file_path":      resume[0]["file_path"] if resume else "",
+                "job_title":      req_info[0]["job_title"] if req_info else "",
+            })
+
+        return JsonResponse(results, safe=False)
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def update_evaluation_status(request, evaluation_id):
+    try:
+        payload = decode_token(request)
+
+        data   = json.loads(request.body)
+        status = data.get("status", "").strip()
+
+        if status not in ["shortlisted", "rejected", "pending"]:
+            return JsonResponse({"error": "Invalid status"}, status=400)
+
+        from supabase import create_client
+        from django.conf import settings
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+        sb.table("Evaluations").update({
+            "applicationtion_status": status
+        }).eq("evaluation_id", str(evaluation_id)).execute()
+
+        return JsonResponse({"message": "Status updated", "status": status})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+
+# Employer
+# --------------------------------------------------------------------------------------------------------------------
+
+@csrf_exempt
+def get_employers(request):
+    try:
+        payload    = decode_token(request)
+        company_id = payload.get("company_id")
+        role       = payload.get("role")
+
+        if role not in ["owner", "HRManager"]:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        users = HRUser.objects.filter(company_id=company_id)
+
+        data = []
+        for u in users:
+            role_name = ""
+            try:
+                role_obj  = Roles.objects.get(role_id=u.role_id)
+                role_name = role_obj.role_name
+            except Roles.DoesNotExist:
+                pass
+
+            data.append({
+                "id":              str(u.user_id),
+                "name":            f"{u.firstname or ''} {u.lastname or ''}".strip() or u.username or "No Name",
+                "email":           u.email or "",
+                "bio":             u.bio or "",
+                "profile_picture": u.profile_picture or "",
+                "account_status":  u.account_status or "pending",
+                "role_name":       role_name,
+            })
+
+        return JsonResponse(data, safe=False)
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def approve_reject_account(request):
+    try:
+        payload     = decode_token(request)
+        role        = payload.get("role")
+        reviewer_id = payload.get("user_id")
+
+        if role not in ["owner", "HRManager"]:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        data       = json.loads(request.body)
+        user_id    = data.get("user_id", "").strip()
+        new_status = data.get("status", "").strip()
+
+        if new_status not in ["active", "rejected"]:
+            return JsonResponse({"error": "Invalid status"}, status=400)
+
+        user = HRUser.objects.get(user_id=user_id)
+
+        # Update Employer_Account_Requests
+        try:
+            emp_request = EmployerAccountRequest.objects.get(
+                requested_user_id=user_id,
+                request_status="pending"
+            )
+            emp_request.request_status      = new_status
+            emp_request.reviewed_by_user_id = reviewer_id
+            emp_request.reviewed_at         = datetime.datetime.utcnow()
+            emp_request.save()
+        except EmployerAccountRequest.DoesNotExist:
+            pass
+
+        if new_status == "rejected":
+            user.delete()
+            return JsonResponse({"message": "Account rejected and deleted"})
+
+        user.account_status = new_status
+        user.save()
+
+        try:
+            Notification.objects.create(
+                notification_id=uuid.uuid4(),
+                recipient_user_id=user.user_id,
+                notification_type="welcome",
+                title="Welcome to H!RE! 🎉",
+                message=f"Hi {user.firstname or user.username}, your account has been approved. Welcome to the team!",
+                is_read=False,
+            )
+        except Exception as notif_err:
+            print("Notification error:", notif_err)
+
+        return JsonResponse({"message": f"Account {new_status}", "status": new_status})
+
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def change_role(request):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can change roles"}, status=403)
+
+        data      = json.loads(request.body)
+        user_id   = data.get("user_id", "").strip()
+        role_name = data.get("role_name", "").strip()
+
+        if role_name not in ["HRStaff", "HRManager"]:
+            return JsonResponse({"error": "Invalid role"}, status=400)
+
+        role_obj      = Roles.objects.get(role_name=role_name)
+        user          = HRUser.objects.get(user_id=user_id)
+        user.role_id  = role_obj.role_id
+        user.save()
+
+        return JsonResponse({"message": f"Role changed to {role_name}"})
+
+    except Roles.DoesNotExist:
+        return JsonResponse({"error": "Role not found"}, status=404)
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# Requirement
 # --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
@@ -303,7 +751,7 @@ def requirement_detail(request, req_id):
         req = JobRequirement.objects.get(requirement_id=req_id, is_deleted=False)
 
         if request.method == "PATCH":
-            if role != "HRManager":
+            if role not in ["HRManager", "owner"]:
                 return JsonResponse({"error": "Forbidden"}, status=403)
 
             data          = json.loads(request.body)
@@ -323,6 +771,24 @@ def requirement_detail(request, req_id):
                 reviewed_by_user_id=user_id,
                 action_status=action_status,
             )
+            # Notify HRStaff who created the requirement
+            try:
+                notif = Notification.objects.create(
+                    notification_id=uuid.uuid4(),
+                    recipient_user_id=req.created_by_user_id,
+                    notification_type="requirement_approval",
+                    title=f"Job Requirement {action_status.capitalize()}",
+                    message=f"Your requirement for '{req.job_title}' has been {action_status}.",
+                    is_read=False,
+                )
+                ApprovalNotification.objects.create(
+                    ap_notification_id=uuid.uuid4(),
+                    requirement_id=req.requirement_id,
+                    notification_id=notif.notification_id,
+                    action_status=action_status,
+                )
+            except Exception as notif_err:
+                print("Notification error:", notif_err)
 
             return JsonResponse({
                 "id":     str(req.requirement_id),
@@ -336,67 +802,29 @@ def requirement_detail(request, req_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
+# Profile
+# --------------------------------------------------------------------------------------------------------------------
 @csrf_exempt
-def requirement_edit(request, req_id):
+def update_bio(request):
     try:
         payload = decode_token(request)
-        role    = payload.get("role")
+        user_id = payload.get("user_id")
+        data    = json.loads(request.body)
+        bio     = data.get("bio", "").strip()
 
-        if role != "HRManager":
-            return JsonResponse({"error": "Forbidden"}, status=403)
+        user     = HRUser.objects.get(user_id=user_id)
+        user.bio = bio
+        user.save()
 
-        req  = JobRequirement.objects.get(requirement_id=req_id, is_deleted=False)
-        data = json.loads(request.body)
+        return JsonResponse({"message": "Bio updated"})
 
-        if "job_title" in data:    req.job_title      = data["job_title"]
-        if "description" in data:  req.description    = data["description"]
-        if "qualifications" in data: req.qualifications = data["qualifications"]
-
-        req.save()
-
-        return JsonResponse({
-            "id":           str(req.requirement_id),
-            "job_title":    req.job_title,
-            "description":  req.description,
-            "qualifications": req.qualifications,
-            "status":       req.current_status,
-            "date_created": req.date_created.strftime("%m/%d/%Y"),
-            "date_updated": req.date_updated.strftime("%m/%d/%Y"),
-        })
-
-    except JobRequirement.DoesNotExist:
-        return JsonResponse({"error": "Not found"}, status=404)
+    except HRUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-
-@csrf_exempt
-def requirement_delete(request, req_id):
-    try:
-        payload = decode_token(request)
-        role    = payload.get("role")
-
-        if role != "HRManager":
-            return JsonResponse({"error": "Forbidden"}, status=403)
-
-        req            = JobRequirement.objects.get(requirement_id=req_id, is_deleted=False)
-        req.is_deleted = True
-        req.save()
-
-        return JsonResponse({"message": "Requirement deleted"})
-
-    except JobRequirement.DoesNotExist:
-        return JsonResponse({"error": "Not found"}, status=404)
-    except jwt.ExpiredSignatureError:
-        return JsonResponse({"error": "Token expired"}, status=401)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-    
-    # Profile
-# --------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 def get_hr_profile(request):
@@ -445,7 +873,8 @@ def get_owner_profile(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+
 @csrf_exempt
 def update_hr_status(request):
     try:
@@ -470,7 +899,8 @@ def update_hr_status(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+
 @csrf_exempt
 def update_profile_picture(request):
     try:
@@ -496,89 +926,91 @@ def update_profile_picture(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
-     # Email Notifications
+# Notifications
 # --------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
+
 @csrf_exempt
-@require_POST
-def send_reset_code(request):
+def get_notifications(request):
     try:
-        data  = json.loads(request.body)
-        email = data.get("email", "").strip()
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
 
-        # Check if user exists
-        user = HRUser.objects.get(email=email)
+        if not user_id:
+            return JsonResponse([], safe=False)
 
-        # Generate 6-digit code
-        code = str(random.randint(100000, 999999))
+        notifs = Notification.objects.filter(
+            recipient_user_id=user_id
+        ).order_by("-created_at")[:20]
 
-        # Store in cache for 10 minutes
-        cache.set(f"reset_code_{email}", code, timeout=600)
+        data = [
+            {
+                "id":       str(n.notification_id),
+                "type":     n.notification_type,
+                "title":    n.title,
+                "message":  n.message,
+                "is_read":  n.is_read,
+                "created_at": n.created_at.strftime("%m/%d/%Y %I:%M %p"),
+            }
+            for n in notifs
+        ]
+        return JsonResponse(data, safe=False)
 
-        # Send email
-        send_mail(
-            subject="H!RE - Password Reset Code",
-            message=f"Your password reset code is: {code}\n\nThis code expires in 10 minutes.",
-            from_email="hiree.noreply@gmail.com",
-            recipient_list=[email],
-            fail_silently=False,
-        )
-
-        return JsonResponse({"message": "Code sent successfully"})
-
-    except HRUser.DoesNotExist:
-        return JsonResponse({"error": "No account found with that email"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
 @require_POST
-def verify_reset_code(request):
+def mark_notifications_read(request):
     try:
-        data  = json.loads(request.body)
-        email = data.get("email", "").strip()
-        code  = data.get("code", "").strip()
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
 
-        cached_code = cache.get(f"reset_code_{email}")
+        Notification.objects.filter(
+            recipient_user_id=user_id,
+            is_read=False
+        ).update(is_read=True)
 
-        if not cached_code:
-            return JsonResponse({"error": "Code expired. Please request a new one."}, status=400)
+        return JsonResponse({"message": "Notifications marked as read"})
 
-        if cached_code != code:
-            return JsonResponse({"error": "Invalid code"}, status=400)
-
-        return JsonResponse({"message": "Code verified"})
-
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
+    
+#Admin
+#--------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 @require_POST
-def reset_password(request):
+def login_admin(request):
     try:
-        data         = json.loads(request.body)
-        email        = data.get("email", "").strip()
-        code         = data.get("code", "").strip()
-        new_password = data.get("new_password", "").strip()
+        data     = json.loads(request.body)
+        username = data.get("username", "").strip()
+        email    = data.get("email", "").strip()
+        password = data.get("password", "").strip()
 
-        # Verify code one more time before changing
-        cached_code = cache.get(f"reset_code_{email}")
+        from .models import Admin
+        admin = Admin.objects.get(admin_username=username, admin_email=email)
 
-        if not cached_code or cached_code != code:
-            return JsonResponse({"error": "Invalid or expired code"}, status=400)
+        if admin.admin_password != password:
+            return JsonResponse({"error": "Invalid credentials"}, status=401)
 
-        user          = HRUser.objects.get(email=email)
-        user.password = ph.hash(new_password)
-        user.save()
+        token = make_token({
+            "role":     "admin",
+            "admin_id": str(admin.admin_id),
+            "email":    email,
+        })
 
-        # Delete code from cache after use
-        cache.delete(f"reset_code_{email}")
+        return JsonResponse({
+            "token":    token,
+            "role":     "admin",
+            "admin_id": str(admin.admin_id),
+        })
 
-        return JsonResponse({"message": "Password changed successfully"})
-
-    except HRUser.DoesNotExist:
-        return JsonResponse({"error": "User not found"}, status=404)
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Invalid credentials"}, status=401)

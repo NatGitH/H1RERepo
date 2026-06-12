@@ -70,17 +70,13 @@ export default function SubscriptionPlan() {
     formData.append("dti_sec", registrationData.dtiSec);
     formData.append("bir", registrationData.bir);
 
-    try {
-      const res = await fetch("http://localhost:8000/api/auth/register-company/", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registration failed");
-
+  const res = await fetch("http://localhost:8000/api/auth/register-company/", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (res.ok) {
       navigate(plan.planType === "free" ? "/login-owner" : "/receipt");
-    } catch (err) {
-      alert(err.message);
     }
   };
 

@@ -1,54 +1,126 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
-import CloseIcon from "@mui/icons-material/Close";
-
-const DUMMY_APPLICANTS = [
-  {
-    id: 1,
-    name: "Almhea Celeste",
-    score: 92,
-    role: "Software Tester",
-    photo: "https://randomuser.me/api/portraits/women/44.jpg",
-    pros: "An excellent tester with knowledge about automation and strong attention to detail.",
-    cons: "Has only 6 months of experience due to recent graduation.",
-    summary: "This applicant is a big factor to add to your company as he/she would be a big asset to your company.",
-  },
-  {
-    id: 2,
-    name: "Nathaniel Cachuela",
-    score: 93,
-    role: "Human Resource",
-    photo: "https://randomuser.me/api/portraits/men/32.jpg",
-    pros: "Excellent background in HR processes with outstanding performance in previous roles.",
-    cons: "Limited experience with HR software tools.",
-    summary: "A great candidate and asset to the company as he has great communication skills.",
-  },
-  {
-    id: 3,
-    name: "James Baltazar",
-    score: 67,
-    role: "Web Developer",
-    photo: "https://randomuser.me/api/portraits/men/65.jpg",
-    pros: "Strong frontend skills with React and modern CSS frameworks.",
-    cons: "No experience in the backend field.",
-    summary: "A great addition to your team with solid frontend experience.",
-  },
-];
+import { useAuth } from "../../.Context/AuthContext";
 
 export default function Applicants() {
+  const { auth } = useAuth();
   const [search, setSearch] = useState("");
+  const [applicants, setApplicants] = useState([]);
   const [selected, setSelected] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [requirements, setRequirements] = useState([]);
+  const [selectedReqId, setSelectedReqId] = useState("");
+  const [showReqPicker, setShowReqPicker] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
 
-  const filtered = DUMMY_APPLICANTS.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase())
+  // Fetch evaluations
+  const fetchEvaluations = () => {
+    setLoading(true);
+    fetch("http://localhost:8000/api/evaluations/", {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setApplicants(Array.isArray(data) ? data : []))
+      .catch(() => setApplicants([]))
+      .finally(() => setLoading(false));
+  };
+
+  // Fetch approved requirements for the picker
+  const fetchRequirements = () => {
+    fetch("http://localhost:8000/api/requirements/", {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+      .then((res) => res.json())
+      .then((data) =>
+        setRequirements(
+          Array.isArray(data)
+            ? data.filter((r) => r.status === "approved")
+            : []
+        )
+      )
+      .catch(() => setRequirements([]));
+  };
+
+  useEffect(() => {
+    fetchEvaluations();
+    fetchRequirements();
+  }, []);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setPendingFile(file);
+    setShowReqPicker(true);
+  };
+
+  const handleUpload = async () => {
+    if (!pendingFile || !selectedReqId) {
+      alert("Please select a job requirement.");
+      return;
+    }
+    setUploading(true);
+    setShowReqPicker(false);
+
+    const formData = new FormData();
+    formData.append("resume", pendingFile);
+    formData.append("requirement_id", selectedReqId);
+
+    try {
+      const res = await fetch("http://localhost:8000/api/evaluate/", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${auth.token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Evaluation failed");
+      fetchEvaluations();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploading(false);
+      setPendingFile(null);
+      setSelectedReqId("");
+    }
+  };
+
+  const handleStatusUpdate = async (evaluationId, status) => {
+    try {
+      await fetch(
+        `http://localhost:8000/api/evaluations/${evaluationId}/status/`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${auth.token}`,
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+      setApplicants((prev) =>
+        prev.map((a) =>
+          a.evaluation_id === evaluationId ? { ...a, status } : a
+        )
+      );
+      setSelected(null);
+    } catch (err) {
+      alert("Failed to update status");
+    }
+  };
+
+  const filtered = applicants.filter((a) =>
+    (a.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (a.job_title || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const handleCardClick = (applicant) => {
-    const idx = filtered.findIndex((a) => a.id === applicant.id);
+    const idx = filtered.findIndex(
+      (a) => a.evaluation_id === applicant.evaluation_id
+    );
     setCurrentIndex(idx);
     setSelected(applicant);
   };
@@ -65,11 +137,8 @@ export default function Applicants() {
     setSelected(filtered[newIdx]);
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    // placeholder for real upload
-  };
+  const scoreColor = (score) =>
+    score >= 80 ? "text-emerald-600" : score >= 60 ? "text-orange-500" : "text-red-500";
 
   return (
     <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
@@ -97,49 +166,62 @@ export default function Applicants() {
           </div>
         </div>
 
-        {/* Body */}
         <div className="flex gap-6 items-stretch">
-
           {/* Upload Zone */}
           <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 min-h-[400px]">
-            <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleFileUpload} />
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              className="hidden"
+              onChange={handleFileChange}
+              disabled={uploading}
+            />
             <div className="w-16 h-16 rounded-full bg-teal-400 flex items-center justify-center shadow-[4px_4px_0px_#0f172a]">
-              <AddIcon style={{ fontSize: 32, color: "white" }} />
+              {uploading ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <AddIcon style={{ fontSize: 32, color: "white" }} />
+              )}
             </div>
-            <p className="font-bold text-sm text-[#0f172a] m-0 text-center">Click or drag</p>
-            <p className="text-xs text-slate-500 m-0 text-center">to upload a file</p>
+            <p className="font-bold text-sm text-[#0f172a] m-0 text-center">
+              {uploading ? "Analyzing..." : "Click or drag"}
+            </p>
+            <p className="text-xs text-slate-500 m-0 text-center">
+              {uploading ? "Please wait" : "to upload resume"}
+            </p>
           </label>
 
           {/* Applicant Cards */}
           <div className="flex-1 flex items-center justify-center min-h-[400px]">
-            {filtered.length > 0 ? (
+            {loading ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-10 h-10 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-500 text-sm">Loading evaluations...</p>
+              </div>
+            ) : filtered.length > 0 ? (
               <div className="flex flex-wrap gap-4 w-full">
                 {filtered.map((applicant) => (
                   <div
-                    key={applicant.id}
+                    key={applicant.evaluation_id}
                     onClick={() => handleCardClick(applicant)}
                     className="bg-white rounded-2xl border-2 border-[#0f172a] p-4 flex items-center gap-4 flex-[1_1_240px] max-w-[280px] cursor-pointer hover:shadow-lg transition-shadow"
                     style={{ boxShadow: "3px 3px 0px #0f172a" }}
                   >
                     <div className="w-20 min-w-[80px] h-24 bg-slate-100 rounded-xl border-2 border-[#0f172a] overflow-hidden flex items-center justify-center">
-                      {applicant.photo ? (
-                        <img src={applicant.photo} alt={applicant.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
-                      )}
+                      <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <span className="bg-slate-100 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a]">
-                        {applicant.name}
+                      <span className="bg-slate-100 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a] truncate max-w-[140px]">
+                        {applicant.file_name}
                       </span>
                       <span className="bg-slate-100 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a]">
                         H!RE Score:{" "}
-                        <span className={`font-bold ${applicant.score >= 80 ? "text-emerald-600" : "text-orange-500"}`}>
-                          {applicant.score}%
+                        <span className={`font-bold ${scoreColor(applicant.hire_score)}`}>
+                          {applicant.hire_score}%
                         </span>
                       </span>
-                      <span className="bg-slate-100 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a]">
-                        {applicant.role}
+                      <span className="bg-slate-100 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a] truncate max-w-[140px]">
+                        {applicant.job_title}
                       </span>
                     </div>
                   </div>
@@ -151,7 +233,7 @@ export default function Applicants() {
                   <GroupsIcon style={{ fontSize: 32, color: "white" }} />
                 </div>
                 <h2 className="text-xl font-extrabold text-[#0f172a] m-0">
-                  No Job Applicants added yet...
+                  No Applicants evaluated yet...
                 </h2>
                 <p className="text-slate-500 text-sm leading-relaxed m-0">
                   Upload a resume to start evaluating<br />
@@ -163,7 +245,69 @@ export default function Applicants() {
         </div>
       </div>
 
-      {/* ── Modal ── */}
+      {/* Requirement Picker Modal */}
+      {showReqPicker && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div
+            className="bg-white rounded-2xl px-8 py-6 w-full max-w-md mx-4"
+            style={{ border: "2px solid #0B2447", boxShadow: "6px 6px 0px #0B2447" }}
+          >
+            <h3 className="text-lg font-bold text-[#0B2447] mb-4">
+              Select Job Requirement
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Which job position is this resume for?
+            </p>
+            {requirements.length === 0 ? (
+              <p className="text-sm text-red-500">
+                No approved requirements found. Ask your manager to approve one first.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 mb-4 max-h-[200px] overflow-y-auto">
+                {requirements.map((req) => (
+                  <label
+                    key={req.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${
+                      selectedReqId === req.id
+                        ? "border-teal-400 bg-teal-50"
+                        : "border-slate-200 hover:border-teal-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="requirement"
+                      value={req.id}
+                      checked={selectedReqId === req.id}
+                      onChange={() => setSelectedReqId(req.id)}
+                      className="accent-teal-400"
+                    />
+                    <span className="text-sm font-semibold text-[#0f172a]">
+                      {req.job_title}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleUpload}
+                disabled={!selectedReqId}
+                className="flex-1 bg-teal-400 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg transition disabled:opacity-50"
+              >
+                Analyze Resume
+              </button>
+              <button
+                onClick={() => { setShowReqPicker(false); setPendingFile(null); }}
+                className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Applicant Detail Modal */}
       {selected && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -174,69 +318,69 @@ export default function Applicants() {
             style={{ boxShadow: "6px 6px 0px #0B2447", border: "2px solid #0B2447" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Applicant Header */}
             <div className="flex items-center gap-4 mb-5">
-              <div className="w-[100px] min-w-[100px] h-[110px] bg-slate-100 rounded-xl border-2 border-[#0f172a] overflow-hidden">
-                {selected.photo ? (
-                  <img src={selected.photo} alt={selected.name} className="w-full h-full object-cover" />
-                ) : (
-                  <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
-                )}
+              <div className="w-[100px] min-w-[100px] h-[110px] bg-slate-100 rounded-xl border-2 border-[#0f172a] overflow-hidden flex items-center justify-center">
+                <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
               </div>
               <div className="flex flex-col gap-2 flex-1">
-                <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
-                  {selected.name}
+                <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a] truncate">
+                  {selected.file_name}
                 </span>
                 <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
                   H!RE Score:{" "}
-                  <span className={`font-bold ${selected.score >= 80 ? "text-emerald-600" : "text-orange-500"}`}>
-                    {selected.score}%
+                  <span className={`font-bold ${scoreColor(selected.hire_score)}`}>
+                    {selected.hire_score}%
                   </span>
                 </span>
                 <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
-                  {selected.role}
+                  {selected.job_title}
                 </span>
               </div>
-
-              {/* Resume icon */}
               <div className="self-start">
-                <div className="w-10 h-10 border-2 border-slate-200 rounded-xl flex items-center justify-center">
-                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#0B2447" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <polyline points="14,2 14,8 20,8" stroke="#0B2447" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <button className="mt-2 bg-teal-400 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer">
+                <a
+                  href={`https://${import.meta.env.VITE_SUPABASE_URL?.replace("https://", "")}/storage/v1/object/public/${selected.file_path}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 bg-teal-400 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer block text-center"
+                >
                   View
-                </button>
+                </a>
               </div>
             </div>
 
-            {/* Pros & Cons */}
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4">
                 <p className="text-teal-600 font-bold text-sm mb-2">✓ Pros</p>
-                <p className="text-slate-600 text-xs leading-relaxed m-0">{selected.pros}</p>
+                <ul className="list-none m-0 p-0">
+                  {selected.pros.map((p, i) => (
+                    <li key={i} className="text-slate-600 text-xs leading-relaxed">• {p}</li>
+                  ))}
+                </ul>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
                 <p className="text-red-500 font-bold text-sm mb-2">✗ Cons</p>
-                <p className="text-slate-600 text-xs leading-relaxed m-0">{selected.cons}</p>
+                <ul className="list-none m-0 p-0">
+                  {selected.cons.map((c, i) => (
+                    <li key={i} className="text-slate-600 text-xs leading-relaxed">• {c}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 
-            {/* AI Summary */}
             <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4 mb-5">
               <p className="text-teal-600 font-bold text-sm mb-2">✦ AI Summary</p>
               <p className="text-slate-600 text-sm leading-relaxed m-0">{selected.summary}</p>
             </div>
 
-            {/* Actions */}
             <div className="grid grid-cols-2 gap-3">
-              <button className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">
+              <button
+                onClick={() => handleStatusUpdate(selected.evaluation_id, "shortlisted")}
+                className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors"
+              >
                 ✓ Shortlist
               </button>
               <button
-                onClick={() => setSelected(null)}
+                onClick={() => handleStatusUpdate(selected.evaluation_id, "rejected")}
                 className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors"
               >
                 ✗ Reject
@@ -244,21 +388,16 @@ export default function Applicants() {
             </div>
           </div>
 
-          {/* Prev / Next arrows */}
           {filtered.length > 1 && (
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); handlePrev(); }}
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-[#0B2447] text-white flex items-center justify-center border-none cursor-pointer hover:bg-[#162553] transition-colors text-xl"
-              >
-                ←
-              </button>
+              >←</button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleNext(); }}
                 className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-[#0B2447] text-white flex items-center justify-center border-none cursor-pointer hover:bg-[#162553] transition-colors text-xl"
-              >
-                →
-              </button>
+              >→</button>
             </>
           )}
         </div>

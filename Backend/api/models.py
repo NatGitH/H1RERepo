@@ -73,3 +73,51 @@ class ApprovalRequirement(models.Model):
     class Meta:
         db_table = '"Approval_Requirements"'
         managed  = False
+
+class Admin(models.Model):
+    admin_id       = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    admin_username = models.CharField(max_length=255)
+    admin_email    = models.CharField(max_length=255)
+    admin_password = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = '"Admin"'
+        managed  = False
+
+class EmployerAccountRequest(models.Model):
+    request_id         = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    requested_user_id  = models.UUIDField()
+    company_id         = models.UUIDField()
+    reviewed_by_user_id = models.UUIDField(null=True, blank=True)
+    requested_email    = models.CharField(max_length=255)
+    request_status     = models.CharField(max_length=50, default="pending")
+    requested_at       = models.DateTimeField(auto_now_add=True)
+    reviewed_at        = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = '"Employer_Account_Requests"'
+        managed  = False
+
+class Notification(models.Model):
+    notification_id   = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    recipient_user_id = models.UUIDField()
+    notification_type = models.CharField(max_length=100)
+    title             = models.CharField(max_length=255)
+    message           = models.TextField()
+    is_read           = models.BooleanField(default=False)
+    created_at        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Notifications"'
+        managed  = False
+
+class ApprovalNotification(models.Model):
+    ap_notification_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    requirement_id     = models.UUIDField()
+    notification_id    = models.UUIDField()
+    action_status      = models.CharField(max_length=50)
+    status_update_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Approval_Notifications"'
+        managed  = False

@@ -114,31 +114,58 @@ export default function Profile() {
   };
 
   const handlePicChange = async () => {
-    if (!newPicFile) return;
-    try {
-      setUploadingPic(true);
-      const fileExt = newPicFile.name.split(".").pop();
-      const fileName = `${auth.email}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from("avatars").upload(fileName, newPicFile, { upsert: true });
-      if (uploadError) throw new Error("Image upload failed: " + uploadError.message);
-      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
-      const publicUrl = urlData.publicUrl;
-      const res = await fetch("http://localhost:8000/api/profile/update-picture/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ profile_picture: publicUrl }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setProfile((prev) => ({ ...prev, profile_picture: publicUrl }));
-      login({ ...auth, profile_picture: publicUrl });
-      setShowPicModal(false);
-      setNewPicFile(null);
-      setNewPicPreview(null);
-    } catch (err) { alert(err.message); }
-    finally { setUploadingPic(false); }
-  };
+  if (!newPicFile) return;
+  try {
+    setUploadingPic(true);
+    const fileExt = newPicFile.name.split(".").pop();
+    const fileName = `${auth.email}.${fileExt}`;
+
+    // List and delete all existing files for this user
+    const { data: existingFiles } = await supabase.storage
+      .from("avatars")
+      .list("", { search: auth.email });
+
+    if (existingFiles && existingFiles.length > 0) {
+      const filesToDelete = existingFiles.map((f) => f.name);
+      await supabase.storage.from("avatars").remove(filesToDelete);
+    }
+
+    // Upload new file
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(fileName, newPicFile, { upsert: true });
+
+    if (uploadError) throw new Error("Image upload failed: " + uploadError.message);
+
+    const { data: urlData } = supabase.storage
+  .from("avatars")
+  .getPublicUrl(fileName);
+
+  const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+    const res = await fetch("http://localhost:8000/api/profile/update-picture/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ profile_picture: publicUrl }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    setProfile((prev) => ({ ...prev, profile_picture: publicUrl }));
+    login({ ...auth, profile_picture: publicUrl });
+
+    setShowPicModal(false);
+    setNewPicFile(null);
+    setNewPicPreview(null);
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    setUploadingPic(false);
+  }
+};
 
   const handleCancelPic = () => {
     setShowPicModal(false);
@@ -333,11 +360,26 @@ export default function Profile() {
                 </div>
 
                 {/* Bio */}
-                <div className="border-2 border-slate-200 rounded-[20px] p-6">
-                  <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0">
-                    {profile?.bio || "No bio available."}
-                  </p>
-                </div>
+              <div className="border-2 border-slate-200 rounded-[20px] p-6">
+                <textarea
+                  value={profile?.bio || ""}
+                  onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
+                  onBlur={async (e) => {
+                    try {
+                      await fetch("http://localhost:8000/api/profile/update-bio/", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${auth.token}`,
+                        },
+                        body: JSON.stringify({ bio: e.target.value }),
+                      });
+                    } catch (err) { console.error(err); }
+                  }}
+                  placeholder="Tell us about yourself..."
+                  className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
+                />
+              </div>
               </>
             )}
 

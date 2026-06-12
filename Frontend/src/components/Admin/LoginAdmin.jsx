@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import { useLogin } from '../../../../.Context/LoginContext';
-import { useAuth } from '../../../../.Context/AuthContext';
+import { useAuth } from "../../.Context/AuthContext";
 
-export default function LoginHRAccount() {
-  const navigate  = useNavigate();
-  const { loginData } = useLogin();
+export default function LoginAdmin() {
+  const navigate = useNavigate();
   const { login } = useAuth();
-  const [form, setForm]       = useState({ email: "", password: "" });
-  const [error, setError]     = useState("");
+
+  const [form, setForm]     = useState({ username: "", email: "", password: "" });
+  const [error, setError]   = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) =>
@@ -20,38 +19,30 @@ export default function LoginHRAccount() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:8000/api/auth/login-hr/", {
+      const res = await fetch("http://localhost:8000/api/auth/login-admin/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email:      form.email,
-          password:   form.password,
-          company_id: loginData.companyId,
+          username: form.username,
+          email:    form.email,
+          password: form.password,
         }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Login failed");
+        setError(data.error || "Invalid credentials");
         return;
       }
 
-      const profileRes = await fetch("http://localhost:8000/api/profile/hr/", {
-        headers: { Authorization: `Bearer ${data.token}` },
-      });
-      const profileData = await profileRes.json();
-
       login({
-        token:           data.token,
-        role:            data.role,
-        companyId:       data.company_id,
-        email:           form.email,
-        profile_picture: profileData.profile_picture || null,
-        firstname:       profileData.firstname || null,
-        lastname:        profileData.lastname || null,
+        token:   data.token,
+        role:    data.role,
+        adminId: data.admin_id,
+        email:   form.email,
       });
 
-      navigate("/Applicants");
+      navigate("/Admin-Dashboard");
     } catch (err) {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -72,65 +63,63 @@ export default function LoginHRAccount() {
       >
         <div className="flex items-center gap-3 mb-6">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="w-8 h-8 aspect-square flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />
           </button>
-          <h2 className="text-xl font-bold text-black">Login</h2>
+          <h2 className="text-xl font-bold text-black">Admin</h2>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Username:</label>
             <input
-              type="email" name="email" value={form.email} onChange={handleChange}
+              type="text"
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              placeholder="Enter username"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+            <input
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
               placeholder="name@example.com"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
             <input
-              type="password" name="password" value={form.password} onChange={handleChange}
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
               placeholder="••••••••"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
           </div>
         </div>
 
-        {/* Error message */}
         {error && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <p className="text-red-600 text-sm font-medium text-center">{error}</p>
           </div>
         )}
 
-        <div className="mt-4 text-center text-sm text-gray-500 space-y-1">
-          <p>
-            Don't have an account yet?{" "}
-            <button
-              onClick={() => navigate("/Create-HR-Account")}
-              className="text-blue-600 hover:underline font-medium"
-            >
-              Click Here
-            </button>
-          </p>
-          <p>
-            <button
-              onClick={() => navigate("/HR-Forgot-Password")}
-              className="text-blue-600 hover:underline font-medium"
-            >
-              Forgot Password?
-            </button>
-          </p>
-        </div>
-
-        <div className="mt-5">
+        <div className="mt-6">
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200 disabled:opacity-60"
+            className="w-full bg-[#1a3a8f] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200 disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Login"}
           </button>

@@ -31,6 +31,8 @@ import Employer from './components/Employer/Employer'
 
 import Profile from './components/Profile/Profile'
 
+import LoginAdmin from './components/Admin/LoginAdmin'
+
 
 
 function App() {
@@ -60,6 +62,9 @@ function App() {
 
            /* Login Owner */
           <Route path="/Login-Owner" element={<LoginOwner />} />
+          
+            /* Login Admin */
+          <Route path="/Login-Admin" element={<LoginAdmin />} />
 
           <Route element={
             <ProtectedRoute allowedRoles={["owner", "HRManager", "HRStaff"]}>

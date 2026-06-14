@@ -119,7 +119,7 @@ export default function LoginAdmin() {
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full bg-[#1a3a8f] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200 disabled:opacity-60"
+            className="cursor-pointer w-full bg-[#1a3a8f] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200 disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Login"}
           </button>

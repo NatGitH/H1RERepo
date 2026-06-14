@@ -35,6 +35,11 @@ export default function CreateCompany() {
       return;
     }
 
+    if (!form.email.includes("@") || !form.email.includes(".")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -161,7 +166,7 @@ export default function CreateCompany() {
 
       <button
         onClick={handleSubmit}
-        className="mt-5 w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
+        className="cursor-pointer mt-5 w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
       >
         Next
       </button>

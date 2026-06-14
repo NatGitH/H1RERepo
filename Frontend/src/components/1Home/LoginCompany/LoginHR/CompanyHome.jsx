@@ -48,14 +48,14 @@ export default function CompanyHome() {
         <div className="space-y-5 mt-6">
           <button
             onClick={() => navigate("/Create-HR-Account")}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-4 rounded-2xl transition duration-200"
+            className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-4 rounded-2xl transition duration-200"
           >
             Sign In
           </button>
 
           <button
             onClick={() => navigate("/Login-HR-Account")}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-4 rounded-2xl transition duration-200"
+            className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-4 rounded-2xl transition duration-200"
           >
             Log in
           </button>

@@ -48,7 +48,7 @@ export default function Home() {
             <button
               key={action.route}
               onClick={() => navigate(action.route)}
-              className={` w-full py-3.5 rounded-full text-white text-[0.95rem] font-semibold transition duration-200 ${
+              className={`cursor-pointer w-full py-3.5 rounded-full text-white text-[0.95rem] font-semibold transition duration-200 ${
                   action.variant === "dark"
                     ? "bg-[#0d1b3e] hover:bg-[#162553]"
                     : "bg-[#2255cc] hover:bg-[#1a44bb]"

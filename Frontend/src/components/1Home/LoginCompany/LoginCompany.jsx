@@ -7,11 +7,13 @@ export default function LoginCompany() {
   const navigate = useNavigate();
   const { setCompany } = useLogin();
   const [form, setForm] = useState({ company_name: "", staff_password: "" });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const res = await fetch("http://localhost:8000/api/auth/find-company/", {
         method: "POST",
@@ -82,9 +84,10 @@ export default function LoginCompany() {
 
           <button
             type="submit"
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2"
+            disabled={loading}
+            className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2"
           >
-            Login to Company
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
@@ -92,7 +95,7 @@ export default function LoginCompany() {
           Don't have an account?{" "}
           <button
             onClick={() => navigate("/Create-Company")}
-            className="text-blue-600 hover:underline font-medium"
+            className="cursor-pointer text-blue-600 hover:underline font-medium"
           >
             Create company
           </button>

@@ -106,12 +106,12 @@ export default function LoginHRAccount() {
           </div>
         )}
 
-        <div className="mt-4 text-center text-sm text-gray-500 space-y-1">
+        <div className="cursor-pointer mt-4 text-center text-sm text-gray-500 space-y-1">
           <p>
             Don't have an account yet?{" "}
             <button
               onClick={() => navigate("/Create-HR-Account")}
-              className="text-blue-600 hover:underline font-medium"
+              className="cursor-pointer text-blue-600 hover:underline font-medium"
             >
               Click Here
             </button>
@@ -119,7 +119,7 @@ export default function LoginHRAccount() {
           <p>
             <button
               onClick={() => navigate("/HR-Forgot-Password")}
-              className="text-blue-600 hover:underline font-medium"
+              className="cursor-pointer text-blue-600 hover:underline font-medium"
             >
               Forgot Password?
             </button>
@@ -130,7 +130,7 @@ export default function LoginHRAccount() {
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200 disabled:opacity-60"
+            className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-full transition duration-200 disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Login"}
           </button>

@@ -28,6 +28,11 @@ urlpatterns = [
     path("employers/delete/", views.delete_employer),
 
     path("auth/login-admin/", views.login_admin),
+    path("admin/dashboard/",                views.admin_get_dashboard),
+    path("admin/companies/",                views.admin_get_companies),
+    path("admin/companies/pending/",        views.admin_get_pending_companies),
+    path("admin/companies/approve-reject/", views.admin_approve_reject_company),
+    path("admin/companies/revoke/",         views.admin_revoke_company),
 
     path("evaluate/", views.evaluate_resume),
     path("evaluations/", views.get_evaluations),

@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import { useAuth } from "../../.Context/AuthContext";
 import { supabase } from "../../.Context/supabaseClient";
-import { ChangeProfilePictureModal, ChangePasswordModal } from "./ProfileModals";
+import {
+  ChangeProfilePictureModal,
+  ChangePasswordModal,
+  ChangeCompanyLogoModal,
+  ChangeCompanyNameModal,
+  ChangeCompanyPasswordModal,
+  ChangeCompanyProfileModal,
+  DeleteCompanyModal,
+} from "./ProfileModals";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -22,26 +31,42 @@ const STATUS_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { auth, login } = useAuth();
+  const { auth, login, logout } = useAuth();
+  const navigate = useNavigate();
   const role = auth.role;
 
-  const [profile, setProfile]   = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const statusRef = useRef(null);
 
-  // Picture modal
-  const [showPicModal, setShowPicModal]   = useState(false);
-  const [newPicFile, setNewPicFile]       = useState(null);
-  const [newPicPreview, setNewPicPreview] = useState(null);
-  const [uploadingPic, setUploadingPic]   = useState(false);
+  // HR — picture modal
+  const [showPicModal, setShowPicModal]     = useState(false);
+  const [newPicFile, setNewPicFile]         = useState(null);
+  const [newPicPreview, setNewPicPreview]   = useState(null);
+  const [uploadingPic, setUploadingPic]     = useState(false);
 
-  // Dots menu
-  const [showDotsMenu, setShowDotsMenu] = useState(false);
+  // HR — dots menu + password modal
+  const [showDotsMenu, setShowDotsMenu]   = useState(false);
   const dotsRef = useRef(null);
-
-  // Change password modal
   const [showPassModal, setShowPassModal] = useState(false);
+
+  // Owner — dots menu
+  const [showOwnerDotsMenu, setShowOwnerDotsMenu] = useState(false);
+  const ownerDotsRef = useRef(null);
+
+  // Owner — logo modal
+  const [showLogoModal, setShowLogoModal]     = useState(false);
+  const [newLogoFile, setNewLogoFile]         = useState(null);
+  const [newLogoPreview, setNewLogoPreview]   = useState(null);
+  const [uploadingLogo, setUploadingLogo]     = useState(false);
+
+  // Owner — other modals
+  const [showCompanyNameModal, setShowCompanyNameModal]       = useState(false);
+  const [showCompanyPassModal, setShowCompanyPassModal]       = useState(false);
+  const [showOwnerPassModal, setShowOwnerPassModal]           = useState(false);
+  const [showCompanyProfileModal, setShowCompanyProfileModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal]                 = useState(false);
 
   const interviewApplicants = [];
 
@@ -61,6 +86,8 @@ export default function Profile() {
         setShowStatusMenu(false);
       if (dotsRef.current && !dotsRef.current.contains(e.target))
         setShowDotsMenu(false);
+      if (ownerDotsRef.current && !ownerDotsRef.current.contains(e.target))
+        setShowOwnerDotsMenu(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -80,7 +107,7 @@ export default function Profile() {
     } catch (err) { alert(err.message); }
   };
 
-  // Picture modal handlers
+  // ── HR picture handlers ──
   const handlePicFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -105,26 +132,19 @@ export default function Profile() {
     try {
       setUploadingPic(true);
       const fileExt = newPicFile.name.split(".").pop();
-      const fileName = `${auth.email}.${fileExt}`;
+      const safeEmail = auth.email.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const fileName = `employee-profiles/${safeEmail}.${fileExt}`;
 
-      const { data: existingFiles } = await supabase.storage
-        .from("avatars")
-        .list("", { search: auth.email });
+      const { data: existingFiles } = await supabase.storage.from("avatars").list("employee-profiles", { search: safeEmail });
+      if (existingFiles && existingFiles.length > 0)
+        await supabase.storage.from("avatars").remove(existingFiles.map((f) => `employee-profiles/${f.name}`));
 
-      if (existingFiles && existingFiles.length > 0) {
-        const filesToDelete = existingFiles.map((f) => f.name);
-        await supabase.storage.from("avatars").remove(filesToDelete);
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(fileName, newPicFile, { upsert: true });
-
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, newPicFile, { upsert: true });
       if (uploadError) throw new Error("Image upload failed: " + uploadError.message);
-
+ 
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
+ 
       const res = await fetch("http://localhost:8000/api/profile/update-picture/", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
@@ -151,9 +171,99 @@ export default function Profile() {
     setNewPicPreview(null);
   };
 
-  const currentStatus = STATUS_OPTIONS.find(
-    (s) => s.value === profile?.account_status
-  ) || STATUS_OPTIONS[0];
+  // ── Owner logo handlers ──
+  const handleLogoFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setNewLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setNewLogoPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    setNewLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setNewLogoPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoChange = async () => {
+    if (!newLogoFile) return;
+    try {
+      setUploadingLogo(true);
+      const fileExt = newLogoFile.name.split(".").pop();
+      const safeName = (profile?.company_name || "company").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const fileName = `company-logos/${safeName}.${fileExt}`;
+
+      const { data: existingFiles } = await supabase.storage.from("avatars").list("company-logos", { search: safeName });
+      if (existingFiles && existingFiles.length > 0)
+        await supabase.storage.from("avatars").remove(existingFiles.map((f) => `company-logos/${f.name}`));
+
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, newLogoFile, { upsert: true });
+      if (uploadError) throw new Error("Logo upload failed: " + uploadError.message);
+
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      const res = await fetch("http://localhost:8000/api/profile/update-company-logo/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ logo: publicUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setProfile((prev) => ({ ...prev, logo: publicUrl }));
+      setShowLogoModal(false);
+      setNewLogoFile(null);
+      setNewLogoPreview(null);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleCancelLogo = () => {
+    setShowLogoModal(false);
+    setNewLogoFile(null);
+    setNewLogoPreview(null);
+  };
+
+  // ── Owner dots menu items ──
+  const ownerMenuItems = [
+    {
+      label: "Change Company Logo",
+      action: () => { setShowOwnerDotsMenu(false); setShowLogoModal(true); },
+    },
+    {
+      label: "Change Company Password",
+      action: () => { setShowOwnerDotsMenu(false); setShowCompanyPassModal(true); },
+    },
+    {
+      label: "Change Company Name",
+      action: () => { setShowOwnerDotsMenu(false); setShowCompanyNameModal(true); },
+    },
+    {
+      label: "Change Password",
+      action: () => { setShowOwnerDotsMenu(false); setShowOwnerPassModal(true); },
+    },
+    {
+      label: "Edit Company Profile",
+      action: () => { setShowOwnerDotsMenu(false); setShowCompanyProfileModal(true); },
+    },
+    {
+      label: "Delete Company",
+      action: () => { setShowOwnerDotsMenu(false); setShowDeleteModal(true); },
+      danger: true,
+    },
+  ];
+
+  const currentStatus = STATUS_OPTIONS.find((s) => s.value === profile?.account_status) || STATUS_OPTIONS[0];
 
   if (loading) {
     return (
@@ -174,6 +284,7 @@ export default function Profile() {
           {/* ── LEFT PANEL ── */}
           <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-[500px] border border-slate-200/20 flex flex-col gap-6">
 
+            {/* ── HR Staff / Manager ── */}
             {(role === "HRStaff" || role === "HRManager") && (
               <>
                 <div className="flex items-start gap-5 relative">
@@ -226,7 +337,6 @@ export default function Profile() {
                       )}
                     </div>
 
-                    {/* Birthdate */}
                     {profile?.birthdate && (
                       <div className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 self-start bg-white">
                         <span className="text-slate-400 text-sm">📅</span>
@@ -235,7 +345,7 @@ export default function Profile() {
                     )}
                   </div>
 
-                  {/* 3 dots menu */}
+                  {/* 3 dots menu — HR */}
                   <div className="absolute top-0 right-0" ref={dotsRef}>
                     <button
                       onClick={() => setShowDotsMenu((v) => !v)}
@@ -280,13 +390,26 @@ export default function Profile() {
               </>
             )}
 
-            {/* Owner */}
+            {/* ── Owner ── */}
             {role === "owner" && (
               <>
                 <div className="flex items-start gap-5 relative">
-                  <div className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center">
-                    <CompanyIcon />
+                  {/* Company logo — click to change */}
+                  <div
+                    onClick={() => setShowLogoModal(true)}
+                    className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer relative group"
+                  >
+                    {profile?.logo ? (
+                      <img src={profile.logo} alt="Company Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <CompanyIcon />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                      <span className="text-white text-xs font-bold">Change Logo</span>
+                    </div>
                   </div>
+
+                  {/* Company name badge */}
                   <div className="flex flex-col gap-3 flex-1">
                     <div
                       className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
@@ -294,18 +417,40 @@ export default function Profile() {
                     >
                       {profile?.company_name || "Company Name"}
                     </div>
-                    <div className="flex flex-col gap-2">
-                      {["Change Company Password", "Change Company Name", "Change Password", "Change Company Profile"].map((action) => (
-                        <button key={action} className="border border-slate-300 rounded-full px-4 py-1.5 text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 transition self-start cursor-pointer">
-                          {action}
-                        </button>
-                      ))}
-                      <button className="border border-red-300 rounded-full px-4 py-1.5 text-sm font-medium text-red-500 bg-white hover:bg-red-50 transition self-start cursor-pointer">
-                        Delete Company
-                      </button>
-                    </div>
+                  </div>
+
+                  {/* 3 dots menu — Owner */}
+                  <div className="absolute top-0 right-0" ref={ownerDotsRef}>
+                    <button
+                      onClick={() => setShowOwnerDotsMenu((v) => !v)}
+                      className="text-slate-400 text-xl font-bold px-2 cursor-pointer bg-transparent border-none hover:text-slate-600"
+                    >
+                      ⋯
+                    </button>
+                    {showOwnerDotsMenu && (
+                      <div
+                        className="absolute right-0 top-8 bg-white rounded-xl py-2 px-2 w-52 z-50"
+                        style={{ border: "2px solid #1a1a2e", boxShadow: "3px 3px 0px #000000" }}
+                      >
+                        {ownerMenuItems.map(({ label, action, danger }) => (
+                          <button
+                            key={label}
+                            onClick={action}
+                            className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg border-none bg-transparent cursor-pointer transition-colors ${
+                              danger
+                                ? "text-red-500 hover:bg-red-50"
+                                : "text-[#0B2447] hover:bg-slate-50"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Company description */}
                 <div className="border-2 border-slate-200 rounded-[20px] p-6">
                   <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0">
                     {profile?.description || "No company description available."}
@@ -359,7 +504,9 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* ── Modals (HR roles only) ── */}
+      {/* ══════════════════════════════
+          HR Modals
+      ══════════════════════════════ */}
       {showPicModal && (
         <ChangeProfilePictureModal
           newPicPreview={newPicPreview}
@@ -376,6 +523,72 @@ export default function Profile() {
         <ChangePasswordModal
           initialEmail={auth.email || ""}
           onClose={() => setShowPassModal(false)}
+        />
+      )}
+
+      {/* ══════════════════════════════
+          Owner Modals
+      ══════════════════════════════ */}
+      {showLogoModal && (
+        <ChangeCompanyLogoModal
+          newPicPreview={newLogoPreview}
+          newPicFile={newLogoFile}
+          uploadingPic={uploadingLogo}
+          onFileChange={handleLogoFileChange}
+          onDrop={handleLogoDrop}
+          onConfirm={handleLogoChange}
+          onCancel={handleCancelLogo}
+        />
+      )}
+
+      {showCompanyNameModal && (
+        <ChangeCompanyNameModal
+          currentName={profile?.company_name || ""}
+          token={auth.token}
+          onSuccess={(newName) => {
+            setProfile((prev) => ({ ...prev, company_name: newName }));
+            setShowCompanyNameModal(false);
+          }}
+          onClose={() => setShowCompanyNameModal(false)}
+        />
+      )}
+
+      {showCompanyPassModal && (
+        <ChangeCompanyPasswordModal
+          token={auth.token}
+          onClose={() => setShowCompanyPassModal(false)}
+        />
+      )}
+
+      {showOwnerPassModal && (
+        <ChangePasswordModal
+          initialEmail={auth.email || ""}
+          onClose={() => setShowOwnerPassModal(false)}
+        />
+      )}
+
+      {showCompanyProfileModal && (
+        <ChangeCompanyProfileModal
+          currentDescription={profile?.description || ""}
+          token={auth.token}
+          onSuccess={(desc) => {
+            setProfile((prev) => ({ ...prev, description: desc }));
+            setShowCompanyProfileModal(false);
+          }}
+          onClose={() => setShowCompanyProfileModal(false)}
+        />
+      )}
+
+      {showDeleteModal && (
+        <DeleteCompanyModal
+          companyName={profile?.company_name || ""}
+          token={auth.token}
+          onSuccess={() => {
+            // Log out and redirect after deletion
+            logout();
+            navigate("/");
+          }}
+          onClose={() => setShowDeleteModal(false)}
         />
       )}
     </section>

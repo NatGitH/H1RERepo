@@ -943,6 +943,173 @@ def update_profile_picture(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+# Company Profile Actions (Owner)
+# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+
+@csrf_exempt
+def update_company_logo(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company logo"}, status=403)
+
+        data = json.loads(request.body)
+        logo = data.get("logo", "").strip()
+
+        if not logo:
+            return JsonResponse({"error": "No logo URL provided"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+        company.company_logo = logo
+        company.save()
+
+        return JsonResponse({"message": "Company logo updated", "logo": logo})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_company_name(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company name"}, status=403)
+
+        data         = json.loads(request.body)
+        company_name = data.get("company_name", "").strip()
+
+        if not company_name:
+            return JsonResponse({"error": "Company name cannot be empty"}, status=400)
+
+        if Company.objects.filter(company_name__iexact=company_name).exclude(company_id=company_id).exists():
+            return JsonResponse({"error": "A company with this name already exists"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+        company.company_name = company_name
+        company.save()
+
+        return JsonResponse({"message": "Company name updated", "company_name": company_name})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_company_password(request):
+    """Updates the staff password (the one HR staff use to log in via find-company)."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company password"}, status=403)
+
+        data             = json.loads(request.body)
+        current_password = data.get("current_password", "").strip()
+        new_password     = data.get("new_password", "").strip()
+
+        if not current_password or not new_password:
+            return JsonResponse({"error": "Both current and new passwords are required"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+
+        try:
+            ph.verify(company.staff_password, current_password)
+        except argon2.exceptions.VerifyMismatchError:
+            return JsonResponse({"error": "Current password is incorrect"}, status=401)
+
+        company.staff_password = ph.hash(new_password)
+        company.save()
+
+        return JsonResponse({"message": "Company password updated successfully"})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_company_description(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company description"}, status=403)
+
+        data        = json.loads(request.body)
+        description = data.get("description", "").strip()
+
+        company = Company.objects.get(company_id=company_id)
+        company.description = description
+        company.save()
+
+        return JsonResponse({"message": "Company description updated", "description": description})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def delete_company(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can delete the company"}, status=403)
+
+        if request.method != "DELETE":
+            return JsonResponse({"error": "Method not allowed"}, status=405)
+
+        company = Company.objects.get(company_id=company_id)
+
+        # Cascade: delete HR users, approval records, requests, notifications
+        HRUser.objects.filter(company_id=company_id).delete()
+        ApprovalCompany.objects.filter(subscribing_company_id=company_id).delete()
+        EmployerAccountRequest.objects.filter(company_id=company_id).delete()
+        JobRequirement.objects.filter(company_id=company_id).delete()
+
+        company.delete()
+
+        return JsonResponse({"message": "Company deleted successfully"})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
     
 # Notifications
 # --------------------------------------------------------------------------------------------------------------------

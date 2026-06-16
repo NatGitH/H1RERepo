@@ -19,6 +19,12 @@ urlpatterns = [
     path("profile/update-bio/", views.update_bio),
     path("profile/update-picture/", views.update_profile_picture),
 
+    path("profile/update-company-logo/",        views.update_company_logo),
+    path("profile/update-company-name/",        views.update_company_name),
+    path("profile/update-company-password/",    views.update_company_password),
+    path("profile/update-company-description/", views.update_company_description),
+    path("profile/delete-company/",             views.delete_company),
+    
     path("auth/forgot-password/",   views.forgot_password),
     path("auth/reset-password/",    views.reset_password),
 

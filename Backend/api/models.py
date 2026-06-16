@@ -2,19 +2,34 @@ import uuid
 from django.db import models
 
 class Company(models.Model):
-    company_id        = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    admin_id          = models.UUIDField(null=True, blank=True)
-    document_id       = models.UUIDField(null=True, blank=True)
-    company_name      = models.CharField(max_length=255)
-    owner_email       = models.CharField(max_length=255, unique=True)
-    owner_password    = models.CharField(max_length=255)
-    staff_password    = models.CharField(max_length=255, null=True, blank=True)
-    subscription_plan = models.CharField(max_length=255, null=True, blank=True)
-    date_created      = models.DateTimeField(auto_now_add=True)
-    date_modified     = models.DateTimeField(auto_now=True)
+    company_id           = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    admin_id             = models.UUIDField(null=True, blank=True)
+    document_id          = models.UUIDField(null=True, blank=True)
+    company_name         = models.CharField(max_length=255)
+    owner_email          = models.CharField(max_length=255, unique=True)
+    owner_password       = models.CharField(max_length=255)
+    staff_password       = models.CharField(max_length=255, null=True, blank=True)
+    subscription_plan    = models.CharField(max_length=255, null=True, blank=True)
+    company_logo         = models.CharField(max_length=255, null=True, blank=True)
+    subscription_start   = models.DateTimeField(null=True, blank=True)
+    subscription_expiry  = models.DateTimeField(null=True, blank=True)
+    company_description  = models.TextField(null=True, blank=True)
+    date_created         = models.DateTimeField(auto_now_add=True)
+    date_modified        = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = '"Companies"'
+        managed  = False
+
+class ApprovalCompany(models.Model):
+    ap_companies_id        = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    reviewed_by_admin_id   = models.UUIDField(null=True, blank=True)
+    subscribing_company_id = models.UUIDField()
+    action_status          = models.CharField(max_length=50, default="pending")
+    time_of_action         = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Approval_Companies"'
         managed  = False
 
 class Roles(models.Model):

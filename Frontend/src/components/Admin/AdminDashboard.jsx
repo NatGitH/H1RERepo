@@ -1,0 +1,318 @@
+import { useState, useEffect } from "react";
+import { useAuth } from "../../.Context/AuthContext";
+import { useNavigate } from "react-router";
+import SearchIcon from "@mui/icons-material/Search";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import LogoutIcon from "@mui/icons-material/Logout";
+
+export default function AdminDashboard() {
+  const { auth, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const [stats, setStats]           = useState(null);
+  const [pending, setPending]       = useState([]);
+  const [companies, setCompanies]   = useState([]);
+  const [search, setSearch]         = useState("");
+  const [loading, setLoading]       = useState(true);
+  const [activeNav, setActiveNav]   = useState("home");
+
+  useEffect(() => {
+    fetchAll();
+  }, []);
+
+  const fetchAll = async () => {
+    try {
+      const headers = { Authorization: `Bearer ${auth.token}` };
+
+      const [statsRes, pendingRes, companiesRes] = await Promise.all([
+        fetch("http://localhost:8000/api/admin/dashboard/", { headers }),
+        fetch("http://localhost:8000/api/admin/companies/pending/", { headers }),
+        fetch("http://localhost:8000/api/admin/companies/", { headers }),
+      ]);
+
+      const statsData     = await statsRes.json();
+      const pendingData   = await pendingRes.json();
+      const companiesData = await companiesRes.json();
+
+      setStats(statsData);
+      setPending(Array.isArray(pendingData) ? pendingData : []);
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  };
+
+  const handleApproveReject = async (ap_id, status) => {
+    try {
+      const res = await fetch("http://localhost:8000/api/admin/companies/approve-reject/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ ap_id, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPending((prev) => prev.filter((p) => p.ap_id !== ap_id));
+      fetchAll();
+    } catch (err) { alert(err.message); }
+  };
+
+  const handleRevoke = async (company_id) => {
+    try {
+      const res = await fetch("http://localhost:8000/api/admin/companies/revoke/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ company_id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      fetchAll();
+    } catch (err) { alert(err.message); }
+  };
+
+  const filteredCompanies = companies.filter((c) =>
+    c.company_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const getSubStatusColor = (status) => {
+    if (status === "active") return "bg-green-500";
+    if (status === "expiring") return "bg-orange-400";
+    if (status === "expired") return "bg-red-500";
+    return "bg-slate-400";
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0B2447] flex items-center justify-center">
+        <p className="text-white">Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0B2447]">
+      {/* Navbar */}
+      <nav className="bg-[#0B2447] text-white px-6 h-14 flex items-center justify-between border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <span className="font-extrabold text-3xl tracking-tight">
+            H<span className="text-sky-400">!</span>RE
+          </span>
+          <button className="relative w-10 h-10 rounded-full bg-teal-400 flex items-center justify-center ml-2">
+            <NotificationsNoneIcon style={{ fontSize: 20 }} />
+          </button>
+        </div>
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => setActiveNav("home")}
+            className={`text-base font-semibold pb-1 bg-transparent border-none cursor-pointer transition-colors ${
+              activeNav === "home" ? "text-white border-b-2 border-sky-400" : "text-slate-400"
+            }`}
+          >
+            Home
+          </button>
+          <button
+            onClick={() => setActiveNav("companies")}
+            className={`text-base font-semibold pb-1 bg-transparent border-none cursor-pointer transition-colors ${
+              activeNav === "companies" ? "text-white border-b-2 border-sky-400" : "text-slate-400"
+            }`}
+          >
+            Companies
+          </button>
+          <button
+            onClick={() => { logout(); navigate("/"); }}
+            className="flex items-center gap-1 text-red-400 hover:text-red-300 text-sm font-medium bg-transparent border-none cursor-pointer"
+          >
+            <LogoutIcon style={{ fontSize: 18 }} />
+            Sign out
+          </button>
+        </div>
+      </nav>
+
+      <div className="max-w-[1200px] mx-auto px-6 py-6">
+
+        {/* ── HOME VIEW ── */}
+        {activeNav === "home" && (
+          <div
+            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
+            style={{ boxShadow: "6px 6px 0px #0B2447" }}
+          >
+            {/* Dashboard Title */}
+            <div
+              className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg w-[200px] h-[50px] flex items-center justify-center mb-6"
+              style={{ boxShadow: "3px 3px 0px #0B2447" }}
+            >
+              Dashboard
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-4 mb-6 max-[900px]:grid-cols-2">
+              {[
+                { label: "Total Companies",    value: stats?.total_companies  || 0, sub: "↑ this month",   color: "text-teal-500" },
+                { label: "Pending Approval",   value: stats?.pending_approval || 0, sub: "Needs Review",   color: "text-orange-500" },
+                { label: "Active Subscription",value: stats?.active_subs      || 0, sub: "↑ this week",    color: "text-teal-500" },
+                { label: "Revoked Accounts",   value: stats?.revoked          || 0, sub: "↑ this week",    color: "text-red-500" },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-teal-50 rounded-2xl p-5 border border-teal-100">
+                  <p className="text-xs font-semibold text-slate-500 mb-1">{stat.label}</p>
+                  <p className="text-3xl font-extrabold text-[#0B2447]">{stat.value}</p>
+                  <p className={`text-xs font-semibold mt-1 ${stat.color}`}>{stat.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+              {/* Pending Companies Approval */}
+              <div className="border-2 border-slate-200 rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-extrabold text-[#0B2447] text-base">Pending Companies Approval</h2>
+                  {pending.length > 0 && (
+                    <span className="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full">
+                      {pending.length} Pending
+                    </span>
+                  )}
+                </div>
+                {pending.length === 0 ? (
+                  <p className="text-slate-400 text-sm">No pending companies.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {pending.map((p) => (
+                      <div key={p.ap_id} className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center">
+                          {p.company_logo ? (
+                            <img src={p.company_logo} alt={p.company_name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-slate-400 font-bold text-sm">
+                              {p.company_name?.charAt(0)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-[#0B2447] text-sm truncate">{p.company_name}</p>
+                          <p className="text-xs text-slate-400">Registered {p.date_created}</p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleApproveReject(p.ap_id, "approved")}
+                            className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
+                          >
+                            Approved
+                          </button>
+                          <button
+                            onClick={() => handleApproveReject(p.ap_id, "rejected")}
+                            className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Subscription Status */}
+              <div className="border-2 border-slate-200 rounded-2xl p-5">
+                <h2 className="font-extrabold text-[#0B2447] text-base mb-4">Subscription Status</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {companies.slice(0, 4).map((c) => (
+                    <div key={c.id} className="bg-slate-50 rounded-xl p-3 flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-lg bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                        {c.company_logo ? (
+                          <img src={c.company_logo} alt={c.company_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-slate-400 font-bold text-xs">{c.company_name?.charAt(0)}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[#0B2447] text-xs truncate">{c.company_name}</p>
+                        <p className="text-[0.7rem] text-slate-400">Plan: {c.subscription_plan}</p>
+                        <p className="text-[0.7rem] text-slate-400">Expires {c.subscription_expiry}</p>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end">
+                        <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full ${getSubStatusColor(c.subscription_status)}`}>
+                          {c.subscription_status}
+                        </span>
+                        <button
+                          onClick={() => handleRevoke(c.id)}
+                          className="text-[0.65rem] font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-2 py-0.5 border-none cursor-pointer"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── COMPANIES VIEW ── */}
+        {activeNav === "companies" && (
+          <div
+            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
+            style={{ boxShadow: "6px 6px 0px #0B2447" }}
+          >
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+              <div
+                className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg w-[200px] h-[50px] flex items-center justify-center"
+                style={{ boxShadow: "3px 3px 0px #0B2447" }}
+              >
+                Companies
+              </div>
+              <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
+                <input
+                  type="search"
+                  placeholder="Search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400"
+                />
+                <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1">
+              {filteredCompanies.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-slate-50 rounded-2xl p-4 flex items-center gap-4 border border-slate-200"
+                >
+                  <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                    {c.company_logo ? (
+                      <img src={c.company_logo} alt={c.company_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-slate-400 font-bold text-lg">{c.company_name?.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-[#0B2447] text-sm truncate">{c.company_name}</p>
+                      <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full shrink-0 ${getSubStatusColor(c.subscription_status)}`}>
+                        {c.subscription_status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
+                    <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => handleRevoke(c.id)}
+                      className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 border-none cursor-pointer"
+                    >
+                      Revoke
+                    </button>
+                    <button className="text-xs font-bold text-white bg-[#0B2447] hover:bg-[#162553] rounded-full px-3 py-1 border-none cursor-pointer">
+                      Renew
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -37,10 +37,19 @@ export default function CreateHRProfile() {
       setUploading(true);
       let profilePictureUrl = null;
 
-      // Upload image to Supabase Storage if one was selected
       if (avatarFile) {
         const fileExt = avatarFile.name.split(".").pop();
-        const fileName = `${loginData.pendingUserEmail}_${Date.now()}.${fileExt}`;
+        const safeEmail = loginData.pendingUserEmail.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const fileName = `employee-profiles/${safeEmail}.${fileExt}`;
+
+        const { data: existingFiles } = await supabase.storage
+          .from("avatars")
+          .list("employee-profiles", { search: safeEmail });
+
+        if (existingFiles && existingFiles.length > 0)
+          await supabase.storage
+            .from("avatars")
+            .remove(existingFiles.map((f) => `employee-profiles/${f.name}`));
 
         const { error: uploadError } = await supabase.storage
           .from("avatars")
@@ -55,7 +64,6 @@ export default function CreateHRProfile() {
         profilePictureUrl = urlData.publicUrl;
       }
 
-      // Save profile to Django backend
       const res = await fetch("http://localhost:8000/api/auth/update-hr-profile/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -97,7 +97,7 @@ const handleSubmit = async (e) => {
 
           <button
             type="submit"
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2"
+            className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2"
           >
             Login as Owner
           </button>

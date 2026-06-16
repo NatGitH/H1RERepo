@@ -10,7 +10,7 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany
 
 ph = PasswordHasher()
 
@@ -73,16 +73,34 @@ def register_company(request):
 
         if Company.objects.filter(company_name__iexact=company_name).exists():
             return JsonResponse({"error": "Company name already exists."}, status=400)
+        
+        now = datetime.datetime.utcnow()
+        if plan == "free":
+            expiry = now + datetime.timedelta(days=30)
+        elif plan == "standard":
+            expiry = now + datetime.timedelta(days=30)
+        elif plan == "enterprise":
+            expiry = now + datetime.timedelta(days=30)
+        else:
+            expiry = now + datetime.timedelta(days=30)
 
         hashed       = ph.hash(password)
         hashed_staff = ph.hash(staff_password) if staff_password else None
 
-        Company.objects.create(
+        company = Company.objects.create(
             company_name=company_name,
             owner_email=email,
             owner_password=hashed,
             staff_password=hashed_staff,
             subscription_plan=plan,
+            subscription_start=now,
+            subscription_expiry=expiry,
+        )
+
+        ApprovalCompany.objects.create(
+            ap_companies_id=uuid.uuid4(),
+            subscribing_company_id=company.company_id,
+            action_status="pending",
         )
 
         # Notify n8n to send welcome email
@@ -1026,6 +1044,173 @@ def update_profile_picture(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+# Company Profile Actions (Owner)
+# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+
+@csrf_exempt
+def update_company_logo(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company logo"}, status=403)
+
+        data = json.loads(request.body)
+        logo = data.get("logo", "").strip()
+
+        if not logo:
+            return JsonResponse({"error": "No logo URL provided"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+        company.company_logo = logo
+        company.save()
+
+        return JsonResponse({"message": "Company logo updated", "logo": logo})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_company_name(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company name"}, status=403)
+
+        data         = json.loads(request.body)
+        company_name = data.get("company_name", "").strip()
+
+        if not company_name:
+            return JsonResponse({"error": "Company name cannot be empty"}, status=400)
+
+        if Company.objects.filter(company_name__iexact=company_name).exclude(company_id=company_id).exists():
+            return JsonResponse({"error": "A company with this name already exists"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+        company.company_name = company_name
+        company.save()
+
+        return JsonResponse({"message": "Company name updated", "company_name": company_name})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_company_password(request):
+    """Updates the staff password (the one HR staff use to log in via find-company)."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company password"}, status=403)
+
+        data             = json.loads(request.body)
+        current_password = data.get("current_password", "").strip()
+        new_password     = data.get("new_password", "").strip()
+
+        if not current_password or not new_password:
+            return JsonResponse({"error": "Both current and new passwords are required"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+
+        try:
+            ph.verify(company.staff_password, current_password)
+        except argon2.exceptions.VerifyMismatchError:
+            return JsonResponse({"error": "Current password is incorrect"}, status=401)
+
+        company.staff_password = ph.hash(new_password)
+        company.save()
+
+        return JsonResponse({"message": "Company password updated successfully"})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_company_description(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can update the company description"}, status=403)
+
+        data        = json.loads(request.body)
+        description = data.get("description", "").strip()
+
+        company = Company.objects.get(company_id=company_id)
+        company.description = description
+        company.save()
+
+        return JsonResponse({"message": "Company description updated", "description": description})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def delete_company(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can delete the company"}, status=403)
+
+        if request.method != "DELETE":
+            return JsonResponse({"error": "Method not allowed"}, status=405)
+
+        company = Company.objects.get(company_id=company_id)
+
+        # Cascade: delete HR users, approval records, requests, notifications
+        HRUser.objects.filter(company_id=company_id).delete()
+        ApprovalCompany.objects.filter(subscribing_company_id=company_id).delete()
+        EmployerAccountRequest.objects.filter(company_id=company_id).delete()
+        JobRequirement.objects.filter(company_id=company_id).delete()
+
+        company.delete()
+
+        return JsonResponse({"message": "Company deleted successfully"})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
     
 # Notifications
 # --------------------------------------------------------------------------------------------------------------------
@@ -1115,3 +1300,183 @@ def login_admin(request):
 
     except Exception as e:
         return JsonResponse({"error": "Invalid credentials"}, status=401)
+    
+@csrf_exempt
+def admin_get_dashboard(request):
+    try:
+        payload  = decode_token(request)
+        role     = payload.get("role")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        now = datetime.datetime.utcnow()
+
+        total_companies    = Company.objects.count()
+        pending_approval   = ApprovalCompany.objects.filter(action_status="pending").count()
+        active_subs        = Company.objects.filter(subscription_expiry__gte=now).count()
+        revoked            = ApprovalCompany.objects.filter(action_status="rejected").count()
+
+        return JsonResponse({
+            "total_companies":  total_companies,
+            "pending_approval": pending_approval,
+            "active_subs":      active_subs,
+            "revoked":          revoked,
+        })
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+def admin_get_companies(request):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        companies = Company.objects.all().order_by("-date_created")
+
+        data = []
+        for c in companies:
+            # Get approval status
+            try:
+                approval = ApprovalCompany.objects.get(subscribing_company_id=c.company_id)
+                approval_status = approval.action_status
+            except ApprovalCompany.DoesNotExist:
+                approval_status = "pending"
+
+            # Determine subscription status
+            now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+            if c.subscription_expiry:
+                days_left = (c.subscription_expiry - now).days
+                if days_left < 0:
+                    sub_status = "expired"
+                elif days_left <= 7:
+                    sub_status = "expiring"
+                else:
+                    sub_status = "active"
+            else:
+                sub_status = "unknown"
+
+            data.append({
+                "id":                 str(c.company_id),
+                "company_name":       c.company_name or "",
+                "owner_email":        c.owner_email or "",
+                "subscription_plan":  c.subscription_plan or "",
+                "subscription_start": c.subscription_start.strftime("%b %Y") if c.subscription_start else "",
+                "subscription_expiry": c.subscription_expiry.strftime("%b %Y") if c.subscription_expiry else "",
+                "company_logo":       c.company_logo or "",
+                "approval_status":    approval_status,
+                "subscription_status": sub_status,
+                "date_created":       c.date_created.strftime("%m/%d/%Y"),
+            })
+
+        return JsonResponse(data, safe=False)
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def admin_get_pending_companies(request):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        pending = ApprovalCompany.objects.filter(action_status="pending")
+
+        data = []
+        for p in pending:
+            try:
+                company = Company.objects.get(company_id=p.subscribing_company_id)
+                data.append({
+                    "ap_id":         str(p.ap_companies_id),
+                    "id":            str(company.company_id),
+                    "company_name":  company.company_name or "",
+                    "owner_email":   company.owner_email or "",
+                    "company_logo":  company.company_logo or "",
+                    "plan":          company.subscription_plan or "",
+                    "date_created":  company.date_created.strftime("%m/%d/%Y"),
+                })
+            except Company.DoesNotExist:
+                pass
+
+        return JsonResponse(data, safe=False)
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def admin_approve_reject_company(request):
+    try:
+        payload  = decode_token(request)
+        role     = payload.get("role")
+        admin_id = payload.get("admin_id")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        data       = json.loads(request.body)
+        ap_id      = data.get("ap_id", "").strip()
+        new_status = data.get("status", "").strip()
+
+        if new_status not in ["approved", "rejected"]:
+            return JsonResponse({"error": "Invalid status"}, status=400)
+
+        approval = ApprovalCompany.objects.get(ap_companies_id=ap_id)
+        approval.action_status        = new_status
+        approval.reviewed_by_admin_id = admin_id
+        approval.time_of_action       = datetime.datetime.utcnow()
+        approval.save()
+
+        return JsonResponse({"message": f"Company {new_status}", "status": new_status})
+
+    except ApprovalCompany.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def admin_revoke_company(request):
+    try:
+        payload  = decode_token(request)
+        role     = payload.get("role")
+        admin_id = payload.get("admin_id")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        data       = json.loads(request.body)
+        company_id = data.get("company_id", "").strip()
+
+        approval = ApprovalCompany.objects.get(subscribing_company_id=company_id)
+        approval.action_status        = "rejected"
+        approval.reviewed_by_admin_id = admin_id
+        approval.time_of_action       = datetime.datetime.utcnow()
+        approval.save()
+
+        return JsonResponse({"message": "Company revoked"})
+
+    except ApprovalCompany.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

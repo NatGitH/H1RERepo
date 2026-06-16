@@ -49,7 +49,7 @@ class HRUser(models.Model):
 class JobRequirement(models.Model):
     requirement_id   = models.UUIDField(primary_key=True, default=uuid.uuid4)
     company_id       = models.UUIDField()
-    created_by_user_id = models.UUIDField()
+    created_by_user_id = models.UUIDField(null=True, blank=True)
     job_title        = models.CharField(max_length=255)
     description      = models.TextField()
     qualifications   = models.TextField()
@@ -57,6 +57,8 @@ class JobRequirement(models.Model):
     is_deleted       = models.BooleanField(default=False)
     date_created     = models.DateTimeField(auto_now_add=True)
     date_updated     = models.DateTimeField(auto_now=True)
+    modified_by_user_id = models.UUIDField(null=True, blank=True)
+    pending_changes     = models.JSONField(null=True, blank=True)
 
     class Meta:
         db_table = '"Job_Requirements"'

@@ -680,6 +680,17 @@ def change_role(request):
 # Requirement
 # --------------------------------------------------------------------------------------------------------------------
 
+def get_user_fullname(user_id):
+    """Helper to get full name from user_id, returns 'Owner' if None"""
+    if not user_id:
+        return "Owner"
+    try:
+        user = HRUser.objects.get(user_id=user_id)
+        name = f"{user.firstname or ''} {user.lastname or ''}".strip()
+        return name or user.username or str(user_id)
+    except HRUser.DoesNotExist:
+        return str(user_id)
+
 @csrf_exempt
 def requirements_list(request):
     try:
@@ -700,6 +711,9 @@ def requirements_list(request):
                     "qualifications": r.qualifications,
                     "status":         r.current_status,
                     "date_created":   r.date_created.strftime("%m/%d/%Y"),
+                    "created_by":     get_user_fullname(r.created_by_user_id),
+                    "modified_by":    get_user_fullname(r.modified_by_user_id) if r.modified_by_user_id else None,
+                    "pending_changes": r.pending_changes,  # json or None
                 }
                 for r in reqs
             ]
@@ -711,21 +725,21 @@ def requirements_list(request):
             description    = data.get("description", "").strip()
             qualifications = data.get("qualifications", "").strip()
             user_id        = payload.get("user_id")
+            role           = payload.get("role")
 
             if not all([job_title, description, qualifications]):
                 return JsonResponse({"error": "All fields are required"}, status=400)
 
             req = JobRequirement.objects.create(
-                requirement_id=uuid.uuid4(),
-                company_id=company_id,
-                created_by_user_id=user_id,
-                job_title=job_title,
-                description=description,
-                qualifications=qualifications,
-                current_status="pending",
-                is_deleted=False,
+                requirement_id     = uuid.uuid4(),
+                company_id         = company_id,
+                created_by_user_id = user_id or None,
+                job_title          = job_title,
+                description        = description,
+                qualifications     = qualifications,
+                current_status     = "pending",
+                is_deleted         = False,
             )
-
             return JsonResponse({
                 "id":             str(req.requirement_id),
                 "job_title":      req.job_title,
@@ -733,6 +747,10 @@ def requirements_list(request):
                 "qualifications": req.qualifications,
                 "status":         req.current_status,
                 "date_created":   req.date_created.strftime("%m/%d/%Y"),
+                "date_updated":   req.date_updated.strftime("%m/%d/%Y") if req.date_updated else None,
+                "created_by":     get_user_fullname(user_id),
+                "modified_by":    None,
+                "pending_changes": None,
             }, status=201)
 
     except jwt.ExpiredSignatureError:
@@ -759,34 +777,43 @@ def requirement_detail(request, req_id):
 
             if action_status not in ["approved", "rejected"]:
                 return JsonResponse({"error": "Invalid status"}, status=400)
+            
+            if action_status in ["approved", "rejected"] and role not in ["HRManager", "owner"]:
+                return JsonResponse({"error": "Forbidden"}, status=403)
 
-            # Update Job_Requirements
+            # If approving and there are pending_changes, apply them
+            if action_status == "approved" and req.pending_changes:
+                req.job_title      = req.pending_changes.get("job_title", req.job_title)
+                req.description    = req.pending_changes.get("description", req.description)
+                req.qualifications = req.pending_changes.get("qualifications", req.qualifications)
+                req.pending_changes = None
+
             req.current_status = action_status
             req.save()
 
-            # Log into Approval_Requirements
             ApprovalRequirement.objects.create(
                 ap_requirement_id=uuid.uuid4(),
                 requirement_id=req.requirement_id,
                 reviewed_by_user_id=user_id,
                 action_status=action_status,
             )
-            # Notify HRStaff who created the requirement
+
             try:
-                notif = Notification.objects.create(
-                    notification_id=uuid.uuid4(),
-                    recipient_user_id=req.created_by_user_id,
-                    notification_type="requirement_approval",
-                    title=f"Job Requirement {action_status.capitalize()}",
-                    message=f"Your requirement for '{req.job_title}' has been {action_status}.",
-                    is_read=False,
-                )
-                ApprovalNotification.objects.create(
-                    ap_notification_id=uuid.uuid4(),
-                    requirement_id=req.requirement_id,
-                    notification_id=notif.notification_id,
-                    action_status=action_status,
-                )
+                if req.created_by_user_id:
+                    notif = Notification.objects.create(
+                        notification_id=uuid.uuid4(),
+                        recipient_user_id=req.created_by_user_id,
+                        notification_type="requirement_approval",
+                        title=f"Job Requirement {action_status.capitalize()}",
+                        message=f"Your requirement for '{req.job_title}' has been {action_status}.",
+                        is_read=False,
+                    )
+                    ApprovalNotification.objects.create(
+                        ap_notification_id=uuid.uuid4(),
+                        requirement_id=req.requirement_id,
+                        notification_id=notif.notification_id,
+                        action_status=action_status,
+                    )
             except Exception as notif_err:
                 print("Notification error:", notif_err)
 
@@ -794,6 +821,80 @@ def requirement_detail(request, req_id):
                 "id":     str(req.requirement_id),
                 "status": req.current_status,
             })
+
+        if request.method == "PUT":
+            data           = json.loads(request.body)
+            new_job_title  = data.get("job_title", req.job_title).strip()
+            new_desc       = data.get("description", req.description).strip()
+            new_quals      = data.get("qualifications", req.qualifications).strip()
+
+            if role in ["HRManager", "owner"]:
+                # Apply directly
+                req.job_title      = new_job_title
+                req.description    = new_desc
+                req.qualifications = new_quals
+                req.modified_by_user_id = user_id
+                req.pending_changes     = None
+                req.save()
+                return JsonResponse({
+                    "id":             str(req.requirement_id),
+                    "job_title":      req.job_title,
+                    "description":    req.description,
+                    "qualifications": req.qualifications,
+                    "status":         req.current_status,
+                    "modified_by":    get_user_fullname(user_id),
+                    "pending_changes": None,
+                })
+
+            elif role == "HRStaff":
+                # Store as pending changes, mark status as "changes_pending"
+                req.pending_changes     = {
+                    "job_title":      new_job_title,
+                    "description":    new_desc,
+                    "qualifications": new_quals,
+                }
+                req.modified_by_user_id = user_id
+                req.current_status      = "changes_pending"
+                req.save()
+
+                # Notify manager
+                try:
+                    managers = HRUser.objects.filter(
+                        company_id=payload.get("company_id"),
+                        role_id__in=Roles.objects.filter(
+                            role_name__in=["HRManager"]
+                        ).values_list("role_id", flat=True)
+                    )
+                    for mgr in managers:
+                        Notification.objects.create(
+                            notification_id=uuid.uuid4(),
+                            recipient_user_id=mgr.user_id,
+                            notification_type="changes_pending",
+                            title="Requirement Edit Pending Approval",
+                            message=f"{get_user_fullname(user_id)} proposed changes to '{req.job_title}'.",
+                            is_read=False,
+                        )
+                except Exception as notif_err:
+                    print("Notification error:", notif_err)
+
+                return JsonResponse({
+                    "id":              str(req.requirement_id),
+                    "job_title":       req.job_title,
+                    "description":     req.description,
+                    "qualifications":  req.qualifications,
+                    "status":          req.current_status,
+                    "modified_by":     get_user_fullname(user_id),
+                    "pending_changes": req.pending_changes,
+                })
+            else:
+                return JsonResponse({"error": "Forbidden"}, status=403)
+
+        if request.method == "DELETE":
+            if role == "HRStaff":
+                return JsonResponse({"error": "Forbidden"}, status=403)
+            req.is_deleted = True
+            req.save()
+            return JsonResponse({"message": "Deleted"})
 
     except JobRequirement.DoesNotExist:
         return JsonResponse({"error": "Not found"}, status=404)

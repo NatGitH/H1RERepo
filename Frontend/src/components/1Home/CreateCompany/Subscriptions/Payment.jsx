@@ -170,10 +170,10 @@ export default function Payment() {
   
               {modal === "success" ? (
                 <button
-                  onClick={() => navigate("/login-owner")}
+                  onClick={() => navigate("/Account-Verification")}
                   className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-3 rounded-lg transition duration-200 text-sm"
                 >
-                  Continue to Login Page
+                  Continue
                 </button>
               ) : (
                 <div className="flex flex-col gap-2 w-full">

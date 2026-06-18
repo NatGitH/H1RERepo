@@ -141,10 +141,10 @@ export default function Profile() {
 
       const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, newPicFile, { upsert: true });
       if (uploadError) throw new Error("Image upload failed: " + uploadError.message);
- 
+
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
- 
+
       const res = await fetch("http://localhost:8000/api/profile/update-picture/", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
@@ -207,17 +207,18 @@ export default function Profile() {
       if (uploadError) throw new Error("Logo upload failed: " + uploadError.message);
 
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
-      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      const savedUrl   = urlData.publicUrl;
+      const displayUrl = `${savedUrl}?t=${Date.now()}`;
 
       const res = await fetch("http://localhost:8000/api/profile/update-company-logo/", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ logo: publicUrl }),
+        body: JSON.stringify({ logo: savedUrl }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setProfile((prev) => ({ ...prev, logo: publicUrl }));
+      setProfile((prev) => ({ ...prev, logo: displayUrl }));
       setShowLogoModal(false);
       setNewLogoFile(null);
       setNewLogoPreview(null);

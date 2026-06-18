@@ -19,8 +19,56 @@ export default function Navbar() {
 
   const unreadCount = notifList.filter((n) => n.unread).length;
 
-  const markAllRead = () =>
+  const ICON_MAP = {
+  welcome:              "🎉",
+  requirement_approval: "📋",
+  new_requirement:      "📝",
+  changes_pending:      "✏️",
+  new_account_request:  "👤",
+};
+
+  const fetchNotifications = async () => {
+    if (!auth.token) return;
+    try {
+      const res = await fetch("http://localhost:8000/api/notifications/", {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setNotifList(
+          data.map((n) => ({
+            id:      n.id,
+            title:   n.title,
+            message: n.message,
+            time:    n.created_at,
+            unread:  !n.is_read,
+            icon:    ICON_MAP[n.type] || "🔔",
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Notifications error:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!auth.token) return;
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [auth.token]);
+
+  const markAllRead = async () => {
     setNotifList((prev) => prev.map((n) => ({ ...n, unread: false })));
+    try {
+      await fetch("http://localhost:8000/api/notifications/mark-read/", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${auth.token}` },
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -201,29 +249,28 @@ export default function Navbar() {
                 </button>
               </div>
               <div className="flex flex-col divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-                {notifList.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={`flex items-start gap-3 px-5 py-4 ${notif.unread ? "bg-slate-50" : "bg-white"}`}
-                  >
-                    <div className={`w-10 h-10 min-w-[2.5rem] rounded-xl flex items-center justify-center text-lg ${notif.unread ? "bg-teal-100" : "bg-slate-100"}`}>
-                      {notif.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-[0.88rem] font-bold text-[#0f172a]">{notif.title}</span>
-                        {notif.time && <span className="text-[0.75rem] text-slate-400">{notif.time}</span>}
+                {notifList.length === 0 ? (
+                  <p className="text-center text-slate-400 text-sm py-8">No notifications yet.</p>
+                ) : (
+                  notifList.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={`flex items-start gap-3 px-5 py-4 ${notif.unread ? "bg-slate-50" : "bg-white"}`}
+                    >
+                      <div className={`w-10 h-10 min-w-[2.5rem] rounded-xl flex items-center justify-center text-lg ${notif.unread ? "bg-teal-100" : "bg-slate-100"}`}>
+                        {notif.icon}
                       </div>
-                      <p className="text-[0.78rem] text-slate-500 truncate">{notif.message}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[0.88rem] font-bold text-[#0f172a]">{notif.title}</span>
+                          {notif.time && <span className="text-[0.75rem] text-slate-400">{notif.time}</span>}
+                        </div>
+                        <p className="text-[0.78rem] text-slate-500">{notif.message}</p>
+                      </div>
+                      {notif.unread && <div className="w-2 h-2 rounded-full bg-orange-400 mt-1.5" />}
                     </div>
-                    {notif.unread && <div className="w-2 h-2 rounded-full bg-orange-400 mt-1.5" />}
-                  </div>
-                ))}
-              </div>
-              <div className="px-5 py-4 border-t border-slate-100 text-center">
-                <button className="text-[0.9rem] font-bold text-[#0f172a] hover:text-teal-500">
-                  See all notifications →
-                </button>
+                  ))
+                )}
               </div>
             </div>
           </>

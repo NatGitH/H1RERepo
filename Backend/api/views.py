@@ -42,6 +42,16 @@ def login_owner(request):
         except argon2.exceptions.VerifyMismatchError:
             return JsonResponse({"error": "Invalid credentials"}, status=401)
 
+        # Check if company is approved by admin
+        try:
+            approval = ApprovalCompany.objects.get(subscribing_company_id=company.company_id)
+            if approval.action_status == "pending":
+                return JsonResponse({"error": "Your company is pending admin approval. Please wait for an admin to approve your account."}, status=403)
+            if approval.action_status == "rejected":
+                return JsonResponse({"error": "Your company registration has been rejected. Please contact support."}, status=403)
+        except ApprovalCompany.DoesNotExist:
+            pass
+
         token = make_token({
             "role":       "owner",
             "company_id": str(company.company_id),
@@ -193,6 +203,26 @@ def find_company(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+@csrf_exempt
+@require_POST
+def check_approval_status(request):
+    try:
+        data  = json.loads(request.body)
+        email = data.get("email", "").strip()
+
+        company = Company.objects.get(owner_email=email)
+
+        try:
+            approval = ApprovalCompany.objects.get(subscribing_company_id=company.company_id)
+            return JsonResponse({"status": approval.action_status})
+        except ApprovalCompany.DoesNotExist:
+            return JsonResponse({"status": "pending"})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 
 # HR Account
 # --------------------------------------------------------------------------------------------------------------------
@@ -235,6 +265,35 @@ def create_hr_account(request):
             requested_email=email,
             request_status="pending",
         )
+
+        # Notify HRManagers and Owner about the new pending account
+        try:
+            managers = HRUser.objects.filter(
+                company_id=company_id,
+                role_id__in=Roles.objects.filter(
+                    role_name__in=["HRManager"]
+                ).values_list("role_id", flat=True)
+            )
+            for mgr in managers:
+                Notification.objects.create(
+                    notification_id=uuid.uuid4(),
+                    recipient_user_id=mgr.user_id,
+                    notification_type="new_account_request",
+                    title="New Account Request",
+                    message=f"{username} has requested to join your team and is waiting for approval.",
+                    is_read=False,
+                )
+
+            Notification.objects.create(
+            notification_id=uuid.uuid4(),
+            recipient_company_id=company_id,
+            notification_type="new_account_request",
+            title="New Account Request",
+            message=f"{username} has requested to join your team and is waiting for approval.",
+            is_read=False,
+        )
+        except Exception as notif_err:
+            print("Notification error:", notif_err)
 
         # Notify n8n to send welcome email
         try:
@@ -749,16 +808,47 @@ def requirements_list(request):
                 return JsonResponse({"error": "All fields are required"}, status=400)
 
             req = JobRequirement.objects.create(
-                requirement_id     = uuid.uuid4(),
-                company_id         = company_id,
-                created_by_user_id = user_id or None,
-                job_title          = job_title,
-                description        = description,
-                qualifications     = qualifications,
-                current_status     = "pending",
-                is_deleted         = False,
+            requirement_id     = uuid.uuid4(),
+            company_id         = company_id,
+            created_by_user_id = user_id or None,
+            job_title          = job_title,
+            description        = description,
+            qualifications     = qualifications,
+            current_status     = "pending",
+            is_deleted         = False,
+        )
+
+        # Notify HRManagers and Owner about the new requirement
+        try:
+            managers = HRUser.objects.filter(
+                company_id=company_id,
+                role_id__in=Roles.objects.filter(
+                    role_name__in=["HRManager"]
+                ).values_list("role_id", flat=True)
             )
-            return JsonResponse({
+            for mgr in managers:
+                Notification.objects.create(
+                    notification_id=uuid.uuid4(),
+                    recipient_user_id=mgr.user_id,
+                    notification_type="new_requirement",
+                    title="New Job Requirement",
+                    message=f"{get_user_fullname(user_id)} created a new requirement for '{job_title}', waiting for approval.",
+                    is_read=False,
+                )
+
+            # Notify Owner using company_id as recipient
+            Notification.objects.create(
+                notification_id=uuid.uuid4(),
+                recipient_company_id=company_id,
+                notification_type="new_requirement",
+                title="New Job Requirement",
+                message=f"{get_user_fullname(user_id)} created a new requirement for '{job_title}', waiting for approval.",
+                is_read=False,
+            )
+        except Exception as notif_err:
+            print("Notification error:", notif_err)
+
+        return JsonResponse({
                 "id":             str(req.requirement_id),
                 "job_title":      req.job_title,
                 "description":    req.description,
@@ -984,6 +1074,7 @@ def get_owner_profile(request):
             "company_name":      company.company_name or "",
             "owner_email":       company.owner_email or "",
             "subscription_plan": company.subscription_plan or "",
+            "logo":              company.company_logo or "",
         })
 
     except Company.DoesNotExist:
@@ -1219,15 +1310,21 @@ def delete_company(request):
 @csrf_exempt
 def get_notifications(request):
     try:
-        payload = decode_token(request)
-        user_id = payload.get("user_id")
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        user_id    = payload.get("user_id")
+        company_id = payload.get("company_id")
 
-        if not user_id:
-            return JsonResponse([], safe=False)
-
-        notifs = Notification.objects.filter(
-            recipient_user_id=user_id
-        ).order_by("-created_at")[:20]
+        if role == "owner":
+            notifs = Notification.objects.filter(
+                recipient_company_id=company_id
+            ).order_by("-created_at")[:20]
+        else:
+            if not user_id:
+                return JsonResponse([], safe=False)
+            notifs = Notification.objects.filter(
+                recipient_user_id=user_id
+            ).order_by("-created_at")[:20]
 
         data = [
             {
@@ -1252,13 +1349,21 @@ def get_notifications(request):
 @require_POST
 def mark_notifications_read(request):
     try:
-        payload = decode_token(request)
-        user_id = payload.get("user_id")
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        user_id    = payload.get("user_id")
+        company_id = payload.get("company_id")
 
-        Notification.objects.filter(
-            recipient_user_id=user_id,
-            is_read=False
-        ).update(is_read=True)
+        if role == "owner":
+            Notification.objects.filter(
+                recipient_company_id=company_id,
+                is_read=False
+            ).update(is_read=True)
+        else:
+            Notification.objects.filter(
+                recipient_user_id=user_id,
+                is_read=False
+            ).update(is_read=True)
 
         return JsonResponse({"message": "Notifications marked as read"})
 

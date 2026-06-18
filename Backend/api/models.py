@@ -116,13 +116,14 @@ class EmployerAccountRequest(models.Model):
         managed  = False
 
 class Notification(models.Model):
-    notification_id   = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    recipient_user_id = models.UUIDField()
-    notification_type = models.CharField(max_length=100)
-    title             = models.CharField(max_length=255)
-    message           = models.TextField()
-    is_read           = models.BooleanField(default=False)
-    created_at        = models.DateTimeField(auto_now_add=True)
+    notification_id      = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    recipient_user_id    = models.UUIDField(null=True, blank=True)
+    recipient_company_id = models.UUIDField(null=True, blank=True)
+    notification_type    = models.CharField(max_length=100)
+    title                 = models.CharField(max_length=255)
+    message               = models.TextField()
+    is_read               = models.BooleanField(default=False)
+    created_at            = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = '"Notifications"'

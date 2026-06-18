@@ -3,40 +3,49 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useAuth } from "../../../.Context/AuthContext";
 
-export default function LoginCompany() {
+export default function LoginOwner() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
+  const [form, setForm]       = useState({ email: "", password: "" });
+  const [error, setError]     = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const res = await fetch("http://localhost:8000/api/auth/login-owner/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: form.email, password: form.password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Login failed");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError("");
 
-    login({
-      token: data.token,
-      role: data.role,
-      companyId: data.company_id,
-      email: form.email,
-    });
-    navigate("/applicants");
-  } catch (err) {
-    alert(err.message);
-  }
-};
+      const res = await fetch("http://localhost:8000/api/auth/login-owner/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, password: form.password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        return;
+      }
+
+      login({
+        token:     data.token,
+        role:      data.role,
+        companyId: data.company_id,
+        email:     form.email,
+      });
+      navigate("/Applicants");
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e]">
       <div className="absolute inset-0 pointer-events-none">
@@ -46,10 +55,7 @@ const handleSubmit = async (e) => {
 
       <div
         className="bg-white rounded-2xl px-8 pt-7 pb-8 w-full max-w-sm mx-4"
-        style={{
-          border: "2px solid #1a1a2e",
-          boxShadow: "6px 6px 0px #000000",
-        }}
+        style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
         <div className="flex items-center gap-3 mb-6">
           <button
@@ -58,16 +64,12 @@ const handleSubmit = async (e) => {
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />
           </button>
-
           <h2 className="text-xl font-bold text-black">Login as Owner</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               name="email"
@@ -80,10 +82,7 @@ const handleSubmit = async (e) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
               name="password"
@@ -95,11 +94,19 @@ const handleSubmit = async (e) => {
             />
           </div>
 
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+            </div>
+          )}
+
           <button
             type="submit"
-            className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2"
+            disabled={loading}
+            className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 mt-2 disabled:opacity-60"
           >
-            Login as Owner
+            {loading ? "Logging in..." : "Login as Owner"}
           </button>
         </form>
       </div>

@@ -58,27 +58,27 @@ export default function SubscriptionPlan() {
   ];
 
   const handleSelectPlan = async (plan) => {
-    updateData({ planType: plan.planType });
+  updateData({ planType: plan.planType });
 
-    const formData = new FormData();
-    formData.append("company_name", registrationData.companyName);
-    formData.append("email", registrationData.email);
-    formData.append("password", registrationData.password);
-    formData.append("staff_password", registrationData.staffPassword);
-    formData.append("plan", plan.planType);
-    formData.append("business_permit", registrationData.businessPermit);
-    formData.append("dti_sec", registrationData.dtiSec);
-    formData.append("bir", registrationData.bir);
+  const formData = new FormData();
+  formData.append("company_name", registrationData.companyName);
+  formData.append("email", registrationData.email);
+  formData.append("password", registrationData.password);
+  formData.append("staff_password", registrationData.staffPassword);
+  formData.append("plan", plan.planType);
+  formData.append("business_permit", registrationData.businessPermit);
+  formData.append("dti_sec", registrationData.dtiSec);
+  formData.append("bir", registrationData.bir);
 
   const res = await fetch("http://localhost:8000/api/auth/register-company/", {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    if (res.ok) {
-      navigate(plan.planType === "free" ? "/login-owner" : "/receipt");
-    }
-  };
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
+  if (res.ok) {
+    navigate(plan.planType === "free" ? "/account-verification" : "/receipt");
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden px-6 py-10">

@@ -29,7 +29,7 @@ export default function CompanyDocuments() {
       dtiSec: files.dtiSec,
       bir: files.bir,
     });
-    navigate("/account-verification");
+    navigate("/subscription-plan");
   };
 
   const DocumentUpload = ({ label, description, field, inputId }) => (

@@ -82,7 +82,8 @@ class JobRequirement(models.Model):
 class ApprovalRequirement(models.Model):
     ap_requirement_id  = models.UUIDField(primary_key=True, default=uuid.uuid4)
     requirement_id     = models.UUIDField()
-    reviewed_by_user_id = models.UUIDField()
+    reviewed_by_user_id    = models.UUIDField(null=True, blank=True)
+    reviewed_by_company_id = models.UUIDField(null=True, blank=True)
     action_status      = models.CharField(max_length=50)
     time_of_action     = models.DateTimeField(auto_now_add=True)
     created_at         = models.DateTimeField(auto_now_add=True)

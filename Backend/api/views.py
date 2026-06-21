@@ -899,10 +899,13 @@ def requirement_detail(request, req_id):
             req.current_status = action_status
             req.save()
 
+            company_id_from_token = payload.get("company_id")
+
             ApprovalRequirement.objects.create(
                 ap_requirement_id=uuid.uuid4(),
                 requirement_id=req.requirement_id,
-                reviewed_by_user_id=user_id,
+                reviewed_by_user_id=user_id if role != "owner" else None,
+                reviewed_by_company_id=company_id_from_token if role == "owner" else None,
                 action_status=action_status,
             )
 
@@ -1000,8 +1003,8 @@ def requirement_detail(request, req_id):
         if request.method == "DELETE":
             if role == "HRStaff":
                 return JsonResponse({"error": "Forbidden"}, status=403)
-            req.is_deleted = True
-            req.save()
+            ApprovalRequirement.objects.filter(requirement_id=req.requirement_id).delete()
+            req.delete()
             return JsonResponse({"message": "Deleted"})
 
     except JobRequirement.DoesNotExist:

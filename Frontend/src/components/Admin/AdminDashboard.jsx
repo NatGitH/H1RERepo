@@ -4,6 +4,9 @@ import { useNavigate } from "react-router";
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import LogoutIcon from "@mui/icons-material/Logout";
+import DescriptionIcon from "@mui/icons-material/Description";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 
 export default function AdminDashboard() {
   const { auth, logout } = useAuth();
@@ -15,6 +18,9 @@ export default function AdminDashboard() {
   const [search, setSearch]         = useState("");
   const [loading, setLoading]       = useState(true);
   const [activeNav, setActiveNav]   = useState("home");
+  const [docsByCompany, setDocsByCompany] = useState({});
+  const [expandedDocs, setExpandedDocs]   = useState(null);
+  const [previewDoc, setPreviewDoc]       = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -41,6 +47,28 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error(err);
       setLoading(false);
+    }
+  };
+
+  const fetchDocuments = async (companyId) => {
+    if (docsByCompany[companyId]) return;
+    try {
+      const res = await fetch(`http://localhost:8000/api/admin/companies/${companyId}/documents/`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      });
+      const data = await res.json();
+      setDocsByCompany((prev) => ({ ...prev, [companyId]: Array.isArray(data) ? data : [] }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleDocs = (companyId) => {
+    if (expandedDocs === companyId) {
+      setExpandedDocs(null);
+    } else {
+      setExpandedDocs(companyId);
+      fetchDocuments(companyId);
     }
   };
 
@@ -71,6 +99,19 @@ export default function AdminDashboard() {
     } catch (err) { alert(err.message); }
   };
 
+const handleRestore = async (company_id) => {
+  try {
+    const res = await fetch("http://localhost:8000/api/admin/companies/restore/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ company_id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    fetchAll();
+  } catch (err) { alert(err.message); }
+};
+
   const filteredCompanies = companies.filter((c) =>
     c.company_name.toLowerCase().includes(search.toLowerCase())
   );
@@ -80,6 +121,27 @@ export default function AdminDashboard() {
     if (status === "expiring") return "bg-orange-400";
     if (status === "expired") return "bg-red-500";
     return "bg-slate-400";
+  };
+
+  const DocumentsList = ({ companyId }) => {
+    const docs = docsByCompany[companyId];
+    if (!docs) return <p className="text-xs text-slate-400 py-2">Loading documents...</p>;
+    if (docs.length === 0) return <p className="text-xs text-slate-400 py-2">No documents uploaded.</p>;
+
+    return (
+      <div className="flex flex-col gap-1.5 py-2">
+        {docs.map((doc) => (
+          <button
+            key={doc.id}
+            onClick={() => setPreviewDoc(doc)}
+            className="flex items-center gap-2 text-xs font-semibold text-[#0B2447] hover:text-teal-600 bg-white rounded-lg px-3 py-2 border border-slate-200 transition cursor-pointer text-left"
+          >
+            <DescriptionIcon style={{ fontSize: 16 }} />
+            {doc.document_name || doc.document_type}
+          </button>
+        ))}
+      </div>
+    );
   };
 
   if (loading) {
@@ -92,7 +154,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0B2447]">
-      {/* Navbar */}
       <nav className="bg-[#0B2447] text-white px-6 h-14 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-2">
           <span className="font-extrabold text-3xl tracking-tight">
@@ -131,13 +192,11 @@ export default function AdminDashboard() {
 
       <div className="max-w-[1200px] mx-auto px-6 py-6">
 
-        {/* ── HOME VIEW ── */}
         {activeNav === "home" && (
           <div
             className="bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
             style={{ boxShadow: "6px 6px 0px #0B2447" }}
           >
-            {/* Dashboard Title */}
             <div
               className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg w-[200px] h-[50px] flex items-center justify-center mb-6"
               style={{ boxShadow: "3px 3px 0px #0B2447" }}
@@ -145,13 +204,12 @@ export default function AdminDashboard() {
               Dashboard
             </div>
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-4 mb-6 max-[900px]:grid-cols-2">
               {[
-                { label: "Total Companies",    value: stats?.total_companies  || 0, sub: "↑ this month",   color: "text-teal-500" },
+                { label: "Total Companies",    value: stats?.total_companies  || 0, sub: "this month",   color: "text-teal-500" },
                 { label: "Pending Approval",   value: stats?.pending_approval || 0, sub: "Needs Review",   color: "text-orange-500" },
-                { label: "Active Subscription",value: stats?.active_subs      || 0, sub: "↑ this week",    color: "text-teal-500" },
-                { label: "Revoked Accounts",   value: stats?.revoked          || 0, sub: "↑ this week",    color: "text-red-500" },
+                { label: "Active Subscription",value: stats?.active_subs      || 0, sub: "this week",    color: "text-teal-500" },
+                { label: "Revoked Accounts",   value: stats?.revoked          || 0, sub: "this week",    color: "text-red-500" },
               ].map((stat) => (
                 <div key={stat.label} className="bg-teal-50 rounded-2xl p-5 border border-teal-100">
                   <p className="text-xs font-semibold text-slate-500 mb-1">{stat.label}</p>
@@ -162,7 +220,6 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
-              {/* Pending Companies Approval */}
               <div className="border-2 border-slate-200 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-extrabold text-[#0B2447] text-base">Pending Companies Approval</h2>
@@ -177,41 +234,57 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="flex flex-col gap-3">
                     {pending.map((p) => (
-                      <div key={p.ap_id} className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center">
-                          {p.company_logo ? (
-                            <img src={p.company_logo} alt={p.company_name} className="w-full h-full object-cover" />
+                      <div key={p.ap_id} className="bg-slate-50 rounded-xl p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                            {p.company_logo ? (
+                              <img src={p.company_logo} alt={p.company_name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-slate-400 font-bold text-sm">
+                                {p.company_name?.charAt(0)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-[#0B2447] text-sm truncate">{p.company_name}</p>
+                            <p className="text-xs text-slate-400">Registered {p.date_created}</p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => handleApproveReject(p.ap_id, "approved")}
+                              className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
+                            >
+                              Approved
+                            </button>
+                            <button
+                              onClick={() => handleApproveReject(p.ap_id, "rejected")}
+                              className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => toggleDocs(p.id)}
+                          className="flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 bg-transparent border-none cursor-pointer mt-2"
+                        >
+                          <DescriptionIcon style={{ fontSize: 14 }} />
+                          View Documents
+                          {expandedDocs === p.id ? (
+                            <ExpandLessIcon style={{ fontSize: 16 }} />
                           ) : (
-                            <span className="text-slate-400 font-bold text-sm">
-                              {p.company_name?.charAt(0)}
-                            </span>
+                            <ExpandMoreIcon style={{ fontSize: 16 }} />
                           )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-[#0B2447] text-sm truncate">{p.company_name}</p>
-                          <p className="text-xs text-slate-400">Registered {p.date_created}</p>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <button
-                            onClick={() => handleApproveReject(p.ap_id, "approved")}
-                            className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
-                          >
-                            Approved
-                          </button>
-                          <button
-                            onClick={() => handleApproveReject(p.ap_id, "rejected")}
-                            className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
-                          >
-                            Reject
-                          </button>
-                        </div>
+                        </button>
+
+                        {expandedDocs === p.id && <DocumentsList companyId={p.id} />}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Subscription Status */}
               <div className="border-2 border-slate-200 rounded-2xl p-5">
                 <h2 className="font-extrabold text-[#0B2447] text-base mb-4">Subscription Status</h2>
                 <div className="grid grid-cols-2 gap-3">
@@ -248,7 +321,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ── COMPANIES VIEW ── */}
         {activeNav === "companies" && (
           <div
             className="bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
@@ -273,46 +345,177 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1">
-              {filteredCompanies.map((c) => (
+            {/* Active Companies */}
+            <h3 className="font-bold text-[#0B2447] text-sm mb-3">Active</h3>
+            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 mb-8">
+              {filteredCompanies.filter((c) => c.approval_status !== "rejected").map((c) => (
                 <div
                   key={c.id}
-                  className="bg-slate-50 rounded-2xl p-4 flex items-center gap-4 border border-slate-200"
+                  className="bg-slate-50 rounded-2xl p-4 border border-slate-200"
                 >
-                  <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                    {c.company_logo ? (
-                      <img src={c.company_logo} alt={c.company_name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-slate-400 font-bold text-lg">{c.company_name?.charAt(0)}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-[#0B2447] text-sm truncate">{c.company_name}</p>
-                      <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full shrink-0 ${getSubStatusColor(c.subscription_status)}`}>
-                        {c.subscription_status}
-                      </span>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                      {c.company_logo ? (
+                        <img src={c.company_logo} alt={c.company_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-slate-400 font-bold text-lg">{c.company_name?.charAt(0)}</span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
-                    <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-[#0B2447] text-sm truncate">{c.company_name}</p>
+                        <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full shrink-0 ${getSubStatusColor(c.subscription_status)}`}>
+                          {c.subscription_status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
+                      <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => handleRevoke(c.id)}
+                        className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 border-none cursor-pointer"
+                      >
+                        Revoke
+                      </button>
+                      <button className="text-xs font-bold text-white bg-[#0B2447] hover:bg-[#162553] rounded-full px-3 py-1 border-none cursor-pointer">
+                        Renew
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => handleRevoke(c.id)}
-                      className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 border-none cursor-pointer"
-                    >
-                      Revoke
-                    </button>
-                    <button className="text-xs font-bold text-white bg-[#0B2447] hover:bg-[#162553] rounded-full px-3 py-1 border-none cursor-pointer">
-                      Renew
-                    </button>
-                  </div>
+
+                  <button
+                    onClick={() => toggleDocs(c.id)}
+                    className="flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 bg-transparent border-none cursor-pointer mt-2"
+                  >
+                    <DescriptionIcon style={{ fontSize: 14 }} />
+                    View Documents
+                    {expandedDocs === c.id ? (
+                      <ExpandLessIcon style={{ fontSize: 16 }} />
+                    ) : (
+                      <ExpandMoreIcon style={{ fontSize: 16 }} />
+                    )}
+                  </button>
+
+                  {expandedDocs === c.id && <DocumentsList companyId={c.id} />}
                 </div>
               ))}
+              {filteredCompanies.filter((c) => c.approval_status !== "rejected").length === 0 && (
+                <p className="text-slate-400 text-sm col-span-2">No active companies.</p>
+              )}
+            </div>
+
+            {/* Revoked Companies */}
+            <h3 className="font-bold text-red-500 text-sm mb-3">Revoked</h3>
+            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1">
+              {filteredCompanies.filter((c) => c.approval_status === "rejected").map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-red-50 rounded-2xl p-4 border border-red-200"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                      {c.company_logo ? (
+                        <img src={c.company_logo} alt={c.company_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-slate-400 font-bold text-lg">{c.company_name?.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-[#0B2447] text-sm truncate">{c.company_name}</p>
+                        <span className="text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full shrink-0 bg-red-500">
+                          Revoked
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
+                      <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => handleRestore(c.id)}
+                        className="text-xs font-bold text-white bg-[#0B2447] hover:bg-[#162553] rounded-full px-3 py-1 border-none cursor-pointer"
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => toggleDocs(c.id)}
+                    className="flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 bg-transparent border-none cursor-pointer mt-2"
+                  >
+                    <DescriptionIcon style={{ fontSize: 14 }} />
+                    View Documents
+                    {expandedDocs === c.id ? (
+                      <ExpandLessIcon style={{ fontSize: 16 }} />
+                    ) : (
+                      <ExpandMoreIcon style={{ fontSize: 16 }} />
+                    )}
+                  </button>
+
+                  {expandedDocs === c.id && <DocumentsList companyId={c.id} />}
+                </div>
+              ))}
+              {filteredCompanies.filter((c) => c.approval_status === "rejected").length === 0 && (
+                <p className="text-slate-400 text-sm col-span-2">No revoked companies.</p>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-3xl flex flex-col overflow-hidden"
+            style={{ height: "85vh", border: "2px solid #1a1a2e", boxShadow: "8px 8px 0px #000000" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+              <h3 className="font-bold text-[#0B2447] text-base m-0">
+                {previewDoc.document_name || previewDoc.document_type}
+              </h3>
+              <div className="flex items-center gap-3">
+                <a
+                  href={previewDoc.document_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-teal-600 hover:text-teal-700 no-underline"
+                >
+                  Open in new tab
+                </a>
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-slate-100 transition bg-transparent cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto bg-slate-100">
+              {previewDoc.document_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                <img
+                  src={previewDoc.document_url}
+                  alt={previewDoc.document_name}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <iframe
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewDoc.document_url)}&embedded=true`}
+                  title={previewDoc.document_name}
+                  className="w-full h-full border-none"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

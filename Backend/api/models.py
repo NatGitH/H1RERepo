@@ -140,3 +140,15 @@ class ApprovalNotification(models.Model):
     class Meta:
         db_table = '"Approval_Notifications"'
         managed  = False
+
+class Document(models.Model):
+    document_id   = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    company_id    = models.UUIDField()
+    document_name = models.CharField(max_length=255, null=True, blank=True)
+    document_type = models.CharField(max_length=255, null=True, blank=True)
+    document_url  = models.TextField(null=True, blank=True)
+    uploaded_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Documents"'
+        managed  = False

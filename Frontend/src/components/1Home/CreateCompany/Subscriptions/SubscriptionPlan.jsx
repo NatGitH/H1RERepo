@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useCompanyRegistration } from "../../../../.Context/CompanyRegistrationContext";
+import { supabase } from "../../../../.Context/supabaseClient";
 
 
 export default function SubscriptionPlan() {
@@ -57,28 +58,75 @@ export default function SubscriptionPlan() {
     },
   ];
 
-  const handleSelectPlan = async (plan) => {
-  updateData({ planType: plan.planType });
+  const uploadDocument = async (file, companyId, fieldName) => {
+  if (!file) return null;
 
-  const formData = new FormData();
-  formData.append("company_name", registrationData.companyName);
-  formData.append("email", registrationData.email);
-  formData.append("password", registrationData.password);
-  formData.append("staff_password", registrationData.staffPassword);
-  formData.append("plan", plan.planType);
-  formData.append("business_permit", registrationData.businessPermit);
-  formData.append("dti_sec", registrationData.dtiSec);
-  formData.append("bir", registrationData.bir);
+  const ext  = file.name.split(".").pop();
+  const path = `${companyId}/${fieldName}.${ext}`;
 
-  const res = await fetch("http://localhost:8000/api/auth/register-company/", {
-    method: "POST",
-    body: formData,
-  });
-  const data = await res.json();
-  if (res.ok) {
-    navigate(plan.planType === "free" ? "/account-verification" : "/receipt");
+  const { error } = await supabase.storage
+    .from("company-documents")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) {
+    console.error(`Upload error for ${fieldName}:`, error);
+    return null;
   }
+
+  const { data } = supabase.storage
+    .from("company-documents")
+    .getPublicUrl(path);
+
+  // Force inline display instead of download
+  return data.publicUrl.replace("/object/public/", "/object/public/") + "?download=false";
 };
+
+  const handleSelectPlan = async (plan) => {
+    updateData({ planType: plan.planType });
+
+    const formData = new FormData();
+    formData.append("company_name", registrationData.companyName);
+    formData.append("email", registrationData.email);
+    formData.append("password", registrationData.password);
+    formData.append("staff_password", registrationData.staffPassword);
+    formData.append("plan", plan.planType);
+
+    const res = await fetch("http://localhost:8000/api/auth/register-company/", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      const companyId = data.company_id;
+
+      // Upload documents directly to Supabase Storage from the frontend
+      const docFields = {
+        business_permit: { file: registrationData.businessPermit, label: "Business Permit" },
+        dti_sec:          { file: registrationData.dtiSec,          label: "DTI/SEC Registration" },
+        bir:              { file: registrationData.bir,              label: "BIR Certificate" },
+      };
+
+      for (const [fieldName, { file, label }] of Object.entries(docFields)) {
+        if (!file) continue;
+        const url = await uploadDocument(file, companyId, fieldName);
+        if (url) {
+          await fetch("http://localhost:8000/api/auth/save-document/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              company_id: companyId,
+              document_name: label,
+              document_type: fieldName,
+              document_url: url,
+            }),
+          });
+        }
+      }
+
+      navigate(plan.planType === "free" ? "/Account-Verification" : "/Receipt");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden px-6 py-10">

@@ -10,7 +10,7 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document
 
 ph = PasswordHasher()
 
@@ -83,16 +83,9 @@ def register_company(request):
 
         if Company.objects.filter(company_name__iexact=company_name).exists():
             return JsonResponse({"error": "Company name already exists."}, status=400)
-        
-        now = datetime.datetime.utcnow()
-        if plan == "free":
-            expiry = now + datetime.timedelta(days=30)
-        elif plan == "standard":
-            expiry = now + datetime.timedelta(days=30)
-        elif plan == "enterprise":
-            expiry = now + datetime.timedelta(days=30)
-        else:
-            expiry = now + datetime.timedelta(days=30)
+
+        now    = datetime.datetime.utcnow()
+        expiry = now + datetime.timedelta(days=30)
 
         hashed       = ph.hash(password)
         hashed_staff = ph.hash(staff_password) if staff_password else None
@@ -113,6 +106,45 @@ def register_company(request):
             action_status="pending",
         )
 
+        # Upload documents to Supabase Storage
+        try:
+            from supabase import create_client
+            from django.conf import settings
+            sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+            doc_fields = {
+                "business_permit": "Business Permit",
+                "dti_sec":         "DTI/SEC Registration",
+                "bir":             "BIR Certificate",
+            }
+
+            for field_name, label in doc_fields.items():
+                file_obj = request.FILES.get(field_name)
+                if not file_obj:
+                    continue
+
+                ext      = file_obj.name.split(".")[-1]
+                storage_path = f"{company.company_id}/{field_name}.{ext}"
+
+                file_bytes = file_obj.read()
+                sb.storage.from_("company-documents").upload(
+                    storage_path,
+                    file_bytes,
+                    {"content-type": file_obj.content_type, "upsert": "true"}
+                )
+
+                public_url = sb.storage.from_("company-documents").get_public_url(storage_path)
+
+                Document.objects.create(
+                    document_id=uuid.uuid4(),
+                    company_id=company.company_id,
+                    document_name=label,
+                    document_type=field_name,
+                    document_url=public_url,
+                )
+        except Exception as doc_err:
+            print("Document upload error:", doc_err)
+
         # Notify n8n to send welcome email
         try:
             requests.post(
@@ -127,7 +159,33 @@ def register_company(request):
         except Exception as n8n_err:
             print("n8n error:", n8n_err)
 
-        return JsonResponse({"message": "Company registered successfully"})
+        return JsonResponse({"message": "Company registered successfully", "company_id": str(company.company_id)})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+@require_POST
+def save_document(request):
+    try:
+        data          = json.loads(request.body)
+        company_id    = data.get("company_id", "").strip()
+        document_name = data.get("document_name", "").strip()
+        document_type = data.get("document_type", "").strip()
+        document_url  = data.get("document_url", "").strip()
+
+        if not all([company_id, document_url]):
+            return JsonResponse({"error": "Missing required fields"}, status=400)
+
+        Document.objects.create(
+            document_id=uuid.uuid4(),
+            company_id=company_id,
+            document_name=document_name,
+            document_type=document_type,
+            document_url=document_url,
+        )
+
+        return JsonResponse({"message": "Document saved"})
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -328,6 +386,14 @@ def login_hr(request):
 
         if not company_id:
             return JsonResponse({"error": "Missing company ID"}, status=400)
+
+        # Check if company has been revoked/rejected
+        try:
+            approval = ApprovalCompany.objects.get(subscribing_company_id=company_id)
+            if approval.action_status == "rejected":
+                return JsonResponse({"error": "This company's access has been revoked. Please contact support."}, status=403)
+        except ApprovalCompany.DoesNotExist:
+            pass
 
         user = HRUser.objects.get(email=email, company_id=company_id)
 
@@ -1289,6 +1355,23 @@ def delete_company(request):
 
         company = Company.objects.get(company_id=company_id)
 
+        # Delete uploaded documents from Storage + DB
+        try:
+            from supabase import create_client
+            from django.conf import settings
+            sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+            folder = company.storage_folder or str(company.company_id)
+            files  = sb.storage.from_("company-documents").list(folder)
+            if files:
+                paths = [f"{folder}/{f['name']}" for f in files]
+                sb.storage.from_("company-documents").remove(paths)
+        except Exception as storage_err:
+            print("Storage cleanup error:", storage_err)
+
+        Document.objects.filter(company_id=company_id).delete()
+        Notification.objects.filter(recipient_company_id=company_id).delete()
+
         # Cascade: delete HR users, approval records, requests, notifications
         HRUser.objects.filter(company_id=company_id).delete()
         ApprovalCompany.objects.filter(subscribing_company_id=company_id).delete()
@@ -1581,6 +1664,62 @@ def admin_revoke_company(request):
         approval.save()
 
         return JsonResponse({"message": "Company revoked"})
+
+    except ApprovalCompany.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+def get_company_documents(request, company_id):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        docs = Document.objects.filter(company_id=company_id)
+
+        data = [
+            {
+                "id":            str(d.document_id),
+                "document_name": d.document_name,
+                "document_type": d.document_type,
+                "document_url":  d.document_url,
+            }
+            for d in docs
+        ]
+        return JsonResponse(data, safe=False)
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+@require_POST
+def admin_restore_company(request):
+    try:
+        payload  = decode_token(request)
+        role     = payload.get("role")
+        admin_id = payload.get("admin_id")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        data       = json.loads(request.body)
+        company_id = data.get("company_id", "").strip()
+
+        approval = ApprovalCompany.objects.get(subscribing_company_id=company_id)
+        approval.action_status        = "approved"
+        approval.reviewed_by_admin_id = admin_id
+        approval.time_of_action       = datetime.datetime.utcnow()
+        approval.save()
+
+        return JsonResponse({"message": "Company restored"})
 
     except ApprovalCompany.DoesNotExist:
         return JsonResponse({"error": "Not found"}, status=404)

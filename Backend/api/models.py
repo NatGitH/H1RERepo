@@ -3,8 +3,6 @@ from django.db import models
 
 class Company(models.Model):
     company_id           = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    admin_id             = models.UUIDField(null=True, blank=True)
-    document_id          = models.UUIDField(null=True, blank=True)
     company_name         = models.CharField(max_length=255)
     owner_email          = models.CharField(max_length=255, unique=True)
     owner_password       = models.CharField(max_length=255)

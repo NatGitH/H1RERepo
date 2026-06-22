@@ -320,7 +320,13 @@ export default function Requirements() {
   // Paginate helper
   const paginate = (list, page) => list.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  const LeftPanel = ({ submitLabel, cancelFn }) =>
+  // NOTE: this used to be a component function (const LeftPanel = (...) => ...)
+  // defined inside Requirements(). React treated it as a brand-new component
+  // type on every render, which remounted the <input>/<textarea> elements and
+  // killed focus after every keystroke (the "only 1 letter at a time" bug).
+  // Renaming it to a plain render function (not capitalized, called directly
+  // in JSX as {renderLeftPanel(...)} instead of <LeftPanel .../>) avoids the remount.
+  const renderLeftPanel = (submitLabel, cancelFn) =>
     editReq ? (
       <ReqForm value={editReq} onChange={setEditReq} onSave={handleEditSave}
         onCancel={() => setEditReq(null)}
@@ -359,7 +365,7 @@ export default function Requirements() {
         {role === "HRStaff" && (
           <div className="grid grid-cols-[minmax(220px,280px)_1fr] gap-6 items-start max-[850px]:grid-cols-1">
             <div className="sticky top-0">
-              <LeftPanel submitLabel="Submit" cancelFn={resetForm} />
+              {renderLeftPanel("Submit", resetForm)}
             </div>
             <div className="flex flex-col gap-3">
               {all.length === 0 ? (
@@ -388,7 +394,7 @@ export default function Requirements() {
 
             {/* Left: Create + Pending */}
             <div className="flex flex-col gap-4 sticky top-0">
-              <LeftPanel submitLabel="Save" cancelFn={resetForm} />
+              {renderLeftPanel("Save", resetForm)}
               {pending.length > 0 && (
                 <div className="bg-[#fde8c0] rounded-[20px] p-5">
                   <h2 className="text-sm font-extrabold text-[#0f172a] mb-3">Pending ({pending.length})</h2>

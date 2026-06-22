@@ -111,3 +111,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+N8N_EVALUATE_WEBHOOK_URL = os.environ.get("N8N_EVALUATE_WEBHOOK_URL", "http://localhost:5678/webhook/evaluate-resume")

@@ -538,7 +538,7 @@ def reset_password(request):
 def evaluate_resume(request):
     try:
         payload    = decode_token(request)
-        user_id    = payload.get("user_id") or payload.get("company_id")
+        user_id = payload.get("user_id")
         company_id = payload.get("company_id")
 
         # Get the uploaded file
@@ -557,30 +557,37 @@ def evaluate_resume(request):
             is_deleted=False
         )
 
-        # Read file bytes
-        file_bytes = resume_file.read()
-        file_name  = resume_file.name
-        file_type  = resume_file.content_type
+        # Forward the resume + job context to the n8n evaluation webhook
+        n8n_url = getattr(settings, "N8N_EVALUATE_WEBHOOK_URL", "http://localhost:5678/webhook/evaluate-resume")
 
-        # Run AI evaluation
-        from .ai_engine import evaluate_resume as run_evaluation
-        result = run_evaluation(
-            file_bytes         = file_bytes,
-            file_name          = file_name,
-            file_type          = file_type,
-            requirement_id     = str(req.requirement_id),
-            job_title          = req.job_title,
-            description        = req.description,
-            qualifications     = req.qualifications,
-            uploaded_by_user_id = str(user_id),
-        )
+        files = {
+            "resume": (resume_file.name, resume_file.read(), resume_file.content_type),
+        }
+        data = {
+            "requirement_id":      str(req.requirement_id),
+            "job_title":           req.job_title,
+            "description":         req.description,
+            "qualifications":      req.qualifications,
+            "uploaded_by_user_id": str(user_id) if user_id else "",
+        }
 
+        n8n_response = requests.post(n8n_url, files=files, data=data, timeout=60)
+
+        if not n8n_response.ok:
+            return JsonResponse(
+                {"error": f"Evaluation service error: {n8n_response.text}"},
+                status=502
+            )
+
+        result = n8n_response.json()
         return JsonResponse(result, status=201)
 
     except JobRequirement.DoesNotExist:
         return JsonResponse({"error": "Requirement not found"}, status=404)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({"error": f"Could not reach evaluation service: {str(e)}"}, status=502)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 

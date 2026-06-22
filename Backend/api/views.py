@@ -1553,6 +1553,10 @@ def admin_get_companies(request):
             else:
                 sub_status = "unknown"
 
+            # Employee counts
+            total_employees  = HRUser.objects.filter(company_id=c.company_id).count()
+            active_employees = HRUser.objects.filter(company_id=c.company_id, account_status="active").count()
+
             data.append({
                 "id":                 str(c.company_id),
                 "company_name":       c.company_name or "",
@@ -1564,6 +1568,8 @@ def admin_get_companies(request):
                 "approval_status":    approval_status,
                 "subscription_status": sub_status,
                 "date_created":       c.date_created.strftime("%m/%d/%Y"),
+                "total_employees":    total_employees,
+                "active_employees":   active_employees,
             })
 
         return JsonResponse(data, safe=False)

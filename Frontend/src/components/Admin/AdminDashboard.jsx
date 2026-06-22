@@ -370,6 +370,7 @@ const handleRestore = async (company_id) => {
                       </div>
                       <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
                       <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                      <p className="text-xs text-slate-400">{c.active_employees} / {c.total_employees} employees active</p>
                     </div>
                     <div className="flex flex-col gap-1">
                       <button
@@ -430,6 +431,7 @@ const handleRestore = async (company_id) => {
                       </div>
                       <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
                       <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                      <p className="text-xs text-slate-400">{c.active_employees} / {c.total_employees} employees active</p>
                     </div>
                     <div className="flex flex-col gap-1">
                       <button

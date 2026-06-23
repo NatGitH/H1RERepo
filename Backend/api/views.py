@@ -645,7 +645,7 @@ def get_evaluations(request):
                 "resume_id":      ev["resume_id"],
                 "hire_score":     float(ev["hire_score"]),
                 "summary":        ev["ai_summary"],
-                "status":         ev["applicationtion_status"],
+                "status":         ev["application_status"],
                 "pros":           [p["pros_text"] for p in pros],
                 "cons":           [c["cons_text"] for c in cons],
                 "file_name":      resume[0]["file_name"] if resume else "",
@@ -677,7 +677,7 @@ def update_evaluation_status(request, evaluation_id):
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
         sb.table("Evaluations").update({
-            "applicationtion_status": status
+            "application_status": status
         }).eq("evaluation_id", str(evaluation_id)).execute()
 
         return JsonResponse({"message": "Status updated", "status": status})

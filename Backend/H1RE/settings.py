@@ -10,9 +10,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-$23*fw-ust(^*pyddlj=lsc=c1t(!_t%3sb(t#$4wrf8z1b=ap')
 
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -32,6 +32,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # fixed: was 'corsheader' (missing 's')
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -74,9 +75,15 @@ DATABASES = {
     }
 }
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',  # fixed: removed trailing slash
-]
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
 
 
 

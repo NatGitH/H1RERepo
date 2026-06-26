@@ -1147,10 +1147,11 @@ def get_owner_profile(request):
         company = Company.objects.get(company_id=company_id)
 
         return JsonResponse({
-            "company_name":      company.company_name or "",
-            "owner_email":       company.owner_email or "",
-            "subscription_plan": company.subscription_plan or "",
-            "logo":              company.company_logo or "",
+            "company_name":         company.company_name or "",
+            "owner_email":          company.owner_email or "",
+            "subscription_plan":    company.subscription_plan or "",
+            "subscription_expiry":  company.subscription_expiry.strftime("%b %d, %Y") if company.subscription_expiry else "",
+            "logo":                 company.company_logo or "",
         })
 
     except Company.DoesNotExist:
@@ -1346,6 +1347,54 @@ def update_company_description(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+@csrf_exempt
+@require_POST
+def renew_subscription(request):
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can renew the subscription"}, status=403)
+
+        data     = json.loads(request.body)
+        new_plan = data.get("plan", "").strip()
+
+        if new_plan not in ["free", "standard", "enterprise"]:
+            return JsonResponse({"error": "Invalid plan"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+
+        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+        is_same_plan = (new_plan == company.subscription_plan)
+
+        if is_same_plan:
+            # Renewing the same plan: extend from current expiry (or now, if already expired)
+            base_date = company.subscription_expiry if (company.subscription_expiry and company.subscription_expiry > now) else now
+        else:
+            # Switching plans: reset the cycle, starting fresh from today
+            base_date = now
+
+        new_expiry = base_date + datetime.timedelta(days=30)
+
+        company.subscription_plan   = new_plan
+        company.subscription_expiry = new_expiry
+        company.save()
+
+        return JsonResponse({
+            "message":             "Subscription updated successfully",
+            "subscription_plan":   company.subscription_plan,
+            "subscription_expiry": company.subscription_expiry.strftime("%b %d, %Y"),
+            "was_renewal":         is_same_plan,
+        })
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
 def delete_company(request):
@@ -1736,6 +1785,54 @@ def admin_restore_company(request):
 
     except ApprovalCompany.DoesNotExist:
         return JsonResponse({"error": "Not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def admin_delete_company(request):
+    try:
+        payload = decode_token(request)
+        role    = payload.get("role")
+
+        if role != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        data       = json.loads(request.body)
+        company_id = data.get("company_id", "").strip()
+
+        company = Company.objects.get(company_id=company_id)
+
+        # Delete uploaded documents from Storage + DB
+        try:
+            from supabase import create_client
+            from django.conf import settings
+            sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+            folder = company.storage_folder or str(company.company_id)
+            files  = sb.storage.from_("company-documents").list(folder)
+            if files:
+                paths = [f"{folder}/{f['name']}" for f in files]
+                sb.storage.from_("company-documents").remove(paths)
+        except Exception as storage_err:
+            print("Storage cleanup error:", storage_err)
+
+        Document.objects.filter(company_id=company_id).delete()
+        Notification.objects.filter(recipient_company_id=company_id).delete()
+
+        HRUser.objects.filter(company_id=company_id).delete()
+        ApprovalCompany.objects.filter(subscribing_company_id=company_id).delete()
+        EmployerAccountRequest.objects.filter(company_id=company_id).delete()
+        JobRequirement.objects.filter(company_id=company_id).delete()
+
+        company.delete()
+
+        return JsonResponse({"message": "Company permanently deleted"})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:

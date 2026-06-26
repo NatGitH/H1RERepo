@@ -155,7 +155,7 @@ export default function SubscriptionPlan() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative rounded-2xl p-6 flex flex-col bg-[#1a2e6b] text-white ${
+              className={`relative rounded-2xl p-6 flex flex-col bg-[#1a2e6b] text-white${
                 plan.badge ? "border-2 border-purple-500" : ""
               }`}
             >
@@ -195,9 +195,9 @@ export default function SubscriptionPlan() {
                 className="w-full flex items-center justify-between bg-white text-[#1a2e6b] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-slate-100 transition"
               >
                 {plan.buttonLabel}
-                <span className="w-6 h-6 rounded-full bg-[#1a2e6b] text-white flex items-center justify-center text-xs">→</span>
+                <span className="w-6 h-6 rounded-full bg-[#1a2e6b] text-white flex items-center justify-center text-xs cursor-pointer">→</span>
               </button>
-            </div>
+            </div> 
           ))}
         </div>
 

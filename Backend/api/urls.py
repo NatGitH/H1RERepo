@@ -26,6 +26,7 @@ urlpatterns = [
     path("profile/update-company-description/", views.update_company_description),
     path("profile/delete-company/",             views.delete_company),
     path("auth/save-document/", views.save_document),
+    path("api/profile/renew-subscription/", views.renew_subscription, name="renew_subscription"),
     
     path("auth/forgot-password/",   views.forgot_password),
     path("auth/reset-password/",    views.reset_password),
@@ -43,6 +44,7 @@ urlpatterns = [
     path("admin/companies/revoke/",         views.admin_revoke_company),
     path("admin/companies/<str:company_id>/documents/", views.get_company_documents),
     path("admin/companies/restore/", views.admin_restore_company),
+    path("admin/companies/delete/", views.admin_delete_company),
 
     path("evaluate/", views.evaluate_resume),
     path("evaluations/", views.get_evaluations),

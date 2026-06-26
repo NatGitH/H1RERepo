@@ -513,6 +513,170 @@ export function DeleteCompanyModal({ companyName = "", token, onSuccess, onClose
 }
 
 // ─────────────────────────────────────────────
+// Manage Subscription Modal (Owner)
+// ─────────────────────────────────────────────
+const SUBSCRIPTION_PLANS = [
+  {
+    name: "Basic",
+    planType: "free",
+    price: "FREE",
+    priceLabel: null,
+    features: ["1 active job post", "30 resume evaluations/month", "Basic HIRE Score", "AI summary (limited)"],
+  },
+  {
+    name: "Standard",
+    planType: "standard",
+    price: "₱899",
+    priceLabel: "per branch / month",
+    features: ["All in Basic +", "5 active job posts", "500 resume evaluations / month", "Full HIRE Score with pros & cons", "Interview scheduling"],
+  },
+  {
+    name: "Enterprise",
+    planType: "enterprise",
+    price: "₱1,999",
+    priceLabel: "per branch / month",
+    features: ["All in Basic + Standard", "Unlimited job posts", "Unlimited resume evaluations", "Audit logs & advanced analytics", "Priority support & SLA"],
+  },
+];
+
+export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = "", token, onSuccess, onClose }) {
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState("");
+  const [confirmed, setConfirmed]       = useState(false);
+
+  const handleSelect = (planType) => {
+    setSelectedPlan(planType);
+    setError("");
+  };
+
+  const handleProceed = () => {
+    if (!selectedPlan) { setError("Please select a plan."); return; }
+    setConfirmed(true);
+  };
+
+  const handleConfirm = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await fetch("http://localhost:8000/api/profile/renew-subscription/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ plan: selectedPlan }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update subscription.");
+      onSuccess(data.subscription_plan, data.subscription_expiry, data.was_renewal);
+    } catch (err) {
+      setError(err.message);
+      setConfirmed(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isRenewal = selectedPlan === currentPlan;
+  const selectedPlanData = SUBSCRIPTION_PLANS.find((p) => p.planType === selectedPlan);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+      <div
+        className="bg-white rounded-3xl p-8 w-full max-w-3xl"
+        style={{ border: "2px solid #1a1a2e", boxShadow: "4px 4px 0px #000000" }}
+      >
+        {!confirmed ? (
+          <>
+            <h2 className="text-xl font-extrabold text-[#0B2447] text-center mb-1">Manage Subscription</h2>
+            <p className="text-center text-slate-400 text-xs mb-6">
+              Current plan: <span className="font-semibold text-slate-600 capitalize">{currentPlan}</span>
+              {currentExpiry && <> · Expires <span className="font-semibold text-slate-600">{currentExpiry}</span></>}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {SUBSCRIPTION_PLANS.map((plan) => {
+                const isCurrent  = plan.planType === currentPlan;
+                const isSelected = plan.planType === selectedPlan;
+                return (
+                  <button
+                    key={plan.planType}
+                    onClick={() => handleSelect(plan.planType)}
+                    className={`text-left rounded-2xl p-5 flex flex-col bg-[#1a2e6b] text-white border-2 cursor-pointer transition-all ${
+                      isSelected ? "border-teal-400 scale-[1.02]" : "border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-sm font-semibold text-white">{plan.name}</h3>
+                      {isCurrent && (
+                        <span className="bg-teal-500 text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full">
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-2xl font-extrabold text-white mb-1">{plan.price}</p>
+                    {plan.priceLabel && <p className="text-[0.7rem] text-slate-300 mb-3">{plan.priceLabel}</p>}
+                    <hr className="border-[#2a3e7b] mb-3" />
+                    <ul className="flex-1 space-y-1.5">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-1.5 text-[0.7rem] text-slate-200">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-green-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </button>
+                );
+              })}
+            </div>
+
+            {error && <p className="text-red-500 text-xs text-center mb-3">{error}</p>}
+
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={onClose} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 border-none cursor-pointer">
+                Cancel
+              </button>
+              <button
+                onClick={handleProceed}
+                disabled={!selectedPlan}
+                className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold rounded-full py-2.5 border-none cursor-pointer disabled:opacity-50"
+              >
+                Proceed
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col gap-6 max-w-md mx-auto">
+            <h2 className="text-xl font-extrabold text-[#0B2447] text-center">
+              {isRenewal ? "Confirm Renewal" : "Confirm Plan Change"}
+            </h2>
+            <p className="text-center text-[#0B2447] font-semibold text-base">
+              {isRenewal
+                ? <>Renew your <span className="font-extrabold">{selectedPlanData?.name}</span> plan? Your subscription will be extended by 30 days from your current expiry.</>
+                : <>Switch to the <span className="font-extrabold">{selectedPlanData?.name}</span> plan? This will reset your billing cycle, starting a fresh 30-day period from today.</>
+              }
+            </p>
+            {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setConfirmed(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-full py-2.5 border-none cursor-pointer">
+                Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={loading}
+                className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 border-none cursor-pointer disabled:opacity-50"
+              >
+                {loading ? "Saving..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Change Password Modal (HR roles)
 // ─────────────────────────────────────────────
 

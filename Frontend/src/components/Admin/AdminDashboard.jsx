@@ -112,6 +112,20 @@ const handleRestore = async (company_id) => {
   } catch (err) { alert(err.message); }
 };
 
+const handleDelete = async (company_id, companyName) => {
+  if (!window.confirm(`Permanently delete "${companyName}"? This cannot be undone.`)) return;
+  try {
+    const res = await fetch("http://localhost:8000/api/admin/companies/delete/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ company_id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    fetchAll();
+  } catch (err) { alert(err.message); }
+};
+
   const filteredCompanies = companies.filter((c) =>
     c.company_name.toLowerCase().includes(search.toLowerCase())
   );
@@ -288,7 +302,7 @@ const handleRestore = async (company_id) => {
               <div className="border-2 border-slate-200 rounded-2xl p-5">
                 <h2 className="font-extrabold text-[#0B2447] text-base mb-4">Subscription Status</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {companies.slice(0, 4).map((c) => (
+                  {companies.filter((c) => c.approval_status === "approved").slice(0, 4).map((c) => (
                     <div key={c.id} className="bg-slate-50 rounded-xl p-3 flex items-center gap-2">
                       <div className="w-9 h-9 rounded-lg bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                         {c.company_logo ? (
@@ -348,7 +362,7 @@ const handleRestore = async (company_id) => {
             {/* Active Companies */}
             <h3 className="font-bold text-[#0B2447] text-sm mb-3">Active</h3>
             <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 mb-8">
-              {filteredCompanies.filter((c) => c.approval_status !== "rejected").map((c) => (
+              {filteredCompanies.filter((c) => c.approval_status === "approved").map((c) => (
                 <div
                   key={c.id}
                   className="bg-slate-50 rounded-2xl p-4 border border-slate-200"
@@ -401,7 +415,7 @@ const handleRestore = async (company_id) => {
                   {expandedDocs === c.id && <DocumentsList companyId={c.id} />}
                 </div>
               ))}
-              {filteredCompanies.filter((c) => c.approval_status !== "rejected").length === 0 && (
+              {filteredCompanies.filter((c) => c.approval_status === "approved").length === 0 && (
                 <p className="text-slate-400 text-sm col-span-2">No active companies.</p>
               )}
             </div>
@@ -439,6 +453,12 @@ const handleRestore = async (company_id) => {
                         className="text-xs font-bold text-white bg-[#0B2447] hover:bg-[#162553] rounded-full px-3 py-1 border-none cursor-pointer"
                       >
                         Restore
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id, c.company_name)}
+                        className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 border-none cursor-pointer"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>

@@ -10,6 +10,7 @@ import {
   ChangeCompanyPasswordModal,
   ChangeCompanyProfileModal,
   DeleteCompanyModal,
+  ManageSubscriptionModal,
 } from "./ProfileModals";
 
 const UserIcon = () => (
@@ -67,6 +68,9 @@ export default function Profile() {
   const [showOwnerPassModal, setShowOwnerPassModal]           = useState(false);
   const [showCompanyProfileModal, setShowCompanyProfileModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal]                 = useState(false);
+
+  // Owner — subscription modal  ← NEW
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const interviewApplicants = [];
 
@@ -258,6 +262,10 @@ export default function Profile() {
       action: () => { setShowOwnerDotsMenu(false); setShowCompanyProfileModal(true); },
     },
     {
+      label: "Manage Subscription",
+      action: () => { setShowOwnerDotsMenu(false); setShowSubscriptionModal(true); },
+    },
+    {
       label: "Delete Company",
       action: () => { setShowOwnerDotsMenu(false); setShowDeleteModal(true); },
       danger: true,
@@ -418,6 +426,18 @@ export default function Profile() {
                     >
                       {profile?.company_name || "Company Name"}
                     </div>
+
+                    {/* Subscription badge  ← NEW */}
+                    <div className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 self-start bg-white">
+                      <span className="text-sm font-semibold text-slate-600 capitalize">
+                        {profile?.subscription_plan || "free"} plan
+                      </span>
+                      {profile?.subscription_expiry && (
+                        <span className="text-xs text-slate-400">
+                          · expires {profile.subscription_expiry}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* 3 dots menu — Owner */}
@@ -577,6 +597,19 @@ export default function Profile() {
             setShowCompanyProfileModal(false);
           }}
           onClose={() => setShowCompanyProfileModal(false)}
+        />
+      )}
+
+      {showSubscriptionModal && (
+        <ManageSubscriptionModal
+          currentPlan={profile?.subscription_plan || "free"}
+          currentExpiry={profile?.subscription_expiry || ""}
+          token={auth.token}
+          onSuccess={(newPlan, newExpiry) => {
+            setProfile((prev) => ({ ...prev, subscription_plan: newPlan, subscription_expiry: newExpiry }));
+            setShowSubscriptionModal(false);
+          }}
+          onClose={() => setShowSubscriptionModal(false)}
         />
       )}
 

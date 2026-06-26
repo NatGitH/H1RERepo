@@ -73,6 +73,7 @@ function App() {
               <DashboardLayout />
             </ProtectedRoute>
             }>
+
             /* Applicants */
             <Route path="/Applicants" element={<Applicants/>}/>
 

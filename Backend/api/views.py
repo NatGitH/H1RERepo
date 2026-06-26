@@ -640,11 +640,17 @@ def get_evaluations(request):
                 "job_title"
             ).eq("requirement_id", ev["requirement_id"]).execute().data
 
+            applicant = sb.table("Applicants").select("*").eq(
+                "applicant_id", resume[0]["applicant_id"]
+            ).execute().data if resume else []
+
             results.append({
                 "evaluation_id":  ev["evaluation_id"],
                 "resume_id":      ev["resume_id"],
                 "hire_score":     float(ev["hire_score"]),
                 "summary":        ev["ai_summary"],
+                "applicant_name": applicant[0]["full_name"] if applicant else "Unknown Applicant",
+                "applicant_email": applicant[0]["email"] if applicant else "",
                 "status":         ev["application_status"],
                 "pros":           [p["pros_text"] for p in pros],
                 "cons":           [c["cons_text"] for c in cons],

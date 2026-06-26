@@ -212,7 +212,7 @@ export default function Applicants() {
                     </div>
                     <div className="flex flex-col gap-2">
                       <span className="bg-slate-100 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a] truncate max-w-[140px]">
-                        {applicant.file_name}
+                        {applicant.applicant_name || "Unknown Applicant"}
                       </span>
                       <span className="bg-slate-100 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a]">
                         H!RE Score:{" "}
@@ -324,7 +324,7 @@ export default function Applicants() {
               </div>
               <div className="flex flex-col gap-2 flex-1">
                 <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a] truncate">
-                  {selected.file_name}
+                  {selected.applicant_name || "Unknown Applicant"}
                 </span>
                 <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
                   H!RE Score:{" "}

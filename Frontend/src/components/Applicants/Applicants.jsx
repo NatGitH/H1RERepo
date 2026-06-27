@@ -4,6 +4,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
 import { useAuth } from "../../.Context/AuthContext";
+import { API_BASE_URL } from "../../api";
 
 export default function Applicants() {
   const { auth } = useAuth();
@@ -21,7 +22,7 @@ export default function Applicants() {
   // Fetch evaluations
   const fetchEvaluations = () => {
     setLoading(true);
-    fetch("http://localhost:8000/api/evaluations/", {
+    fetch(`${API_BASE_URL}/api/evaluations/`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
       .then((res) => res.json())
@@ -32,7 +33,7 @@ export default function Applicants() {
 
   // Fetch approved requirements for the picker
   const fetchRequirements = () => {
-    fetch("http://localhost:8000/api/requirements/", {
+    fetch(`${API_BASE_URL}/api/requirements/`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
       .then((res) => res.json())
@@ -71,7 +72,7 @@ export default function Applicants() {
     formData.append("requirement_id", selectedReqId);
 
     try {
-      const res = await fetch("http://localhost:8000/api/evaluate/", {
+      const res = await fetch(`${API_BASE_URL}/api/evaluate/`, {
         method: "POST",
         headers: { Authorization: `Bearer ${auth.token}` },
         body: formData,
@@ -91,7 +92,7 @@ export default function Applicants() {
   const handleStatusUpdate = async (evaluationId, status) => {
     try {
       await fetch(
-        `http://localhost:8000/api/evaluations/${evaluationId}/status/`,
+        `${API_BASE_URL}/api/evaluations/${evaluationId}/status/`,
         {
           method: "PATCH",
           headers: {

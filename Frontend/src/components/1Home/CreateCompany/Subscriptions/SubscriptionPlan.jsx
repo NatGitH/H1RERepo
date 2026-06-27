@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useCompanyRegistration } from "../../../../.Context/CompanyRegistrationContext";
 import { supabase } from "../../../../.Context/supabaseClient";
+import { API_BASE_URL } from "../../../../api";
 
 
 export default function SubscriptionPlan() {
@@ -91,7 +92,7 @@ export default function SubscriptionPlan() {
     formData.append("staff_password", registrationData.staffPassword);
     formData.append("plan", plan.planType);
 
-    const res = await fetch("http://localhost:8000/api/auth/register-company/", {
+    const res = await fetch(`${API_BASE_URL}/api/auth/register-company/`, {
       method: "POST",
       body: formData,
     });
@@ -111,7 +112,7 @@ export default function SubscriptionPlan() {
         if (!file) continue;
         const url = await uploadDocument(file, companyId, fieldName);
         if (url) {
-          await fetch("http://localhost:8000/api/auth/save-document/", {
+          await fetch(`${API_BASE_URL}/api/auth/save-document/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

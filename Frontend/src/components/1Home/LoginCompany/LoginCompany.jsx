@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from '../../../.Context/LoginContext';
+import { API_BASE_URL } from "../../../api";
 
 export default function LoginCompany() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function LoginCompany() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/auth/find-company/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/find-company/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ company_name: form.company_name, staff_password: form.staff_password }),

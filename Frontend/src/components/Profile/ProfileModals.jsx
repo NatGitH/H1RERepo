@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { API_BASE_URL } from "../../api";
 
 // ─────────────────────────────────────────────
 // Change Profile Picture Modal (HR roles)
@@ -175,7 +176,7 @@ export function ChangeCompanyNameModal({ currentName = "", token, onSuccess, onC
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/profile/update-company-name/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-name/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ company_name: newName.trim() }),
@@ -285,7 +286,7 @@ export function ChangeCompanyPasswordModal({ token, onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/profile/update-company-password/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-password/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
@@ -387,7 +388,7 @@ export function ChangeCompanyProfileModal({ currentDescription = "", token, onSu
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/profile/update-company-description/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-description/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ description }),
@@ -454,7 +455,7 @@ export function DeleteCompanyModal({ companyName = "", token, onSuccess, onClose
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/profile/delete-company/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/delete-company/`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
@@ -559,7 +560,7 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/profile/renew-subscription/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/renew-subscription/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ plan: selectedPlan }),
@@ -699,7 +700,7 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/auth/send-reset-code/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/send-reset-code/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -718,7 +719,7 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/auth/verify-reset-code/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/verify-reset-code/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code }),
@@ -745,7 +746,7 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("http://localhost:8000/api/auth/reset-password/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/reset-password/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code, new_password: newPassword }),

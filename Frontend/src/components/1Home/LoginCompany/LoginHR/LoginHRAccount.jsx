@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from '../../../../.Context/LoginContext';
 import { useAuth } from '../../../../.Context/AuthContext';
+import { API_BASE_URL } from "../../../../api";
 
 export default function LoginHRAccount() {
   const navigate  = useNavigate();
@@ -20,7 +21,7 @@ export default function LoginHRAccount() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:8000/api/auth/login-hr/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login-hr/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -36,7 +37,7 @@ export default function LoginHRAccount() {
         return;
       }
 
-      const profileRes = await fetch("http://localhost:8000/api/profile/hr/", {
+      const profileRes = await fetch(`${API_BASE_URL}/api/profile/hr/`, {
         headers: { Authorization: `Bearer ${data.token}` },
       });
       const profileData = await profileRes.json();

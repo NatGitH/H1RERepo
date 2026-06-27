@@ -4,6 +4,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from "../../../../.Context/LoginContext";
 import { useHRRegistration } from "../../../../.Context/HRRegistrationContext";
 import { supabase } from "../../../../.Context/supabaseClient";
+import { API_BASE_URL } from "../../../../api";
 
 export default function CreateHRProfile() {
   const navigate = useNavigate();
@@ -77,7 +78,7 @@ export default function CreateHRProfile() {
         profilePictureUrl = urlData.publicUrl;
       }
 
-      const res = await fetch("http://localhost:8000/api/auth/create-hr-account/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/create-hr-account/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

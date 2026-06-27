@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useAuth } from "../../../.Context/AuthContext";
+import { API_BASE_URL } from "../../../api";
 
 export default function LoginOwner() {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export default function LoginOwner() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:8000/api/auth/login-owner/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login-owner/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: form.email, password: form.password }),

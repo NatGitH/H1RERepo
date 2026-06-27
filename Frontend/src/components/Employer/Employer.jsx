@@ -7,6 +7,7 @@ import {
   ConfirmRoleModal,
   DeleteConfirmModal,
 } from "./EmployerModals";
+import { API_BASE_URL } from "../../api";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -35,7 +36,7 @@ export default function Employer() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/employers/", {
+    fetch(`${API_BASE_URL}/api/employers/`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
       .then((res) => res.json())
@@ -45,7 +46,7 @@ export default function Employer() {
 
   const handleApproveReject = async (userId, status) => {
     try {
-      const res = await fetch("http://localhost:8000/api/employers/approve-reject/", {
+      const res = await fetch(`${API_BASE_URL}/api/employers/approve-reject/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ user_id: userId, status }),
@@ -62,7 +63,7 @@ export default function Employer() {
 
   const handleChangeRole = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/employers/change-role/", {
+      const res = await fetch(`${API_BASE_URL}/api/employers/change-role/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ user_id: selectedMember.id, role_name: selectedRole }),
@@ -78,7 +79,7 @@ export default function Employer() {
 
   const handleDelete = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/employers/delete/", {
+      const res = await fetch(`${API_BASE_URL}/api/employers/delete/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ user_id: selectedMember.id }),

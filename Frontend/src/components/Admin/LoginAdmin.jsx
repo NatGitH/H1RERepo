@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useAuth } from "../../.Context/AuthContext";
+import { API_BASE_URL } from "../../api";
 
 export default function LoginAdmin() {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ export default function LoginAdmin() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:8000/api/auth/login-admin/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login-admin/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

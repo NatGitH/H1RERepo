@@ -11,6 +11,7 @@ import {
   DeleteCompanyModal,
   ManageSubscriptionModal,
 } from "./ProfileModals";
+import { API_BASE_URL } from "../../api";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -74,7 +75,7 @@ export default function Profile() {
 
   useEffect(() => {
     const endpoint = role === "owner" ? "/api/profile/owner/" : "/api/profile/hr/";
-    fetch(`http://localhost:8000${endpoint}`, {
+    fetch(`${API_BASE_URL}${endpoint}`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
       .then((res) => res.json())
@@ -97,7 +98,7 @@ export default function Profile() {
 
   const handleStatusChange = async (newStatus) => {
     try {
-      const res = await fetch("http://localhost:8000/api/profile/update-status/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/update-status/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ status: newStatus }),
@@ -147,7 +148,7 @@ export default function Profile() {
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-      const res = await fetch("http://localhost:8000/api/profile/update-picture/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/update-picture/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ profile_picture: publicUrl }),
@@ -212,7 +213,7 @@ export default function Profile() {
       const savedUrl   = urlData.publicUrl;
       const displayUrl = `${savedUrl}?t=${Date.now()}`;
 
-      const res = await fetch("http://localhost:8000/api/profile/update-company-logo/", {
+      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-logo/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ logo: savedUrl }),
@@ -379,7 +380,7 @@ export default function Profile() {
                     onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
                     onBlur={async (e) => {
                       try {
-                        await fetch("http://localhost:8000/api/profile/update-bio/", {
+                        await fetch(`${API_BASE_URL}/api/profile/update-bio/`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
                           body: JSON.stringify({ bio: e.target.value }),
@@ -472,7 +473,7 @@ export default function Profile() {
                     onChange={(e) => setProfile((prev) => ({ ...prev, description: e.target.value }))}
                     onBlur={async (e) => {
                       try {
-                        await fetch("http://localhost:8000/api/profile/update-company-description/", {
+                        await fetch(`${API_BASE_URL}/api/profile/update-company-description/`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
                           body: JSON.stringify({ description: e.target.value }),

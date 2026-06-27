@@ -7,6 +7,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import { API_BASE_URL } from "../../api";
 
 export default function AdminDashboard() {
   const { auth, logout } = useAuth();
@@ -31,9 +32,9 @@ export default function AdminDashboard() {
       const headers = { Authorization: `Bearer ${auth.token}` };
 
       const [statsRes, pendingRes, companiesRes] = await Promise.all([
-        fetch("http://localhost:8000/api/admin/dashboard/", { headers }),
-        fetch("http://localhost:8000/api/admin/companies/pending/", { headers }),
-        fetch("http://localhost:8000/api/admin/companies/", { headers }),
+        fetch(`${API_BASE_URL}/api/admin/dashboard/`, { headers }),
+        fetch(`${API_BASE_URL}/api/admin/companies/pending/`, { headers }),
+        fetch(`${API_BASE_URL}/api/admin/companies/`, { headers }),
       ]);
 
       const statsData     = await statsRes.json();
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
   const fetchDocuments = async (companyId) => {
     if (docsByCompany[companyId]) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/companies/${companyId}/documents/`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/companies/${companyId}/documents/`, {
         headers: { Authorization: `Bearer ${auth.token}` },
       });
       const data = await res.json();
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
 
   const handleApproveReject = async (ap_id, status) => {
     try {
-      const res = await fetch("http://localhost:8000/api/admin/companies/approve-reject/", {
+      const res = await fetch(`${API_BASE_URL}/api/admin/companies/approve-reject/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ ap_id, status }),
@@ -88,7 +89,7 @@ export default function AdminDashboard() {
 
   const handleRevoke = async (company_id) => {
     try {
-      const res = await fetch("http://localhost:8000/api/admin/companies/revoke/", {
+      const res = await fetch(`${API_BASE_URL}/api/admin/companies/revoke/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ company_id }),
@@ -101,7 +102,7 @@ export default function AdminDashboard() {
 
 const handleRestore = async (company_id) => {
   try {
-    const res = await fetch("http://localhost:8000/api/admin/companies/restore/", {
+    const res = await fetch(`${API_BASE_URL}/api/admin/companies/restore/`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
       body: JSON.stringify({ company_id }),
@@ -115,7 +116,7 @@ const handleRestore = async (company_id) => {
 const handleDelete = async (company_id, companyName) => {
   if (!window.confirm(`Permanently delete "${companyName}"? This cannot be undone.`)) return;
   try {
-    const res = await fetch("http://localhost:8000/api/admin/companies/delete/", {
+    const res = await fetch(`${API_BASE_URL}/api/admin/companies/delete/`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
       body: JSON.stringify({ company_id }),

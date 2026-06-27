@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import SearchIcon from "@mui/icons-material/Search";
 import { useAuth } from "../../.Context/AuthContext";
+import { API_BASE_URL } from "../../api";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -217,7 +218,7 @@ export default function Requirements() {
   const autoApprove = role === "owner" || role === "HRManager";
 
   const fetchRequirements = () => {
-    fetch("http://localhost:8000/api/requirements/", {
+    fetch(`${API_BASE_URL}/api/requirements/`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
       .then((r) => r.json())
@@ -230,7 +231,7 @@ export default function Requirements() {
   const handleCreate = async () => {
     if (!newReq.job_title || !newReq.description || !newReq.qualifications) { alert("Please fill in all fields."); return; }
     try {
-      const res = await fetch("http://localhost:8000/api/requirements/", {
+      const res = await fetch(`${API_BASE_URL}/api/requirements/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify(newReq),
@@ -238,7 +239,7 @@ export default function Requirements() {
       const created = await res.json();
       if (!res.ok) throw new Error(created.error || "Failed to create");
       if (autoApprove && created.id) {
-        await fetch(`http://localhost:8000/api/requirements/${created.id}/`, {
+        await fetch(`${API_BASE_URL}/api/requirements/${created.id}/`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
           body: JSON.stringify({ status: "approved" }),
@@ -255,7 +256,7 @@ export default function Requirements() {
   const handleEditSave = async () => {
     if (!editReq.job_title || !editReq.description || !editReq.qualifications) { alert("Please fill in all fields."); return; }
     try {
-      const res = await fetch(`http://localhost:8000/api/requirements/${editReq.id}/`, {
+      const res = await fetch(`${API_BASE_URL}/api/requirements/${editReq.id}/`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ job_title: editReq.job_title, description: editReq.description, qualifications: editReq.qualifications }),
@@ -271,7 +272,7 @@ export default function Requirements() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this requirement?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/requirements/${id}/`, {
+      const res = await fetch(`${API_BASE_URL}/api/requirements/${id}/`, {
         method: "DELETE", headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) throw new Error("Failed to delete");
@@ -282,7 +283,7 @@ export default function Requirements() {
   const handleProposeDelete = async (id) => {
     if (!confirm("Propose deletion? A manager will need to approve.")) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/requirements/${id}/`, {
+      const res = await fetch(`${API_BASE_URL}/api/requirements/${id}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ status: "deletion_pending" }),
@@ -295,7 +296,7 @@ export default function Requirements() {
 
   const handleStatus = async (id, status) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/requirements/${id}/`, {
+      const res = await fetch(`${API_BASE_URL}/api/requirements/${id}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ status }),

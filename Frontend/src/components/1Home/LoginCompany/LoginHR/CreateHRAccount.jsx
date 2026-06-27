@@ -3,13 +3,15 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from '../../../../.Context/LoginContext';
 import { useAuth } from '../../../../.Context/AuthContext';
+import { useHRRegistration } from '../../../../.Context/HRRegistrationContext';
 
 export default function CreateHRAccount() {
   const navigate = useNavigate();
 
-  const { loginData, setCompany } = useLogin();
+  const { loginData } = useLogin();
   const { auth } = useAuth();
-  
+  const { updateData } = useHRRegistration();
+
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -20,35 +22,29 @@ export default function CreateHRAccount() {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
+    if (!form.username || !form.email || !form.password) {
+      alert("Please fill in all fields.");
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       alert("Passwords do not match.");
       return;
     }
-    try {
-      const company_id = loginData.companyId || auth.companyId;
-      const res = await fetch("http://localhost:8000/api/auth/create-hr-account/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: form.username,
-          email: form.email,
-          password: form.password,
-          company_id: company_id,
-          role: "HRStaff",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create account");
-      setCompany({ 
-        companyId: loginData.companyId, 
-        companyName: loginData.companyName,
-        pendingUserEmail: form.email 
-      });
-      navigate("/Create-HR-Profile");
-    } catch (err) {
-      alert(err.message);
+
+    const company_id = loginData.companyId || auth.companyId;
+    if (!company_id) {
+      alert("Missing company information. Please restart registration.");
+      return;
     }
+
+    updateData({
+      username: form.username,
+      email: form.email,
+      password: form.password,
+    });
+
+    navigate("/Create-HR-Profile");
   };
 
   return (

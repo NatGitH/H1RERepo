@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import { CompanyRegistrationProvider } from './.Context/CompanyRegistrationContext.jsx'
+import { HRRegistrationProvider } from './.Context/HRRegistrationContext.jsx'
 import { AuthProvider } from './.Context/AuthContext.jsx'
 import { LoginProvider } from './.Context/LoginContext'
 import './index.css'
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <LoginProvider>
           <CompanyRegistrationProvider>
-            <App />
+            <HRRegistrationProvider>
+              <App />
+            </HRRegistrationProvider>
           </CompanyRegistrationProvider>
         </LoginProvider>
       </AuthProvider>

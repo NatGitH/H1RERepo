@@ -8,7 +8,6 @@ import {
   ChangeCompanyLogoModal,
   ChangeCompanyNameModal,
   ChangeCompanyPasswordModal,
-  ChangeCompanyProfileModal,
   DeleteCompanyModal,
   ManageSubscriptionModal,
 } from "./ProfileModals";
@@ -66,7 +65,6 @@ export default function Profile() {
   const [showCompanyNameModal, setShowCompanyNameModal]       = useState(false);
   const [showCompanyPassModal, setShowCompanyPassModal]       = useState(false);
   const [showOwnerPassModal, setShowOwnerPassModal]           = useState(false);
-  const [showCompanyProfileModal, setShowCompanyProfileModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal]                 = useState(false);
 
   // Owner — subscription modal  ← NEW
@@ -256,10 +254,6 @@ export default function Profile() {
     {
       label: "Change Password",
       action: () => { setShowOwnerDotsMenu(false); setShowOwnerPassModal(true); },
-    },
-    {
-      label: "Edit Company Profile",
-      action: () => { setShowOwnerDotsMenu(false); setShowCompanyProfileModal(true); },
     },
     {
       label: "Manage Subscription",
@@ -473,9 +467,21 @@ export default function Profile() {
 
                 {/* Company description */}
                 <div className="border-2 border-slate-200 rounded-[20px] p-6">
-                  <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0">
-                    {profile?.description || "No company description available."}
-                  </p>
+                  <textarea
+                    value={profile?.description || ""}
+                    onChange={(e) => setProfile((prev) => ({ ...prev, description: e.target.value }))}
+                    onBlur={async (e) => {
+                      try {
+                        await fetch("http://localhost:8000/api/profile/update-company-description/", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+                          body: JSON.stringify({ description: e.target.value }),
+                        });
+                      } catch (err) { console.error(err); }
+                    }}
+                    placeholder="Tell applicants about your company..."
+                    className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
+                  />
                 </div>
               </>
             )}
@@ -585,18 +591,6 @@ export default function Profile() {
         <ChangePasswordModal
           initialEmail={auth.email || ""}
           onClose={() => setShowOwnerPassModal(false)}
-        />
-      )}
-
-      {showCompanyProfileModal && (
-        <ChangeCompanyProfileModal
-          currentDescription={profile?.description || ""}
-          token={auth.token}
-          onSuccess={(desc) => {
-            setProfile((prev) => ({ ...prev, description: desc }));
-            setShowCompanyProfileModal(false);
-          }}
-          onClose={() => setShowCompanyProfileModal(false)}
         />
       )}
 

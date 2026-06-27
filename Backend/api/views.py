@@ -296,7 +296,13 @@ def create_hr_account(request):
         company_id = data.get("company_id", "").strip()
         role_name  = data.get("role", "HRStaff").strip()
 
-        if not all([username, email, password, company_id]):
+        firstname       = data.get("firstname", "").strip()
+        lastname        = data.get("lastname", "").strip()
+        birthdate       = data.get("birthdate") or None
+        bio             = data.get("bio", "").strip()
+        profile_picture = data.get("profile_picture") or None
+
+        if not all([username, email, password, company_id, firstname, lastname]):
             return JsonResponse({"error": "Missing required fields"}, status=400)
 
         if HRUser.objects.filter(email=email, company_id=company_id).exists():
@@ -312,10 +318,14 @@ def create_hr_account(request):
             username=username,
             email=email,
             password=hashed,
+            firstname=firstname,
+            lastname=lastname,
+            birthdate=birthdate,
+            bio=bio,
+            profile_picture=profile_picture,
             account_status="pending",
         )
 
-        # Log into Employer_Account_Requests
         EmployerAccountRequest.objects.create(
             request_id=uuid.uuid4(),
             requested_user_id=user.user_id,
@@ -324,7 +334,6 @@ def create_hr_account(request):
             request_status="pending",
         )
 
-        # Notify HRManagers and Owner about the new pending account
         try:
             managers = HRUser.objects.filter(
                 company_id=company_id,
@@ -338,29 +347,28 @@ def create_hr_account(request):
                     recipient_user_id=mgr.user_id,
                     notification_type="new_account_request",
                     title="New Account Request",
-                    message=f"{username} has requested to join your team and is waiting for approval.",
+                    message=f"{firstname} {lastname} has requested to join your team and is waiting for approval.",
                     is_read=False,
                 )
 
             Notification.objects.create(
-            notification_id=uuid.uuid4(),
-            recipient_company_id=company_id,
-            notification_type="new_account_request",
-            title="New Account Request",
-            message=f"{username} has requested to join your team and is waiting for approval.",
-            is_read=False,
-        )
+                notification_id=uuid.uuid4(),
+                recipient_company_id=company_id,
+                notification_type="new_account_request",
+                title="New Account Request",
+                message=f"{firstname} {lastname} has requested to join your team and is waiting for approval.",
+                is_read=False,
+            )
         except Exception as notif_err:
             print("Notification error:", notif_err)
 
-        # Notify n8n to send welcome email
         try:
             requests.post(
                 "http://localhost:5678/webhook/register-confirmation",
                 json={
                     "email":      email,
-                    "first_name": username,
-                    "last_name":  "",
+                    "first_name": firstname,
+                    "last_name":  lastname,
                 },
                 timeout=5,
             )
@@ -1158,6 +1166,7 @@ def get_owner_profile(request):
             "subscription_plan":    company.subscription_plan or "",
             "subscription_expiry":  company.subscription_expiry.strftime("%b %d, %Y") if company.subscription_expiry else "",
             "logo":                 company.company_logo or "",
+            "description":          company.company_description or "",
         })
 
     except Company.DoesNotExist:
@@ -1341,9 +1350,8 @@ def update_company_description(request):
         description = data.get("description", "").strip()
 
         company = Company.objects.get(company_id=company_id)
-        company.description = description
+        company.company_description = description
         company.save()
-
         return JsonResponse({"message": "Company description updated", "description": description})
 
     except Company.DoesNotExist:

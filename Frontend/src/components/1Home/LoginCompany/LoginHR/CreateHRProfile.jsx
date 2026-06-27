@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from "../../../../.Context/LoginContext";
+import { useHRRegistration } from "../../../../.Context/HRRegistrationContext";
 import { supabase } from "../../../../.Context/supabaseClient";
 
 export default function CreateHRProfile() {
@@ -10,7 +11,8 @@ export default function CreateHRProfile() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [showVerification, setShowVerification] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const { loginData } = useLogin();
+  const { loginData, clearCompany } = useLogin();
+  const { registrationData, updateData } = useHRRegistration();
 
   const [form, setForm] = useState({
     firstName: "",
@@ -33,13 +35,24 @@ export default function CreateHRProfile() {
   };
 
   const handleSubmit = async () => {
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      alert("First name and last name are required.");
+      return;
+    }
+
+    if (!registrationData.username || !registrationData.email || !registrationData.password) {
+      alert("Registration session expired. Please start over.");
+      navigate("/Create-HR-Account");
+      return;
+    }
+
     try {
       setUploading(true);
       let profilePictureUrl = null;
 
       if (avatarFile) {
         const fileExt = avatarFile.name.split(".").pop();
-        const safeEmail = loginData.pendingUserEmail.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const safeEmail = registrationData.email.replace(/[^a-zA-Z0-9_-]/g, "_");
         const fileName = `employee-profiles/${safeEmail}.${fileExt}`;
 
         const { data: existingFiles } = await supabase.storage
@@ -64,22 +77,28 @@ export default function CreateHRProfile() {
         profilePictureUrl = urlData.publicUrl;
       }
 
-      const res = await fetch("http://localhost:8000/api/auth/update-hr-profile/", {
+      const res = await fetch("http://localhost:8000/api/auth/create-hr-account/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email:           loginData.pendingUserEmail,
+          username:        registrationData.username,
+          email:           registrationData.email,
+          password:        registrationData.password,
           company_id:      loginData.companyId,
+          role:            "HRStaff",
           firstname:       form.firstName,
           lastname:        form.lastName,
-          birthdate:       form.dateOfBirth,
+          birthdate:       form.dateOfBirth || null,
           bio:             form.bio,
           profile_picture: profilePictureUrl,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update profile");
+      if (!res.ok) throw new Error(data.error || "Failed to create account");
+
+      // Reset registration state now that the account is created
+      updateData({ username: "", email: "", password: "" });
       setShowVerification(true);
 
     } catch (err) {
@@ -87,6 +106,11 @@ export default function CreateHRProfile() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleBackToLogin = () => {
+    clearCompany();
+    navigate("/company-home");
   };
 
   return (
@@ -190,7 +214,7 @@ export default function CreateHRProfile() {
               <h2 className="text-xl font-bold text-black mb-10">Account for Verification</h2>
               <p className="text-gray-500 text-sm mb-10">Wait for the Email Confirmation...</p>
               <button
-                onClick={() => navigate("/company-home")}
+                onClick={handleBackToLogin}
                 className="bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold px-6 py-2 rounded-lg transition duration-200"
               >
                 Back to Login

@@ -393,9 +393,6 @@ const handleDelete = async (company_id, companyName) => {
                       >
                         Revoke
                       </button>
-                      <button className="text-xs font-bold text-white bg-[#0B2447] hover:bg-[#162553] rounded-full px-3 py-1 border-none cursor-pointer">
-                        Renew
-                      </button>
                     </div>
                   </div>
 

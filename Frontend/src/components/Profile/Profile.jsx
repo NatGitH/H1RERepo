@@ -64,7 +64,11 @@ export default function Profile() {
   const [showDeleteModal, setShowDeleteModal]             = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-  const interviewApplicants = [];
+  // ── Interview Applicants (shortlisted / interview_sent evaluations) ──
+  const [interviewApplicants, setInterviewApplicants] = useState([]);
+  const [loadingApplicants, setLoadingApplicants]     = useState(true);
+  const [applicantsError, setApplicantsError]         = useState("");
+  const [expandedId, setExpandedId]                   = useState(null);
 
   useEffect(() => {
     const endpoint = role === "owner" ? "/api/profile/owner/" : "/api/profile/hr/";
@@ -75,6 +79,39 @@ export default function Profile() {
       .then((data) => { setProfile(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchApplicants = () => {
+      setLoadingApplicants(true);
+      setApplicantsError("");
+      fetch(`${API_BASE_URL}/api/evaluations/`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      })
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to load evaluations.");
+          return data;
+        })
+        .then((data) => {
+          if (cancelled) return;
+          const filtered = (data || []).filter(
+            (ev) => ev.status === "shortlisted" || ev.status === "interview_sent"
+          );
+          setInterviewApplicants(filtered);
+        })
+        .catch((err) => {
+          if (!cancelled) setApplicantsError(err.message || "Failed to load applicants.");
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingApplicants(false);
+        });
+    };
+
+    fetchApplicants();
+    return () => { cancelled = true; };
+  }, [auth.token]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -482,34 +519,105 @@ export default function Profile() {
               >
                 For Interview Applicants
               </div>
-              {interviewApplicants.length > 0 ? (
-                <div className="flex flex-col gap-5">
-                  {interviewApplicants.map((applicant) => (
-                    <div key={applicant.id} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-1.5 text-[0.82rem] font-semibold text-slate-500">
-                        <span>📅</span> {applicant.date}
-                      </div>
-                      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
-                        <div className="w-[80px] min-w-[80px] h-[90px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
-                          {applicant.photo ? (
-                            <img src={applicant.photo} alt={applicant.name} className="w-full h-full object-cover" />
-                          ) : <UserIcon />}
+
+              {loadingApplicants ? (
+                <p className="text-slate-400 text-sm">Loading applicants...</p>
+              ) : applicantsError ? (
+                <p className="text-red-500 text-sm">{applicantsError}</p>
+              ) : interviewApplicants.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {interviewApplicants.map((applicant) => {
+                    const isExpanded   = expandedId === applicant.evaluation_id;
+                    const isScheduled  = applicant.status === "interview_sent";
+
+                    return (
+                      <div key={applicant.evaluation_id} className="flex flex-col gap-2">
+                        {/* Job requirement label */}
+                        <div className="flex items-center gap-1.5 text-[0.78rem] font-bold text-[#0B2447]">
+                          <span>💼</span> {applicant.job_title || "Untitled Requirement"}
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">{applicant.name}</span>
-                          <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
-                            H!RE Score: <span className="text-green-500 font-bold">{applicant.score}%</span>
-                          </span>
-                          <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">{applicant.role}</span>
-                          {role === "owner" && (
-                            <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
-                              <strong>Interviewer: {applicant.interviewer}</strong>
+
+                        <button
+                          onClick={() =>
+                            setExpandedId((prev) =>
+                              prev === applicant.evaluation_id ? null : applicant.evaluation_id
+                            )
+                          }
+                          className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer text-left transition-colors hover:bg-slate-50"
+                          style={{ border: "1px solid #e2e8f0" }}
+                        >
+                          <div className="w-[60px] min-w-[60px] h-[60px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
+                            <UserIcon />
+                          </div>
+                          <div className="flex flex-col gap-2 flex-1 min-w-0">
+                            <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
+                              {applicant.applicant_name}
                             </span>
-                          )}
-                        </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
+                                H!RE Score: <span className="text-green-500 font-bold">{applicant.hire_score}%</span>
+                              </span>
+                              <span
+                                className={`rounded-full px-3 py-1 text-[0.72rem] font-bold ${
+                                  isScheduled
+                                    ? "bg-blue-50 text-blue-600 border border-blue-200"
+                                    : "bg-amber-50 text-amber-600 border border-amber-200"
+                                }`}
+                              >
+                                {isScheduled ? "Interview Scheduled" : "Shortlisted"}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-slate-400 text-sm shrink-0">{isExpanded ? "▲" : "▼"}</span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 text-sm">
+                            {applicant.applicant_email && (
+                              <p className="text-slate-600 m-0">
+                                <span className="font-semibold text-[#0B2447]">Email:</span> {applicant.applicant_email}
+                              </p>
+                            )}
+                            {applicant.summary && (
+                              <p className="text-slate-600 m-0">
+                                <span className="font-semibold text-[#0B2447]">AI Summary:</span> {applicant.summary}
+                              </p>
+                            )}
+                            {applicant.pros?.length > 0 && (
+                              <div>
+                                <p className="font-semibold text-green-600 m-0 mb-1">Pros</p>
+                                <ul className="list-disc pl-5 m-0 text-slate-600">
+                                  {applicant.pros.map((p, i) => <li key={i}>{p}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            {applicant.cons?.length > 0 && (
+                              <div>
+                                <p className="font-semibold text-red-500 m-0 mb-1">Cons</p>
+                                <ul className="list-disc pl-5 m-0 text-slate-600">
+                                  {applicant.cons.map((c, i) => <li key={i}>{c}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            {isScheduled && applicant.interview_date && (
+                              <p className="text-blue-600 m-0">
+                                <span className="font-semibold">Interview Date:</span>{" "}
+                                {new Date(applicant.interview_date).toLocaleString()}
+                              </p>
+                            )}
+                            {isScheduled && applicant.interview_message && (
+                              <p className="text-slate-600 m-0">
+                                <span className="font-semibold text-[#0B2447]">Message:</span> {applicant.interview_message}
+                              </p>
+                            )}
+                            <p className="text-slate-400 text-xs m-0">
+                              Shortlisted by: {applicant.shortlisted_by || "—"}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>

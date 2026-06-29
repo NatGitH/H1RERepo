@@ -108,7 +108,7 @@ export default function Employer() {
   }
 
   return (
-    <section className="px-4 pt-1 bg-[#0B2447] h-screen overflow-hidden flex flex-col">
+    <section className="px-4 pt-1 bg-[#0B2447] h-[calc(100vh-56px)] overflow-hidden flex flex-col">
       <div
         className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447] flex-1 flex flex-col min-h-0 mb-4"
         style={{ boxShadow: "6px 6px 0px #0B2447" }}

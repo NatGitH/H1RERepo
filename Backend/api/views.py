@@ -728,13 +728,14 @@ def update_evaluation_status(request, evaluation_id):
                 "sent_date": datetime.datetime.utcnow().isoformat(),
             }).execute()
 
+        sb.table("Evaluations").update(update_data).eq("evaluation_id", str(evaluation_id)).execute()
+
         return JsonResponse({"message": "Status updated", "status": status})
 
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 
 # Employer

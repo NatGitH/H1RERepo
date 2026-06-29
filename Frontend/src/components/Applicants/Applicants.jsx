@@ -144,11 +144,11 @@ export default function Applicants() {
   return (
     <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
       <div
-        className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-4 px-10 pb-6 border-2 border-[#0B2447]"
+        className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447]"
         style={{ boxShadow: "6px 6px 0px #0B2447" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
           <div
             className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
             style={{ boxShadow: "3px 3px 0px #0B2447" }}
@@ -167,7 +167,7 @@ export default function Applicants() {
           </div>
         </div>
 
-        <div className="flex gap-6 items-stretch h-[480px] min-h-0">
+        <div className="flex gap-6 items-stretch">
           {/* Upload Zone */}
           <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 flex-shrink-0">
             <input
@@ -193,7 +193,7 @@ export default function Applicants() {
           </label>
 
           {/* Applicant Cards */}
-          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <div className="flex-1 h-[416px] overflow-y-auto pr-1">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-3 h-full">
                 <div className="w-10 h-10 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />

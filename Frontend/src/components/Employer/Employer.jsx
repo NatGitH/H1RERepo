@@ -108,9 +108,9 @@ export default function Employer() {
   }
 
   return (
-    <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
+    <section className="px-4 pt-1 bg-[#0B2447] h-screen overflow-hidden flex flex-col">
       <div
-        className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447]"
+        className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447] flex-1 flex flex-col min-h-0 mb-4"
         style={{ boxShadow: "6px 6px 0px #0B2447" }}
       >
         {/* Header */}
@@ -132,10 +132,10 @@ export default function Employer() {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-2 gap-6 max-[768px]:grid-cols-1">
+        <div className="grid grid-cols-2 gap-6 max-[768px]:grid-cols-1 flex-1 min-h-0">
 
           {/* Pending Panel */}
-          <div className="bg-[#fde8c0] rounded-[24px] p-6 flex flex-col">
+          <div className="bg-[#fde8c0] rounded-[24px] p-6 flex flex-col min-h-0">
             <div className="flex items-start justify-between gap-4 mb-5 flex-shrink-0">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
                 Pending Account Creation
@@ -145,12 +145,12 @@ export default function Employer() {
               </span>
             </div>
             {pending.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-12">
+              <div className="flex flex-col items-center justify-center gap-2 py-12 flex-1">
                 <p className="font-bold text-[#78350f]">No pending accounts</p>
                 <p className="text-sm text-[#92400e] text-center">All caught up!</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-4 overflow-y-auto pr-1 h-[300px]">
+              <div className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1 min-h-0">
                 {pending.map((member) => (
                   <div key={member.id} className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-[0_4px_16px_rgba(15,23,42,0.07)]">
                     <div className="w-[70px] min-w-[70px] h-[80px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
@@ -185,7 +185,7 @@ export default function Employer() {
           </div>
 
           {/* Active Panel */}
-          <div className="bg-[#d4edb8] rounded-[24px] p-6 flex flex-col">
+          <div className="bg-[#d4edb8] rounded-[24px] p-6 flex flex-col min-h-0">
             <div className="flex items-start justify-between gap-4 mb-5 flex-shrink-0">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
                 Active HR Members
@@ -195,11 +195,11 @@ export default function Employer() {
               </span>
             </div>
             {active.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-12">
+              <div className="flex flex-col items-center justify-center gap-2 py-12 flex-1">
                 <p className="font-bold text-green-800">No active members yet</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-4 overflow-y-auto pr-1 h-[300px]">
+              <div className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1 min-h-0">
                 {active.map((member) => (
                   <div
                     key={member.id}

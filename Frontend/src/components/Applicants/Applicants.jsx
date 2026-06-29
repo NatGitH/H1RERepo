@@ -167,9 +167,9 @@ export default function Applicants() {
           </div>
         </div>
 
-        <div className="flex gap-6 items-stretch">
+        <div className="flex gap-6 items-stretch h-[480px] min-h-0">
           {/* Upload Zone */}
-          <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 min-h-[400px]">
+          <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 flex-shrink-0">
             <input
               type="file"
               accept=".pdf,image/*"
@@ -193,14 +193,14 @@ export default function Applicants() {
           </label>
 
           {/* Applicant Cards */}
-          <div className="flex-1 flex items-center justify-center min-h-[400px]">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             {loading ? (
-              <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center justify-center gap-3 h-full">
                 <div className="w-10 h-10 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />
                 <p className="text-slate-500 text-sm">Loading evaluations...</p>
               </div>
             ) : filtered.length > 0 ? (
-              <div className="flex flex-wrap gap-4 w-full">
+              <div className="flex flex-wrap gap-4 w-full content-start">
                 {filtered.map((applicant) => (
                   <div
                     key={applicant.evaluation_id}
@@ -229,7 +229,7 @@ export default function Applicants() {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-4 text-center">
+              <div className="flex flex-col items-center justify-center gap-4 text-center h-full">
                 <div className="w-16 h-16 rounded-full bg-teal-400 flex items-center justify-center shadow-[4px_4px_0px_#0f172a]">
                   <GroupsIcon style={{ fontSize: 32, color: "white" }} />
                 </div>

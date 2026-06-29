@@ -676,6 +676,8 @@ def get_evaluations(request):
                 "shortlisted_by_user_id": ev.get("shortlisted_by_user_id"),
                 "interview_date": interview[0]["interview_date"] if interview else None,
                 "interview_message": interview[0]["message"] if interview else None,
+                "action_made_by": get_user_fullname(ev.get("action_made_by_user_id")),
+                "action_made_by_user_id": ev.get("action_made_by_user_id"),
             })
 
         return JsonResponse(results, safe=False)
@@ -706,12 +708,12 @@ def update_evaluation_status(request, evaluation_id):
 
         if status == "rejected":
             update_data["rejected_at"] = datetime.datetime.utcnow().isoformat()
+            update_data["action_made_by_user_id"] = str(user_id) if user_id else None
         elif status == "shortlisted":
-            update_data["shortlisted_by_user_id"] = str(user_id) if user_id else None
+            update_data["action_made_by_user_id"] = str(user_id) if user_id else None
             update_data["rejected_at"] = None
         elif status == "pending":
             update_data["rejected_at"] = None
-            update_data["shortlisted_by_user_id"] = None
         elif status == "interview_sent":
             interview_date = data.get("interview_date")
             message = data.get("message", "")

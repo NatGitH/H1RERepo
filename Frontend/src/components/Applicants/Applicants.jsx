@@ -19,6 +19,17 @@ export default function Applicants() {
   const [showReqPicker, setShowReqPicker] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
 
+  const sorted = [...filtered].sort((a, b) => {
+  const order = { shortlisted: 0, pending: 1, rejected: 2 };
+  return (order[a.status] ?? 1) - (order[b.status] ?? 1);
+  });
+
+  const cardBorderStyle = (status) => {
+  if (status === "shortlisted") return { border: "2px solid #22c55e", boxShadow: "3px 3px 0px #22c55e" };
+  if (status === "rejected")    return { border: "2px solid #ef4444", boxShadow: "3px 3px 0px #ef4444" };
+  return { border: "2px solid #0f172a", boxShadow: "3px 3px 0px #0f172a" };
+  };
+
   // Fetch evaluations
   const fetchEvaluations = () => {
     setLoading(true);
@@ -201,12 +212,12 @@ export default function Applicants() {
               </div>
             ) : filtered.length > 0 ? (
               <div className="flex flex-wrap gap-4 w-full content-start">
-                {filtered.map((applicant) => (
+                {sorted.map((applicant) => (
                   <div
                     key={applicant.evaluation_id}
                     onClick={() => handleCardClick(applicant)}
-                    className="bg-white rounded-2xl border-2 border-[#0f172a] p-4 flex items-center gap-4 flex-[1_1_240px] max-w-[280px] cursor-pointer hover:shadow-lg transition-shadow"
-                    style={{ boxShadow: "3px 3px 0px #0f172a" }}
+                    className="bg-white rounded-2xl p-4 flex items-center gap-4 flex-[1_1_240px] max-w-[280px] cursor-pointer hover:shadow-lg transition-shadow"
+                    style={cardBorderStyle(applicant.status)}
                   >
                     <div className="w-20 min-w-[80px] h-24 bg-slate-100 rounded-xl border-2 border-[#0f172a] overflow-hidden flex items-center justify-center">
                       <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />

@@ -130,7 +130,7 @@ export default function Applicants() {
   );
 
   const handleCardClick = (applicant) => {
-    const idx = filtered.findIndex(
+    const idx = sortedApplicants.findIndex(
       (a) => a.evaluation_id === applicant.evaluation_id
     );
     setCurrentIndex(idx);
@@ -138,15 +138,15 @@ export default function Applicants() {
   };
 
   const handlePrev = () => {
-    const newIdx = (currentIndex - 1 + filtered.length) % filtered.length;
+    const newIdx = (currentIndex - 1 + sortedApplicants.length) % sortedApplicants.length;
     setCurrentIndex(newIdx);
-    setSelected(filtered[newIdx]);
+    setSelected(sortedApplicants[newIdx]);
   };
 
   const handleNext = () => {
-    const newIdx = (currentIndex + 1) % filtered.length;
+    const newIdx = (currentIndex + 1) % sortedApplicants.length;
     setCurrentIndex(newIdx);
-    setSelected(filtered[newIdx]);
+    setSelected(sortedApplicants[newIdx]);
   };
 
   const scoreColor = (score) =>
@@ -212,7 +212,7 @@ export default function Applicants() {
               </div>
             ) : filtered.length > 0 ? (
               <div className="flex flex-wrap gap-4 w-full content-start">
-                {sorted.map((applicant) => (
+                {sortedApplicants.map((applicant) => (
                   <div
                     key={applicant.evaluation_id}
                     onClick={() => handleCardClick(applicant)}
@@ -400,7 +400,7 @@ export default function Applicants() {
             </div>
           </div>
 
-          {filtered.length > 1 && (
+          {sortedApplicants.length > 1 && (
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); handlePrev(); }}

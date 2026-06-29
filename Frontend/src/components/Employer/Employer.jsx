@@ -135,8 +135,8 @@ export default function Employer() {
         <div className="grid grid-cols-2 gap-6 max-[768px]:grid-cols-1">
 
           {/* Pending Panel */}
-          <div className="bg-[#fde8c0] rounded-[24px] p-6 min-h-[420px]">
-            <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="bg-[#fde8c0] rounded-[24px] p-6 max-h-[480px] flex flex-col">
+            <div className="flex items-start justify-between gap-4 mb-5 flex-shrink-0">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
                 Pending Account Creation
               </h2>
@@ -150,7 +150,7 @@ export default function Employer() {
                 <p className="text-sm text-[#92400e] text-center">All caught up!</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 overflow-y-auto pr-1">
                 {pending.map((member) => (
                   <div key={member.id} className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-[0_4px_16px_rgba(15,23,42,0.07)]">
                     <div className="w-[70px] min-w-[70px] h-[80px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
@@ -185,8 +185,8 @@ export default function Employer() {
           </div>
 
           {/* Active Panel */}
-          <div className="bg-[#d4edb8] rounded-[24px] p-6 min-h-[420px]">
-            <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="bg-[#d4edb8] rounded-[24px] p-6 max-h-[480px] flex flex-col">
+            <div className="flex items-start justify-between gap-4 mb-5 flex-shrink-0">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
                 Active HR Members
               </h2>
@@ -199,7 +199,7 @@ export default function Employer() {
                 <p className="font-bold text-green-800">No active members yet</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 overflow-y-auto pr-1">
                 {active.map((member) => (
                   <div
                     key={member.id}

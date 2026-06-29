@@ -41,34 +41,27 @@ export default function Profile() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const statusRef = useRef(null);
 
-  // HR — picture modal
   const [showPicModal, setShowPicModal]     = useState(false);
   const [newPicFile, setNewPicFile]         = useState(null);
   const [newPicPreview, setNewPicPreview]   = useState(null);
   const [uploadingPic, setUploadingPic]     = useState(false);
 
-  // HR — dots menu + password modal
   const [showDotsMenu, setShowDotsMenu]   = useState(false);
   const dotsRef = useRef(null);
   const [showPassModal, setShowPassModal] = useState(false);
 
-  // Owner — dots menu
   const [showOwnerDotsMenu, setShowOwnerDotsMenu] = useState(false);
   const ownerDotsRef = useRef(null);
 
-  // Owner — logo modal
   const [showLogoModal, setShowLogoModal]     = useState(false);
   const [newLogoFile, setNewLogoFile]         = useState(null);
   const [newLogoPreview, setNewLogoPreview]   = useState(null);
   const [uploadingLogo, setUploadingLogo]     = useState(false);
 
-  // Owner — other modals
-  const [showCompanyNameModal, setShowCompanyNameModal]       = useState(false);
-  const [showCompanyPassModal, setShowCompanyPassModal]       = useState(false);
-  const [showOwnerPassModal, setShowOwnerPassModal]           = useState(false);
-  const [showDeleteModal, setShowDeleteModal]                 = useState(false);
-
-  // Owner — subscription modal  ← NEW
+  const [showCompanyNameModal, setShowCompanyNameModal]   = useState(false);
+  const [showCompanyPassModal, setShowCompanyPassModal]   = useState(false);
+  const [showOwnerPassModal, setShowOwnerPassModal]       = useState(false);
+  const [showDeleteModal, setShowDeleteModal]             = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const interviewApplicants = [];
@@ -110,7 +103,6 @@ export default function Profile() {
     } catch (err) { alert(err.message); }
   };
 
-  // ── HR picture handlers ──
   const handlePicFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -174,7 +166,6 @@ export default function Profile() {
     setNewPicPreview(null);
   };
 
-  // ── Owner logo handlers ──
   const handleLogoFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -238,303 +229,298 @@ export default function Profile() {
     setNewLogoPreview(null);
   };
 
-  // ── Owner dots menu items ──
   const ownerMenuItems = [
-    {
-      label: "Change Company Logo",
-      action: () => { setShowOwnerDotsMenu(false); setShowLogoModal(true); },
-    },
-    {
-      label: "Change Company Password",
-      action: () => { setShowOwnerDotsMenu(false); setShowCompanyPassModal(true); },
-    },
-    {
-      label: "Change Company Name",
-      action: () => { setShowOwnerDotsMenu(false); setShowCompanyNameModal(true); },
-    },
-    {
-      label: "Change Password",
-      action: () => { setShowOwnerDotsMenu(false); setShowOwnerPassModal(true); },
-    },
-    {
-      label: "Manage Subscription",
-      action: () => { setShowOwnerDotsMenu(false); setShowSubscriptionModal(true); },
-    },
-    {
-      label: "Delete Company",
-      action: () => { setShowOwnerDotsMenu(false); setShowDeleteModal(true); },
-      danger: true,
-    },
+    { label: "Change Company Logo",     action: () => { setShowOwnerDotsMenu(false); setShowLogoModal(true); } },
+    { label: "Change Company Password", action: () => { setShowOwnerDotsMenu(false); setShowCompanyPassModal(true); } },
+    { label: "Change Company Name",     action: () => { setShowOwnerDotsMenu(false); setShowCompanyNameModal(true); } },
+    { label: "Change Password",         action: () => { setShowOwnerDotsMenu(false); setShowOwnerPassModal(true); } },
+    { label: "Manage Subscription",     action: () => { setShowOwnerDotsMenu(false); setShowSubscriptionModal(true); } },
+    { label: "Delete Company",          action: () => { setShowOwnerDotsMenu(false); setShowDeleteModal(true); }, danger: true },
   ];
 
   const currentStatus = STATUS_OPTIONS.find((s) => s.value === profile?.account_status) || STATUS_OPTIONS[0];
 
   if (loading) {
     return (
-      <section className="px-4 pt-1 bg-[#0B2447] min-h-screen flex items-center justify-center">
+      <section
+        className="px-4 pt-1 bg-[#0B2447] flex items-center justify-center"
+        style={{ height: "calc(100vh - 56px)" }}
+      >
         <p className="text-white text-sm">Loading profile...</p>
       </section>
     );
   }
 
   return (
-    <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
+    <section
+      className="px-4 pt-1 bg-[#0B2447]"
+      style={{ height: "calc(100vh - 56px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
+    >
+      {/* ── White box ── */}
       <div
-        className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-4 px-10 pb-6 min-h-[600px] border-2 border-[#0B2447]"
-        style={{ boxShadow: "6px 6px 0px #0B2447" }}
+        className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-4 px-10 pb-6 border-2 border-[#0B2447]"
+        style={{
+          boxShadow: "6px 6px 0px #0B2447",
+          flex: "1 1 0",
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          marginBottom: "1rem",
+          overflow: "hidden",
+        }}
       >
-        <div className="grid grid-cols-[1fr_380px] gap-6 items-start max-[900px]:grid-cols-1">
+        {/* ── Scrollable inner area ── */}
+        <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto" }}>
+          <div className="grid grid-cols-[1fr_380px] gap-6 items-start max-[900px]:grid-cols-1">
 
-          {/* ── LEFT PANEL ── */}
-          <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-[500px] border border-slate-200/20 flex flex-col gap-6">
+            {/* ── LEFT PANEL ── */}
+            <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-[500px] border border-slate-200/20 flex flex-col gap-6">
 
-            {/* ── HR Staff / Manager ── */}
-            {(role === "HRStaff" || role === "HRManager") && (
-              <>
-                <div className="flex items-start gap-5 relative">
-                  {/* Avatar */}
-                  <div
-                    onClick={() => setShowPicModal(true)}
-                    className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer relative group"
-                  >
-                    {profile?.profile_picture ? (
-                      <img src={profile.profile_picture} alt="Profile" className="w-full h-full object-cover" />
-                    ) : <UserIcon />}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
-                      <span className="text-white text-xs font-bold">Change</span>
+              {/* ── HR Staff / Manager ── */}
+              {(role === "HRStaff" || role === "HRManager") && (
+                <>
+                  <div className="flex items-start gap-5 relative">
+                    {/* Avatar */}
+                    <div
+                      onClick={() => setShowPicModal(true)}
+                      className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer relative group"
+                    >
+                      {profile?.profile_picture ? (
+                        <img src={profile.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+                      ) : <UserIcon />}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                        <span className="text-white text-xs font-bold">Change</span>
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex flex-col gap-3 flex-1">
+                      <div
+                        className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
+                        style={{ boxShadow: "3px 3px 0px #0B2447" }}
+                      >
+                        {profile?.firstname && profile?.lastname
+                          ? `${profile.firstname} ${profile.lastname}`
+                          : profile?.username || "No Name"}
+                      </div>
+
+                      {/* Status Dropdown */}
+                      <div className="relative self-start" ref={statusRef}>
+                        <button
+                          onClick={() => setShowStatusMenu((v) => !v)}
+                          className={`flex items-center gap-2 border rounded-full px-4 py-1.5 cursor-pointer transition-colors ${currentStatus.bg} ${currentStatus.border}`}
+                        >
+                          <span className={`w-2.5 h-2.5 rounded-full ${currentStatus.dot}`} />
+                          <span className={`text-sm font-semibold ${currentStatus.text}`}>{currentStatus.label}</span>
+                        </button>
+                        {showStatusMenu && (
+                          <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-lg border border-slate-200 z-50 overflow-hidden min-w-[160px]">
+                            {STATUS_OPTIONS.filter((s) => s.value !== profile?.account_status).map((s) => (
+                              <button
+                                key={s.value}
+                                onClick={() => handleStatusChange(s.value)}
+                                className={`flex items-center gap-2 w-full px-4 py-2.5 text-sm font-semibold cursor-pointer border-none transition-colors ${s.bg} ${s.text} hover:opacity-80`}
+                              >
+                                <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
+                                {s.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {profile?.birthdate && (
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 self-start bg-white">
+                          <span className="text-slate-400 text-sm">📅</span>
+                          <span className="text-sm font-medium text-slate-600">{profile.birthdate}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3 dots menu — HR */}
+                    <div className="absolute top-0 right-0" ref={dotsRef}>
+                      <button
+                        onClick={() => setShowDotsMenu((v) => !v)}
+                        className="text-slate-400 text-xl font-bold px-2 cursor-pointer bg-transparent border-none hover:text-slate-600"
+                      >
+                        ⋯
+                      </button>
+                      {showDotsMenu && (
+                        <div
+                          className="absolute right-0 top-8 bg-white rounded-xl py-2 px-2 w-44 z-50"
+                          style={{ border: "2px solid #1a1a2e", boxShadow: "3px 3px 0px #000000" }}
+                        >
+                          <button
+                            onClick={() => { setShowDotsMenu(false); setShowPassModal(true); }}
+                            className="w-full text-left px-3 py-2 text-sm font-semibold text-[#0B2447] hover:bg-slate-50 rounded-lg border-none bg-transparent cursor-pointer"
+                          >
+                            Change Password
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="flex flex-col gap-3 flex-1">
+                  {/* Bio */}
+                  <div className="border-2 border-slate-200 rounded-[20px] p-6">
+                    <textarea
+                      value={profile?.bio || ""}
+                      onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
+                      onBlur={async (e) => {
+                        try {
+                          await fetch(`${API_BASE_URL}/api/profile/update-bio/`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+                            body: JSON.stringify({ bio: e.target.value }),
+                          });
+                        } catch (err) { console.error(err); }
+                      }}
+                      placeholder="Tell us about yourself..."
+                      className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* ── Owner ── */}
+              {role === "owner" && (
+                <>
+                  <div className="flex items-start gap-5 relative">
+                    {/* Company logo */}
                     <div
-                      className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
-                      style={{ boxShadow: "3px 3px 0px #0B2447" }}
+                      onClick={() => setShowLogoModal(true)}
+                      className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer relative group"
                     >
-                      {profile?.firstname && profile?.lastname
-                        ? `${profile.firstname} ${profile.lastname}`
-                        : profile?.username || "No Name"}
+                      {profile?.logo ? (
+                        <img src={profile.logo} alt="Company Logo" className="w-full h-full object-cover" />
+                      ) : (
+                        <CompanyIcon />
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                        <span className="text-white text-xs font-bold">Change Logo</span>
+                      </div>
                     </div>
 
-                    {/* Status Dropdown */}
-                    <div className="relative self-start" ref={statusRef}>
-                      <button
-                        onClick={() => setShowStatusMenu((v) => !v)}
-                        className={`flex items-center gap-2 border rounded-full px-4 py-1.5 cursor-pointer transition-colors ${currentStatus.bg} ${currentStatus.border}`}
+                    {/* Company name badge */}
+                    <div className="flex flex-col gap-3 flex-1">
+                      <div
+                        className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
+                        style={{ boxShadow: "3px 3px 0px #0B2447" }}
                       >
-                        <span className={`w-2.5 h-2.5 rounded-full ${currentStatus.dot}`} />
-                        <span className={`text-sm font-semibold ${currentStatus.text}`}>{currentStatus.label}</span>
+                        {profile?.company_name || "Company Name"}
+                      </div>
+
+                      {/* Subscription badge */}
+                      <div className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 self-start bg-white">
+                        <span className="text-sm font-semibold text-slate-600 capitalize">
+                          {profile?.subscription_plan || "free"} plan
+                        </span>
+                        {profile?.subscription_expiry && (
+                          <span className="text-xs text-slate-400">
+                            · expires {profile.subscription_expiry}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 3 dots menu — Owner */}
+                    <div className="absolute top-0 right-0" ref={ownerDotsRef}>
+                      <button
+                        onClick={() => setShowOwnerDotsMenu((v) => !v)}
+                        className="text-slate-400 text-xl font-bold px-2 cursor-pointer bg-transparent border-none hover:text-slate-600"
+                      >
+                        ⋯
                       </button>
-                      {showStatusMenu && (
-                        <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-lg border border-slate-200 z-50 overflow-hidden min-w-[160px]">
-                          {STATUS_OPTIONS.filter((s) => s.value !== profile?.account_status).map((s) => (
+                      {showOwnerDotsMenu && (
+                        <div
+                          className="absolute right-0 top-8 bg-white rounded-xl py-2 px-2 w-52 z-50"
+                          style={{ border: "2px solid #1a1a2e", boxShadow: "3px 3px 0px #000000" }}
+                        >
+                          {ownerMenuItems.map(({ label, action, danger }) => (
                             <button
-                              key={s.value}
-                              onClick={() => handleStatusChange(s.value)}
-                              className={`flex items-center gap-2 w-full px-4 py-2.5 text-sm font-semibold cursor-pointer border-none transition-colors ${s.bg} ${s.text} hover:opacity-80`}
+                              key={label}
+                              onClick={action}
+                              className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg border-none bg-transparent cursor-pointer transition-colors ${
+                                danger ? "text-red-500 hover:bg-red-50" : "text-[#0B2447] hover:bg-slate-50"
+                              }`}
                             >
-                              <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
-                              {s.label}
+                              {label}
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
-
-                    {profile?.birthdate && (
-                      <div className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 self-start bg-white">
-                        <span className="text-slate-400 text-sm">📅</span>
-                        <span className="text-sm font-medium text-slate-600">{profile.birthdate}</span>
-                      </div>
-                    )}
                   </div>
 
-                  {/* 3 dots menu — HR */}
-                  <div className="absolute top-0 right-0" ref={dotsRef}>
-                    <button
-                      onClick={() => setShowDotsMenu((v) => !v)}
-                      className="text-slate-400 text-xl font-bold px-2 cursor-pointer bg-transparent border-none hover:text-slate-600"
-                    >
-                      ⋯
-                    </button>
-                    {showDotsMenu && (
-                      <div
-                        className="absolute right-0 top-8 bg-white rounded-xl py-2 px-2 w-44 z-50"
-                        style={{ border: "2px solid #1a1a2e", boxShadow: "3px 3px 0px #000000" }}
-                      >
-                        <button
-                          onClick={() => { setShowDotsMenu(false); setShowPassModal(true); }}
-                          className="w-full text-left px-3 py-2 text-sm font-semibold text-[#0B2447] hover:bg-slate-50 rounded-lg border-none bg-transparent cursor-pointer"
-                        >
-                          Change Password
-                        </button>
-                      </div>
-                    )}
+                  {/* Company description */}
+                  <div className="border-2 border-slate-200 rounded-[20px] p-6">
+                    <textarea
+                      value={profile?.description || ""}
+                      onChange={(e) => setProfile((prev) => ({ ...prev, description: e.target.value }))}
+                      onBlur={async (e) => {
+                        try {
+                          await fetch(`${API_BASE_URL}/api/profile/update-company-description/`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+                            body: JSON.stringify({ description: e.target.value }),
+                          });
+                        } catch (err) { console.error(err); }
+                      }}
+                      placeholder="Tell applicants about your company..."
+                      className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
+                    />
                   </div>
-                </div>
-
-                {/* Bio */}
-                <div className="border-2 border-slate-200 rounded-[20px] p-6">
-                  <textarea
-                    value={profile?.bio || ""}
-                    onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
-                    onBlur={async (e) => {
-                      try {
-                        await fetch(`${API_BASE_URL}/api/profile/update-bio/`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-                          body: JSON.stringify({ bio: e.target.value }),
-                        });
-                      } catch (err) { console.error(err); }
-                    }}
-                    placeholder="Tell us about yourself..."
-                    className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* ── Owner ── */}
-            {role === "owner" && (
-              <>
-                <div className="flex items-start gap-5 relative">
-                  {/* Company logo — click to change */}
-                  <div
-                    onClick={() => setShowLogoModal(true)}
-                    className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer relative group"
-                  >
-                    {profile?.logo ? (
-                      <img src={profile.logo} alt="Company Logo" className="w-full h-full object-cover" />
-                    ) : (
-                      <CompanyIcon />
-                    )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
-                      <span className="text-white text-xs font-bold">Change Logo</span>
-                    </div>
-                  </div>
-
-                  {/* Company name badge */}
-                  <div className="flex flex-col gap-3 flex-1">
-                    <div
-                      className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
-                      style={{ boxShadow: "3px 3px 0px #0B2447" }}
-                    >
-                      {profile?.company_name || "Company Name"}
-                    </div>
-
-                    {/* Subscription badge  ← NEW */}
-                    <div className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 self-start bg-white">
-                      <span className="text-sm font-semibold text-slate-600 capitalize">
-                        {profile?.subscription_plan || "free"} plan
-                      </span>
-                      {profile?.subscription_expiry && (
-                        <span className="text-xs text-slate-400">
-                          · expires {profile.subscription_expiry}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 3 dots menu — Owner */}
-                  <div className="absolute top-0 right-0" ref={ownerDotsRef}>
-                    <button
-                      onClick={() => setShowOwnerDotsMenu((v) => !v)}
-                      className="text-slate-400 text-xl font-bold px-2 cursor-pointer bg-transparent border-none hover:text-slate-600"
-                    >
-                      ⋯
-                    </button>
-                    {showOwnerDotsMenu && (
-                      <div
-                        className="absolute right-0 top-8 bg-white rounded-xl py-2 px-2 w-52 z-50"
-                        style={{ border: "2px solid #1a1a2e", boxShadow: "3px 3px 0px #000000" }}
-                      >
-                        {ownerMenuItems.map(({ label, action, danger }) => (
-                          <button
-                            key={label}
-                            onClick={action}
-                            className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg border-none bg-transparent cursor-pointer transition-colors ${
-                              danger
-                                ? "text-red-500 hover:bg-red-50"
-                                : "text-[#0B2447] hover:bg-slate-50"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Company description */}
-                <div className="border-2 border-slate-200 rounded-[20px] p-6">
-                  <textarea
-                    value={profile?.description || ""}
-                    onChange={(e) => setProfile((prev) => ({ ...prev, description: e.target.value }))}
-                    onBlur={async (e) => {
-                      try {
-                        await fetch(`${API_BASE_URL}/api/profile/update-company-description/`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-                          body: JSON.stringify({ description: e.target.value }),
-                        });
-                      } catch (err) { console.error(err); }
-                    }}
-                    placeholder="Tell applicants about your company..."
-                    className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* ── RIGHT PANEL ── */}
-          <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-[500px] border border-slate-200/20 flex flex-col">
-            <div
-              className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-base tracking-wide self-start mb-6"
-              style={{ boxShadow: "3px 3px 0px #0B2447" }}
-            >
-              For Interview Applicants
+                </>
+              )}
             </div>
-            {interviewApplicants.length > 0 ? (
-              <div className="flex flex-col gap-5">
-                {interviewApplicants.map((applicant) => (
-                  <div key={applicant.id} className="flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5 text-[0.82rem] font-semibold text-slate-500">
-                      <span>📅</span> {applicant.date}
-                    </div>
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
-                      <div className="w-[80px] min-w-[80px] h-[90px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
-                        {applicant.photo ? (
-                          <img src={applicant.photo} alt={applicant.name} className="w-full h-full object-cover" />
-                        ) : <UserIcon />}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">{applicant.name}</span>
-                        <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
-                          H!RE Score: <span className="text-green-500 font-bold">{applicant.score}%</span>
-                        </span>
-                        <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">{applicant.role}</span>
-                        {role === "owner" && (
-                          <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
-                            <strong>Interviewer: {applicant.interviewer}</strong>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+
+            {/* ── RIGHT PANEL ── */}
+            <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-[500px] border border-slate-200/20 flex flex-col">
+              <div
+                className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-base tracking-wide self-start mb-6"
+                style={{ boxShadow: "3px 3px 0px #0B2447" }}
+              >
+                For Interview Applicants
               </div>
-            ) : (
-              <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>
-            )}
+              {interviewApplicants.length > 0 ? (
+                <div className="flex flex-col gap-5">
+                  {interviewApplicants.map((applicant) => (
+                    <div key={applicant.id} className="flex flex-col gap-2">
+                      <div className="flex items-center gap-1.5 text-[0.82rem] font-semibold text-slate-500">
+                        <span>📅</span> {applicant.date}
+                      </div>
+                      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
+                        <div className="w-[80px] min-w-[80px] h-[90px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
+                          {applicant.photo ? (
+                            <img src={applicant.photo} alt={applicant.name} className="w-full h-full object-cover" />
+                          ) : <UserIcon />}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">{applicant.name}</span>
+                          <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
+                            H!RE Score: <span className="text-green-500 font-bold">{applicant.score}%</span>
+                          </span>
+                          <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">{applicant.role}</span>
+                          {role === "owner" && (
+                            <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
+                              <strong>Interviewer: {applicant.interviewer}</strong>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
 
-      {/* ══════════════════════════════
-          HR Modals
-      ══════════════════════════════ */}
+      {/* ══ HR Modals ══ */}
       {showPicModal && (
         <ChangeProfilePictureModal
           newPicPreview={newPicPreview}
@@ -554,9 +540,7 @@ export default function Profile() {
         />
       )}
 
-      {/* ══════════════════════════════
-          Owner Modals
-      ══════════════════════════════ */}
+      {/* ══ Owner Modals ══ */}
       {showLogoModal && (
         <ChangeCompanyLogoModal
           newPicPreview={newLogoPreview}
@@ -613,7 +597,6 @@ export default function Profile() {
           companyName={profile?.company_name || ""}
           token={auth.token}
           onSuccess={() => {
-            // Log out and redirect after deletion
             logout();
             navigate("/");
           }}

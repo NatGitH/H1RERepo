@@ -339,99 +339,108 @@ export default function Requirements() {
       <CreateButton onClick={() => setShowForm(true)} />
     );
 
-  return (
-    <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
-      <Modal req={modalReq} onClose={() => setModalReq(null)}
-        onEdit={(r) => setEditReq({ ...r })} onDelete={handleDelete}
-        onProposeDelete={handleProposeDelete} role={role} />
+return (
+  <section
+    className="px-4 pt-1 bg-[#0B2447]"
+    style={{ height: "calc(100vh - 56px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
+  >
+    <Modal req={modalReq} onClose={() => setModalReq(null)}
+      onEdit={(r) => setEditReq({ ...r })} onDelete={handleDelete}
+      onProposeDelete={handleProposeDelete} role={role} />
 
-      <div className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-4 px-8 pb-6 border-2 border-[#0B2447] overflow-y-auto max-h-[calc(100vh-2rem)]"
-        style={{ boxShadow: "6px 6px 0px #0B2447" }}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-          <div className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide px-6 h-[50px] flex items-center justify-center whitespace-nowrap"
-            style={{ boxShadow: "3px 3px 0px #0B2447" }}>
-            Requirements
-          </div>
-          <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">
-            <input type="search" placeholder="Search" value={search}
-              onChange={(e) => { setSearch(e.target.value); setApprovedPage(1); setAllPage(1); }}
-              className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400" />
-            <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
-          </div>
+    <div
+      className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-4 px-8 pb-6 border-2 border-[#0B2447]"
+      style={{ boxShadow: "6px 6px 0px #0B2447", flex: "1 1 0", minHeight: 0, display: "flex", flexDirection: "column", marginBottom: "1rem", overflow: "hidden" }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide px-6 h-[50px] flex items-center justify-center whitespace-nowrap"
+          style={{ boxShadow: "3px 3px 0px #0B2447" }}>
+          Requirements
         </div>
+        <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">
+          <input type="search" placeholder="Search" value={search}
+            onChange={(e) => { setSearch(e.target.value); setApprovedPage(1); setAllPage(1); }}
+            className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400" />
+          <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+        </div>
+      </div>
 
-        {/* ── HRStaff View ── */}
-        {role === "HRStaff" && (
-          <div className="grid grid-cols-[minmax(220px,280px)_1fr] gap-6 items-start max-[850px]:grid-cols-1">
-            <div className="sticky top-0">
-              {renderLeftPanel("Submit", resetForm)}
-            </div>
-            <div className="flex flex-col gap-3">
-              {all.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-                  <p className="font-bold">No requirements yet.</p>
-                  <p className="text-sm">Create one using the form on the left.</p>
-                </div>
-              ) : (
-                <>
-                  <h3 className="font-extrabold text-[#0f172a] text-sm text-slate-500">
-                    {all.length} Requirement(s) · Page {allPage} of {Math.ceil(all.length / ITEMS_PER_PAGE)}
-                  </h3>
+      {/* ── HRStaff View ── */}
+      {role === "HRStaff" && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,280px) 1fr", gap: "1.5rem", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
+          <div>
+            {renderLeftPanel("Submit", resetForm)}
+          </div>
+          {/* ✅ THIS is the scrollable column */}
+          <div style={{ overflowY: "auto", height: "100%" }}>
+            {all.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+                <p className="font-bold">No requirements yet.</p>
+                <p className="text-sm">Create one using the form on the left.</p>
+              </div>
+            ) : (
+              <>
+                <h3 className="font-extrabold text-[#0f172a] text-sm text-slate-500">
+                  {all.length} Requirement(s) · Page {allPage} of {Math.ceil(all.length / ITEMS_PER_PAGE)}
+                </h3>
+                <div className="flex flex-col gap-3">
                   {paginate(all, allPage).map((req) => (
                     <ReqCard key={req.id} req={req} showActions={false} onClick={() => setModalReq(req)} />
                   ))}
-                  <Pagination total={all.length} page={allPage} onPage={setAllPage} />
-                </>
-              )}
-            </div>
+                </div>
+                <Pagination total={all.length} page={allPage} onPage={setAllPage} />
+              </>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── HRManager / Owner View ── */}
-        {(role === "HRManager" || role === "owner") && (
-          <div className="grid grid-cols-[minmax(220px,280px)_1fr] gap-6 items-start max-[850px]:grid-cols-1">
+      {/* ── HRManager / Owner View ── */}
+      {(role === "HRManager" || role === "owner") && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,280px) 1fr", gap: "1.5rem", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
 
-            {/* Left: Create + Pending */}
-            <div className="flex flex-col gap-4 sticky top-0">
-              {renderLeftPanel("Save", resetForm)}
-              {pending.length > 0 && (
-                <div className="bg-[#fde8c0] rounded-[20px] p-5">
-                  <h2 className="text-sm font-extrabold text-[#0f172a] mb-3">Pending ({pending.length})</h2>
-                  <div className="flex flex-col gap-3">
-                    {pending.map((req) => (
-                      <ReqCard key={req.id} req={req} showActions={true}
-                        onApprove={handleApprove}
-                        onReject={(id) => handleStatus(id, "rejected")}
-                        onClick={() => setModalReq(req)} />
-                    ))}
-                  </div>
+          {/* Left: scrollable */}
+          <div style={{ overflowY: "auto", height: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {renderLeftPanel("Save", resetForm)}
+            {pending.length > 0 && (
+              <div className="bg-[#fde8c0] rounded-[20px] p-5">
+                <h2 className="text-sm font-extrabold text-[#0f172a] mb-3">Pending ({pending.length})</h2>
+                <div className="flex flex-col gap-3">
+                  {pending.map((req) => (
+                    <ReqCard key={req.id} req={req} showActions={true}
+                      onApprove={handleApprove}
+                      onReject={(id) => handleStatus(id, "rejected")}
+                      onClick={() => setModalReq(req)} />
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
 
-            {/* Right: Approved with pagination */}
-            <div className="flex flex-col gap-3">
-              {approved.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-                  <p className="font-bold">No approved requirements yet.</p>
-                </div>
-              ) : (
-                <>
-                  <h3 className="font-extrabold text-[#0f172a] text-sm text-slate-500">
-                    Approved ({approved.length}) · Page {approvedPage} of {Math.ceil(approved.length / ITEMS_PER_PAGE)}
-                  </h3>
+          {/* Right: scrollable approved */}
+          <div style={{ overflowY: "auto", height: "100%" }}>
+            {approved.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+                <p className="font-bold">No approved requirements yet.</p>
+              </div>
+            ) : (
+              <>
+                <h3 className="font-extrabold text-[#0f172a] text-sm text-slate-500 mb-3">
+                  Approved ({approved.length}) · Page {approvedPage} of {Math.ceil(approved.length / ITEMS_PER_PAGE)}
+                </h3>
+                <div className="flex flex-col gap-3">
                   {paginate(approved, approvedPage).map((req) => (
                     <ReqCard key={req.id} req={req} showActions={false} onClick={() => setModalReq(req)} />
                   ))}
-                  <Pagination total={approved.length} page={approvedPage} onPage={setApprovedPage} />
-                </>
-              )}
-            </div>
+                </div>
+                <Pagination total={approved.length} page={approvedPage} onPage={setApprovedPage} />
+              </>
+            )}
           </div>
-        )}
-      </div>
-    </section>
+        </div>
+      )}
+    </div>
+  </section>
   );
 }

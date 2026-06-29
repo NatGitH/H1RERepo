@@ -19,17 +19,6 @@ export default function Applicants() {
   const [showReqPicker, setShowReqPicker] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
 
-  const sorted = [...filtered].sort((a, b) => {
-  const order = { shortlisted: 0, pending: 1, rejected: 2 };
-  return (order[a.status] ?? 1) - (order[b.status] ?? 1);
-  });
-
-  const cardBorderStyle = (status) => {
-  if (status === "shortlisted") return { border: "2px solid #22c55e", boxShadow: "3px 3px 0px #22c55e" };
-  if (status === "rejected")    return { border: "2px solid #ef4444", boxShadow: "3px 3px 0px #ef4444" };
-  return { border: "2px solid #0f172a", boxShadow: "3px 3px 0px #0f172a" };
-  };
-
   // Fetch evaluations
   const fetchEvaluations = () => {
     setLoading(true);
@@ -128,6 +117,17 @@ export default function Applicants() {
     (a.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
     (a.job_title || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const sortedApplicants = [...filtered].sort((a, b) => {
+    const order = { shortlisted: 0, pending: 1, rejected: 2 };
+    return (order[a.status] ?? 1) - (order[b.status] ?? 1);
+  });
+
+  const cardBorderStyle = (status) => {
+    if (status === "shortlisted") return { border: "2px solid #22c55e", boxShadow: "3px 3px 0px #22c55e" };
+    if (status === "rejected")    return { border: "2px solid #ef4444", boxShadow: "3px 3px 0px #ef4444" };
+    return { border: "2px solid #0f172a", boxShadow: "3px 3px 0px #0f172a" };
+  };
 
   const handleCardClick = (applicant) => {
     const idx = sortedApplicants.findIndex(

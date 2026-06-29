@@ -577,6 +577,7 @@ def evaluate_resume(request):
             "description":         req.description,
             "qualifications":      req.qualifications,
             "uploaded_by_user_id": str(user_id) if user_id else "",
+            "evaluated_by_user_id": str(user_id) if user_id else "",
         }
 
         n8n_response = requests.post(n8n_url, files=files, data=data, timeout=60)
@@ -652,6 +653,10 @@ def get_evaluations(request):
                 "applicant_id", resume[0]["applicant_id"]
             ).execute().data if resume else []
 
+            interview = sb.table("Interviews").select("*").eq(
+                "evaluation_id", ev["evaluation_id"]
+            ).order("date_created", desc=True).limit(1).execute().data
+            
             results.append({
                 "evaluation_id":  ev["evaluation_id"],
                 "resume_id":      ev["resume_id"],
@@ -665,6 +670,12 @@ def get_evaluations(request):
                 "file_name":      resume[0]["file_name"] if resume else "",
                 "file_path":      resume[0]["file_path"] if resume else "",
                 "job_title":      req_info[0]["job_title"] if req_info else "",
+                "evaluated_by":   get_user_fullname(ev.get("evaluated_by_user_id")),
+                "rejected_at":       ev.get("rejected_at"),
+                "shortlisted_by":    get_user_fullname(ev.get("shortlisted_by_user_id")),
+                "shortlisted_by_user_id": ev.get("shortlisted_by_user_id"),
+                "interview_date": interview[0]["interview_date"] if interview else None,
+                "interview_message": interview[0]["message"] if interview else None,
             })
 
         return JsonResponse(results, safe=False)
@@ -679,20 +690,43 @@ def get_evaluations(request):
 def update_evaluation_status(request, evaluation_id):
     try:
         payload = decode_token(request)
+        user_id = payload.get("user_id")
 
         data   = json.loads(request.body)
         status = data.get("status", "").strip()
 
-        if status not in ["shortlisted", "rejected", "pending"]:
+        if status not in ["pending", "shortlisted", "rejected", "interview_sent"]:
             return JsonResponse({"error": "Invalid status"}, status=400)
 
         from supabase import create_client
         from django.conf import settings
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
-        sb.table("Evaluations").update({
-            "application_status": status
-        }).eq("evaluation_id", str(evaluation_id)).execute()
+        update_data = {"application_status": status}
+
+        if status == "rejected":
+            update_data["rejected_at"] = datetime.datetime.utcnow().isoformat()
+        elif status == "shortlisted":
+            update_data["shortlisted_by_user_id"] = str(user_id) if user_id else None
+            update_data["rejected_at"] = None
+        elif status == "pending":
+            update_data["rejected_at"] = None
+            update_data["shortlisted_by_user_id"] = None
+        elif status == "interview_sent":
+            interview_date = data.get("interview_date")
+            message = data.get("message", "")
+            if not interview_date:
+                return JsonResponse({"error": "interview_date is required"}, status=400)
+
+            sb.table("Interviews").insert({
+                "interview_id": str(uuid.uuid4()),
+                "evaluation_id": str(evaluation_id),
+                "scheduled_by_user_id": user_id,
+                "interview_date": interview_date,
+                "message": message,
+                "interview_status": "scheduled",
+                "sent_date": datetime.datetime.utcnow().isoformat(),
+            }).execute()
 
         return JsonResponse({"message": "Status updated", "status": status})
 

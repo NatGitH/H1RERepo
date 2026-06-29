@@ -142,9 +142,9 @@ export default function Applicants() {
     score >= 80 ? "text-emerald-600" : score >= 60 ? "text-orange-500" : "text-red-500";
 
   return (
-    <section className="px-4 pt-1 bg-[#0B2447] min-h-screen">
+    <section className="px-4 pt-1 bg-[#0B2447] h-[calc(100vh-56px)] overflow-hidden flex flex-col">
       <div
-        className="max-w-[1200px] mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447]"
+        className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447] flex-1 flex flex-col min-h-0 mb-4"
         style={{ boxShadow: "6px 6px 0px #0B2447" }}
       >
         {/* Header */}
@@ -167,7 +167,7 @@ export default function Applicants() {
           </div>
         </div>
 
-        <div className="flex gap-6 items-stretch">
+        <div className="flex gap-6 items-stretch flex-1 min-h-0">
           {/* Upload Zone */}
           <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 flex-shrink-0">
             <input
@@ -193,7 +193,7 @@ export default function Applicants() {
           </label>
 
           {/* Applicant Cards */}
-          <div className="flex-1 h-[416px] overflow-y-auto pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-3 h-full">
                 <div className="w-10 h-10 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />

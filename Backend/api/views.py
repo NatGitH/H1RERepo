@@ -716,9 +716,47 @@ def update_evaluation_status(request, evaluation_id):
             update_data["rejected_at"] = None
         elif status == "interview_sent":
             interview_date = data.get("interview_date")
-            message = data.get("message", "")
+            message        = data.get("message", "")
+            meeting_type   = data.get("meeting_type", "")    # "Zoom Meeting" or "Face to Face" (from the modal)
+            meeting_link   = data.get("meeting_link", "")    # zoom URL or address
             if not interview_date:
                 return JsonResponse({"error": "interview_date is required"}, status=400)
+
+            sb.table("Interviews").insert({
+                "interview_id": str(uuid.uuid4()),
+                "evaluation_id": str(evaluation_id),
+                "scheduled_by_user_id": user_id,
+                "interview_date": interview_date,
+                "message": message,
+                "interview_status": "scheduled",
+                "sent_date": datetime.datetime.utcnow().isoformat(),
+            }).execute()
+
+            # --- gather details + trigger the interview email via n8n ---
+            try:
+                ev   = sb.table("Evaluations").select("resume_id, hire_score, requirement_id").eq("evaluation_id", str(evaluation_id)).execute().data[0]
+                res  = sb.table("Resumes").select("applicant_id").eq("resume_id", ev["resume_id"]).execute().data[0]
+                appl = sb.table("Applicants").select("full_name, email").eq("applicant_id", res["applicant_id"]).execute().data[0]
+                req  = sb.table("Job_Requirements").select("job_title, company_id").eq("requirement_id", ev["requirement_id"]).execute().data[0]
+                comp = sb.table("Companies").select("company_name").eq("company_id", req["company_id"]).execute().data[0]
+
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/interview-invitation",
+                    json={
+                        "email":          appl["email"],
+                        "full_name":      appl["full_name"],
+                        "job_title":      req["job_title"],
+                        "company_name":   comp["company_name"],
+                        "hire_score":     float(ev["hire_score"]),
+                        "interview_date": interview_date,
+                        "meeting_type":   meeting_type,
+                        "meeting_link":   meeting_link,
+                        "message":        message,
+                    },
+                    timeout=5,
+                )
+            except Exception as n8n_err:
+                print("interview email error:", n8n_err)
 
             sb.table("Interviews").insert({
                 "interview_id": str(uuid.uuid4()),

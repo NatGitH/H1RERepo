@@ -364,7 +364,7 @@ def create_hr_account(request):
 
         try:
             requests.post(
-                "http://localhost:5678/webhook/register-confirmation",
+                f"{settings.N8N_BASE_URL}/webhook/register-confirmation",
                 json={
                     "email":      email,
                     "first_name": firstname,
@@ -493,7 +493,7 @@ def forgot_password(request):
         # Notify n8n to send reset email
         try:
             requests.post(
-                "http://localhost:5678/webhook/password-reset",
+                f"{settings.N8N_BASE_URL}/webhook/password-reset",
                 json={
                     "email":      email,
                     "username":   user.username,
@@ -722,6 +722,7 @@ def update_evaluation_status(request, evaluation_id):
             if not interview_date:
                 return JsonResponse({"error": "interview_date is required"}, status=400)
 
+            # Save the interview row (single insert)
             sb.table("Interviews").insert({
                 "interview_id": str(uuid.uuid4()),
                 "evaluation_id": str(evaluation_id),
@@ -739,27 +740,41 @@ def update_evaluation_status(request, evaluation_id):
             except Exception:
                 date_display = interview_date
 
+            # Gather details + trigger the interview email (fully guarded: never 500s)
             try:
-                ev   = sb.table("Evaluations").select("resume_id, hire_score, requirement_id").eq("evaluation_id", str(evaluation_id)).execute().data[0]
-                res  = sb.table("Resumes").select("applicant_id").eq("resume_id", ev["resume_id"]).execute().data[0]
-                appl = sb.table("Applicants").select("full_name, email").eq("applicant_id", res["applicant_id"]).execute().data[0]
-                req  = sb.table("Job_Requirements").select("job_title, company_id").eq("requirement_id", ev["requirement_id"]).execute().data[0]
-                comp = sb.table("Companies").select("company_name").eq("company_id", req["company_id"]).execute().data[0]
+                ev_rows   = sb.table("Evaluations").select("resume_id, hire_score, requirement_id").eq("evaluation_id", str(evaluation_id)).execute().data
+                ev        = ev_rows[0] if ev_rows else {}
+                res_rows  = sb.table("Resumes").select("applicant_id").eq("resume_id", ev.get("resume_id")).execute().data if ev.get("resume_id") else []
+                appl_rows = sb.table("Applicants").select("full_name, email").eq("applicant_id", res_rows[0]["applicant_id"]).execute().data if res_rows else []
+                appl      = appl_rows[0] if appl_rows else {}
+                req_rows  = sb.table("Job_Requirements").select("job_title, company_id").eq("requirement_id", ev.get("requirement_id")).execute().data if ev.get("requirement_id") else []
+                req       = req_rows[0] if req_rows else {}
+                comp_rows = sb.table("Companies").select("company_name").eq("company_id", req.get("company_id")).execute().data if req.get("company_id") else []
+                comp      = comp_rows[0] if comp_rows else {}
 
-                requests.post(
-                    f"{settings.N8N_BASE_URL}/webhook/interview-invitation",
-                    json={
-                        "email": appl["email"], "full_name": appl["full_name"],
-                        "job_title": req["job_title"], "company_name": comp["company_name"],
-                        "hire_score": float(ev["hire_score"]),
-                        "interview_date": date_display,
-                        "meeting_type": meeting_type, "meeting_link": meeting_link,
-                        "message": message,
-                    },
-                    timeout=5,
-                )
+                recipient = (appl.get("email") or "").strip()
+                if recipient and "@" in recipient and "placeholder" not in recipient:
+                    requests.post(
+                        f"{settings.N8N_BASE_URL}/webhook/interview-invitation",
+                        json={
+                            "email":          recipient,
+                            "full_name":      appl.get("full_name") or "Applicant",
+                            "job_title":      req.get("job_title", ""),
+                            "company_name":   comp.get("company_name", ""),
+                            "hire_score":     float(ev.get("hire_score") or 0),
+                            "interview_date": date_display,
+                            "meeting_type":   meeting_type,
+                            "meeting_link":   meeting_link,
+                            "message":        message,
+                        },
+                        timeout=5,
+                    )
+                else:
+                    print("interview email skipped: applicant has no valid email on file")
             except Exception as n8n_err:
                 print("interview email error:", n8n_err)
+
+        sb.table("Evaluations").update(update_data).eq("evaluation_id", str(evaluation_id)).execute()
 
         return JsonResponse({"message": "Status updated", "status": status})
 
@@ -856,7 +871,7 @@ def approve_reject_account(request):
                 notification_id=uuid.uuid4(),
                 recipient_user_id=user.user_id,
                 notification_type="welcome",
-                title="Welcome to H!RE! 🎉",
+                title="Welcome to H!RE! \U0001F389",
                 message=f"Hi {user.firstname or user.username}, your account has been approved. Welcome to the team!",
                 is_read=False,
             )

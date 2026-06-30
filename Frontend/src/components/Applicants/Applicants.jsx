@@ -14,20 +14,24 @@ export default function Applicants() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
   const [requirements, setRequirements] = useState([]);
   const [selectedReqId, setSelectedReqId] = useState("");
   const [showReqPicker, setShowReqPicker] = useState(false);
-  const [pendingFile, setPendingFile] = useState(null);
+  const [pendingFiles, setPendingFiles] = useState([]);   // now an array (multi-upload)
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [interviewDate, setInterviewDate] = useState("");
   const [meetingType, setMeetingType] = useState("Zoom Meeting");
   const [meetingLink, setMeetingLink] = useState("");
   const [interviewMessage, setInterviewMessage] = useState("");
+  const [sortBy, setSortBy] = useState("status"); // status | name_asc | name_desc | score_desc | score_asc
 
   // Fetch evaluations
   const fetchEvaluations = () => {
     setLoading(true);
-    authFetch(`${API_BASE_URL}/api/evaluations/`, {}, auth.token)
+    fetch(`${API_BASE_URL}/api/evaluations/`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
       .then((res) => res.json())
       .then((data) => setApplicants(Array.isArray(data) ? data : []))
       .catch(() => setApplicants([]))
@@ -42,9 +46,7 @@ export default function Applicants() {
       .then((res) => res.json())
       .then((data) =>
         setRequirements(
-          Array.isArray(data)
-            ? data.filter((r) => r.status === "approved")
-            : []
+          Array.isArray(data) ? data.filter((r) => r.status === "approved") : []
         )
       )
       .catch(() => setRequirements([]));
@@ -55,93 +57,111 @@ export default function Applicants() {
     fetchRequirements();
   }, []);
 
+  // Accept multiple files at once
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setPendingFile(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setPendingFiles(files);
     setShowReqPicker(true);
+    e.target.value = ""; // allow re-selecting the same files later
   };
 
+  // Upload every selected file one-by-one against the chosen requirement
   const handleUpload = async () => {
-    if (!pendingFile || !selectedReqId) {
+    if (pendingFiles.length === 0 || !selectedReqId) {
       alert("Please select a job requirement.");
       return;
     }
     setUploading(true);
     setShowReqPicker(false);
+    setUploadProgress({ done: 0, total: pendingFiles.length });
 
-    const formData = new FormData();
-    formData.append("resume", pendingFile);
-    formData.append("requirement_id", selectedReqId);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/evaluate/`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${auth.token}` },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Evaluation failed");
-      fetchEvaluations();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setUploading(false);
-      setPendingFile(null);
-      setSelectedReqId("");
+    let failures = 0;
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const formData = new FormData();
+      formData.append("resume", pendingFiles[i]);
+      formData.append("requirement_id", selectedReqId);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/evaluate/`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${auth.token}` },
+          body: formData,
+        });
+        if (!res.ok) failures++;
+      } catch {
+        failures++;
+      }
+      setUploadProgress({ done: i + 1, total: pendingFiles.length });
     }
+
+    setUploading(false);
+    setPendingFiles([]);
+    setSelectedReqId("");
+    setUploadProgress({ done: 0, total: 0 });
+    fetchEvaluations();
+    if (failures > 0) alert(`${failures} of ${pendingFiles.length} resume(s) failed to evaluate.`);
   };
 
   const handleStatusUpdate = async (evaluationId, status, extra = {}) => {
     try {
-      await authFetch(`${API_BASE_URL}/api/evaluations/${evaluationId}/status/`, {
+      await fetch(`${API_BASE_URL}/api/evaluations/${evaluationId}/status/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ status, ...extra }),
-      }, auth.token);
+      });
       setApplicants((prev) =>
         prev.map((a) => (a.evaluation_id === evaluationId ? { ...a, status } : a))
       );
       setSelected(null);
     } catch (err) {
-      if (err.message !== "Session expired") alert("Failed to update status");
+      alert("Failed to update status");
     }
-    };
+  };
 
-    const handleSendInterview = () => {
-      if (!interviewDate) return alert("Please choose an interview date and time.");
-      if (!meetingLink.trim())
-        return alert(meetingType === "Zoom Meeting" ? "Please paste the Zoom link." : "Please enter the location.");
-      handleStatusUpdate(selected.evaluation_id, "interview_sent", {
-        interview_date: new Date(interviewDate).toISOString(),
-        meeting_type: meetingType,
-        meeting_link: meetingLink.trim(),
-        message: interviewMessage.trim(),
-      });
-      setShowInterviewModal(false);
-      setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Zoom Meeting");
-    };
+  const handleSendInterview = () => {
+    if (!interviewDate) return alert("Please choose an interview date and time.");
+    if (!meetingLink.trim())
+      return alert(meetingType === "Zoom Meeting" ? "Please paste the Zoom link." : "Please enter the location.");
+    handleStatusUpdate(selected.evaluation_id, "interview_sent", {
+      interview_date: new Date(interviewDate).toISOString(),
+      meeting_type: meetingType,
+      meeting_link: meetingLink.trim(),
+      message: interviewMessage.trim(),
+    });
+    fetchEvaluations(); // pull the saved interview_date back
+    setShowInterviewModal(false);
+    setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Zoom Meeting");
+  };
 
+  // Search by applicant NAME (and still allow job title)
   const filtered = applicants.filter((a) =>
-    (a.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (a.applicant_name || "").toLowerCase().includes(search.toLowerCase()) ||
     (a.job_title || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  // status priority: blue (interview_sent), green (shortlisted), black (pending), red (rejected)
+  const statusRank = (s) => ({ interview_sent: 0, shortlisted: 1, pending: 2, rejected: 3 }[s] ?? 2);
+
   const sortedApplicants = [...filtered].sort((a, b) => {
-    const order = { shortlisted: 0, pending: 1, rejected: 2 };
-    return (order[a.status] ?? 1) - (order[b.status] ?? 1);
+    if (sortBy === "name_asc")
+      return (a.applicant_name || "").localeCompare(b.applicant_name || "");
+    if (sortBy === "name_desc")
+      return (b.applicant_name || "").localeCompare(a.applicant_name || "");
+    if (sortBy === "score_desc") return (b.hire_score || 0) - (a.hire_score || 0);
+    if (sortBy === "score_asc") return (a.hire_score || 0) - (b.hire_score || 0);
+    // default: keep the blue/green/black/red grouping
+    return statusRank(a.status) - statusRank(b.status);
   });
 
   const cardBorderStyle = (status) => {
-    if (status === "shortlisted") return { border: "2px solid #22c55e", boxShadow: "3px 3px 0px #22c55e" };
-    if (status === "rejected")    return { border: "2px solid #ef4444", boxShadow: "3px 3px 0px #ef4444" };
+    if (status === "interview_sent") return { border: "2px solid #3b82f6", boxShadow: "3px 3px 0px #3b82f6" };
+    if (status === "shortlisted")    return { border: "2px solid #22c55e", boxShadow: "3px 3px 0px #22c55e" };
+    if (status === "rejected")       return { border: "2px solid #ef4444", boxShadow: "3px 3px 0px #ef4444" };
     return { border: "2px solid #0f172a", boxShadow: "3px 3px 0px #0f172a" };
   };
 
   const handleCardClick = (applicant) => {
-    const idx = sortedApplicants.findIndex(
-      (a) => a.evaluation_id === applicant.evaluation_id
-    );
+    const idx = sortedApplicants.findIndex((a) => a.evaluation_id === applicant.evaluation_id);
     setCurrentIndex(idx);
     setSelected(applicant);
   };
@@ -175,24 +195,42 @@ export default function Applicants() {
           >
             Evaluated Applicants
           </div>
-          <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
-            <input
-              type="search"
-              placeholder="Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400"
-            />
-            <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Sort / Filter dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="border-2 border-[#0B2447] rounded-full px-4 py-2 text-sm font-semibold text-[#0B2447] bg-white outline-none cursor-pointer"
+            >
+              <option value="status">Sort: Status (default)</option>
+              <option value="name_asc">Name (A–Z)</option>
+              <option value="name_desc">Name (Z–A)</option>
+              <option value="score_desc">H!RE Score (High → Low)</option>
+              <option value="score_asc">H!RE Score (Low → High)</option>
+            </select>
+
+            {/* Search */}
+            <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">
+              <input
+                type="search"
+                placeholder="Search by name"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400"
+              />
+              <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+            </div>
           </div>
         </div>
 
         <div className="flex gap-6 items-stretch flex-1 min-h-0">
-          {/* Upload Zone */}
+          {/* Upload Zone (multiple) */}
           <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 flex-shrink-0">
             <input
               type="file"
               accept=".pdf,image/*"
+              multiple
               className="hidden"
               onChange={handleFileChange}
               disabled={uploading}
@@ -208,7 +246,9 @@ export default function Applicants() {
               {uploading ? "Analyzing..." : "Click or drag"}
             </p>
             <p className="text-xs text-slate-500 m-0 text-center">
-              {uploading ? "Please wait" : "to upload resume"}
+              {uploading
+                ? `${uploadProgress.done}/${uploadProgress.total} done`
+                : "upload one or more resumes"}
             </p>
           </label>
 
@@ -270,14 +310,14 @@ export default function Applicants() {
       {showReqPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
-            className="bg-white rounded-2xl px-8 py-6 w-full max-w-md mx-4"
+            className="bg-white rounded-2xl px-8 py-6 w-full max-w-md mx-4 max-h-[85vh] overflow-y-auto"
             style={{ border: "2px solid #0B2447", boxShadow: "6px 6px 0px #0B2447" }}
           >
-            <h3 className="text-lg font-bold text-[#0B2447] mb-4">
-              Select Job Requirement
-            </h3>
+            <h3 className="text-lg font-bold text-[#0B2447] mb-4">Select Job Requirement</h3>
             <p className="text-sm text-slate-500 mb-4">
-              Which job position is this resume for?
+              {pendingFiles.length > 1
+                ? `Evaluating ${pendingFiles.length} resumes against:`
+                : "Which job position is this resume for?"}
             </p>
             {requirements.length === 0 ? (
               <p className="text-sm text-red-500">
@@ -302,9 +342,7 @@ export default function Applicants() {
                       onChange={() => setSelectedReqId(req.id)}
                       className="accent-teal-400"
                     />
-                    <span className="text-sm font-semibold text-[#0f172a]">
-                      {req.job_title}
-                    </span>
+                    <span className="text-sm font-semibold text-[#0f172a]">{req.job_title}</span>
                   </label>
                 ))}
               </div>
@@ -315,10 +353,10 @@ export default function Applicants() {
                 disabled={!selectedReqId}
                 className="flex-1 bg-teal-400 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg transition disabled:opacity-50"
               >
-                Analyze Resume
+                {pendingFiles.length > 1 ? `Analyze ${pendingFiles.length} Resumes` : "Analyze Resume"}
               </button>
               <button
-                onClick={() => { setShowReqPicker(false); setPendingFile(null); }}
+                onClick={() => { setShowReqPicker(false); setPendingFiles([]); }}
                 className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition"
               >
                 Cancel
@@ -328,98 +366,104 @@ export default function Applicants() {
         </div>
       )}
 
-      {/* Applicant Detail Modal */}
+      {/* Applicant Detail Modal (fixed size, scrollable) */}
       {selected && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
           onClick={() => setSelected(null)}
         >
           <div
-            className="relative bg-white rounded-3xl p-6 w-full max-w-[480px] mx-4"
+            className="relative bg-white rounded-3xl w-full max-w-[480px] h-[600px] mx-4 flex flex-col"
             style={{ boxShadow: "6px 6px 0px #0B2447", border: "2px solid #0B2447" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-4 mb-5">
-              <div className="w-[100px] min-w-[100px] h-[110px] bg-slate-100 rounded-xl border-2 border-[#0f172a] overflow-hidden flex items-center justify-center">
-                <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
-              </div>
-              <div className="flex flex-col gap-2 flex-1">
-                <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a] truncate">
-                  {selected.applicant_name || "Unknown Applicant"}
-                </span>
-                <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
-                  H!RE Score:{" "}
-                  <span className={`font-bold ${scoreColor(selected.hire_score)}`}>
-                    {selected.hire_score}%
+            {/* scrollable content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-[100px] min-w-[100px] h-[110px] bg-slate-100 rounded-xl border-2 border-[#0f172a] overflow-hidden flex items-center justify-center">
+                  <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
+                </div>
+                <div className="flex flex-col gap-2 flex-1">
+                  <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a] truncate">
+                    {selected.applicant_name || "Unknown Applicant"}
                   </span>
-                </span>
-                <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
-                  {selected.job_title}
-                </span>
+                  <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
+                    H!RE Score:{" "}
+                    <span className={`font-bold ${scoreColor(selected.hire_score)}`}>
+                      {selected.hire_score}%
+                    </span>
+                  </span>
+                  <span className="bg-slate-100 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
+                    {selected.job_title}
+                  </span>
+                </div>
+                <div className="self-start">
+                  <a
+                    href={`https://${import.meta.env.VITE_SUPABASE_URL?.replace("https://", "")}/storage/v1/object/public/${selected.file_path}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 bg-teal-400 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer block text-center"
+                  >
+                    View
+                  </a>
+                </div>
               </div>
-              <div className="self-start">
-                <a
-                  href={`https://${import.meta.env.VITE_SUPABASE_URL?.replace("https://", "")}/storage/v1/object/public/${selected.file_path}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 bg-teal-400 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer block text-center"
-                >
-                  View
-                </a>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4">
+                  <p className="text-teal-600 font-bold text-sm mb-2">✓ Pros</p>
+                  <ul className="list-none m-0 p-0">
+                    {selected.pros.map((p, i) => (
+                      <li key={i} className="text-slate-600 text-xs leading-relaxed">• {p}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                  <p className="text-red-500 font-bold text-sm mb-2">✗ Cons</p>
+                  <ul className="list-none m-0 p-0">
+                    {selected.cons.map((c, i) => (
+                      <li key={i} className="text-slate-600 text-xs leading-relaxed">• {c}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
               <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4">
-                <p className="text-teal-600 font-bold text-sm mb-2">✓ Pros</p>
-                <ul className="list-none m-0 p-0">
-                  {selected.pros.map((p, i) => (
-                    <li key={i} className="text-slate-600 text-xs leading-relaxed">• {p}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-                <p className="text-red-500 font-bold text-sm mb-2">✗ Cons</p>
-                <ul className="list-none m-0 p-0">
-                  {selected.cons.map((c, i) => (
-                    <li key={i} className="text-slate-600 text-xs leading-relaxed">• {c}</li>
-                  ))}
-                </ul>
+                <p className="text-teal-600 font-bold text-sm mb-2">✦ AI Summary</p>
+                <p className="text-slate-600 text-sm leading-relaxed m-0">{selected.summary}</p>
               </div>
             </div>
 
-            <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4 mb-5">
-              <p className="text-teal-600 font-bold text-sm mb-2">✦ AI Summary</p>
-              <p className="text-slate-600 text-sm leading-relaxed m-0">{selected.summary}</p>
+            {/* pinned action footer */}
+            <div className="border-t border-slate-200 p-4">
+              {(() => {
+                const s = selected.status;
+                if (s === "shortlisted") return (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setShowInterviewModal(true)} className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">📅 Send Interview</button>
+                    <button onClick={() => handleStatusUpdate(selected.evaluation_id, "pending")} className="bg-slate-200 hover:bg-slate-300 text-[#0B2447] font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">Cancel Shortlist</button>
+                  </div>
+                );
+                if (s === "rejected") return (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-red-500 text-center m-0">This applicant will be permanently removed ~1 hour after rejection.</p>
+                    <button onClick={() => handleStatusUpdate(selected.evaluation_id, "pending")} className="bg-amber-400 hover:bg-amber-500 text-[#0B2447] font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">↩ Cancel Rejection</button>
+                  </div>
+                );
+                if (s === "interview_sent") return (
+                  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center">
+                    <p className="text-blue-600 font-bold text-sm m-0">✓ Interview Invitation Sent</p>
+                    {selected.interview_date && <p className="text-slate-600 text-xs mt-1 m-0">Scheduled: {new Date(selected.interview_date).toLocaleString()}</p>}
+                  </div>
+                );
+                return (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => handleStatusUpdate(selected.evaluation_id, "shortlisted")} className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✓ Shortlist</button>
+                    <button onClick={() => handleStatusUpdate(selected.evaluation_id, "rejected")} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✗ Reject</button>
+                  </div>
+                );
+              })()}
             </div>
-
-            {(() => {
-              const s = selected.status;
-              if (s === "shortlisted") return (
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setShowInterviewModal(true)} className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">📅 Send Interview</button>
-                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "pending")} className="bg-slate-200 hover:bg-slate-300 text-[#0B2447] font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">Cancel Shortlist</button>
-                </div>
-              );
-              if (s === "rejected") return (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs text-red-500 text-center m-0">This applicant will be permanently removed ~1 hour after rejection.</p>
-                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "pending")} className="bg-amber-400 hover:bg-amber-500 text-[#0B2447] font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">↩ Cancel Rejection</button>
-                </div>
-              );
-              if (s === "interview_sent") return (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
-                  <p className="text-emerald-600 font-bold text-sm m-0">✓ Interview Invitation Sent</p>
-                  {selected.interview_date && <p className="text-slate-600 text-xs mt-1 m-0">Scheduled: {new Date(selected.interview_date).toLocaleString()}</p>}
-                </div>
-              );
-              return (
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "shortlisted")} className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✓ Shortlist</button>
-                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "rejected")} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✗ Reject</button>
-                </div>
-              );
-            })()}
           </div>
 
           {sortedApplicants.length > 1 && (
@@ -437,11 +481,23 @@ export default function Applicants() {
         </div>
       )}
 
+      {/* Interview Modal (fixed size, scrollable) */}
       {showInterviewModal && selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setShowInterviewModal(false)}>
-          <div className="bg-white rounded-3xl p-6 w-full max-w-[460px] mx-4" style={{ boxShadow: "6px 6px 0px #0B2447", border: "2px solid #0B2447" }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="bg-white rounded-3xl w-full max-w-[460px] max-h-[85vh] overflow-y-auto p-6 mx-4"
+            style={{ boxShadow: "6px 6px 0px #0B2447", border: "2px solid #0B2447" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-bold text-[#0B2447] mb-1">Send Interview Invitation</h3>
-            <p className="text-sm text-slate-500 mb-4">To: <span className="font-semibold text-[#0f172a]">{selected.applicant_name || "Applicant"}</span> — {selected.job_title}</p>
+            <p className="text-sm text-slate-500 mb-4">
+              To:{" "}
+              <span className="font-semibold text-[#0f172a]">
+                {selected.applicant_email
+                  ? selected.applicant_email
+                  : "No email on file — invitation can't be sent"}
+              </span>
+            </p>
 
             <label className="block text-xs font-bold text-[#0B2447] mb-1">Interview Date & Time</label>
             <input type="datetime-local" value={interviewDate} onChange={(e) => setInterviewDate(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
@@ -460,7 +516,13 @@ export default function Applicants() {
             <textarea value={interviewMessage} onChange={(e) => setInterviewMessage(e.target.value)} rows={3} placeholder="We look forward to meeting you..." className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400 resize-none" />
 
             <div className="flex gap-3">
-              <button onClick={handleSendInterview} className="flex-1 bg-teal-400 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg transition">Send Invitation</button>
+              <button
+                onClick={handleSendInterview}
+                disabled={!selected.applicant_email}
+                className="flex-1 bg-teal-400 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg transition disabled:opacity-50"
+              >
+                Send Invitation
+              </button>
               <button onClick={() => setShowInterviewModal(false)} className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition">Cancel</button>
             </div>
           </div>

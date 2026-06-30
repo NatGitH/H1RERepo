@@ -148,7 +148,7 @@ def register_company(request):
         # Notify n8n to send welcome email
         try:
             requests.post(
-                "http://localhost:5678/webhook/register-confirmation",
+                f"{settings.N8N_BASE_URL}/webhook/register-confirmation",
                 json={
                     "email":      email,
                     "first_name": company_name,
@@ -488,8 +488,8 @@ def forgot_password(request):
         # Generate a reset token (reuse JWT, expires in 30 min)
         token = make_token({"user_id": str(user.user_id), "purpose": "password_reset"})
 
-        reset_link = f"http://localhost:5173/hr-new-password?token={token}"
-
+        reset_link = f"{settings.FRONTEND_URL}/HR-New-Password?token={token}"
+        
         # Notify n8n to send reset email
         try:
             requests.post(

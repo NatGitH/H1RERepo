@@ -18,6 +18,11 @@ export default function Applicants() {
   const [selectedReqId, setSelectedReqId] = useState("");
   const [showReqPicker, setShowReqPicker] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
+  const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [interviewDate, setInterviewDate] = useState("");
+  const [meetingType, setMeetingType] = useState("Zoom Meeting");
+  const [meetingLink, setMeetingLink] = useState("");
+  const [interviewMessage, setInterviewMessage] = useState("");
 
   // Fetch evaluations
   const fetchEvaluations = () => {
@@ -89,29 +94,35 @@ export default function Applicants() {
     }
   };
 
-  const handleStatusUpdate = async (evaluationId, status) => {
-    try {
-      await fetch(
-        `${API_BASE_URL}/api/evaluations/${evaluationId}/status/`,
-        {
+  const handleStatusUpdate = async (evaluationId, status, extra = {}) => {
+      try {
+        await fetch(`${API_BASE_URL}/api/evaluations/${evaluationId}/status/`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${auth.token}`,
-          },
-          body: JSON.stringify({ status }),
-        }
-      );
-      setApplicants((prev) =>
-        prev.map((a) =>
-          a.evaluation_id === evaluationId ? { ...a, status } : a
-        )
-      );
-      setSelected(null);
-    } catch (err) {
-      alert("Failed to update status");
-    }
-  };
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ status, ...extra }),
+        });
+        setApplicants((prev) =>
+          prev.map((a) => (a.evaluation_id === evaluationId ? { ...a, status } : a))
+        );
+        setSelected(null);
+      } catch (err) {
+        alert("Failed to update status");
+      }
+    };
+
+    const handleSendInterview = () => {
+      if (!interviewDate) return alert("Please choose an interview date and time.");
+      if (!meetingLink.trim())
+        return alert(meetingType === "Zoom Meeting" ? "Please paste the Zoom link." : "Please enter the location.");
+      handleStatusUpdate(selected.evaluation_id, "interview_sent", {
+        interview_date: new Date(interviewDate).toISOString(),
+        meeting_type: meetingType,
+        meeting_link: meetingLink.trim(),
+        message: interviewMessage.trim(),
+      });
+      setShowInterviewModal(false);
+      setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Zoom Meeting");
+    };
 
   const filtered = applicants.filter((a) =>
     (a.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -384,20 +395,33 @@ export default function Applicants() {
               <p className="text-slate-600 text-sm leading-relaxed m-0">{selected.summary}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleStatusUpdate(selected.evaluation_id, "shortlisted")}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors"
-              >
-                ✓ Shortlist
-              </button>
-              <button
-                onClick={() => handleStatusUpdate(selected.evaluation_id, "rejected")}
-                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors"
-              >
-                ✗ Reject
-              </button>
-            </div>
+            {(() => {
+              const s = selected.status;
+              if (s === "shortlisted") return (
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => setShowInterviewModal(true)} className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">📅 Send Interview</button>
+                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "pending")} className="bg-slate-200 hover:bg-slate-300 text-[#0B2447] font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">Cancel Shortlist</button>
+                </div>
+              );
+              if (s === "rejected") return (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-red-500 text-center m-0">This applicant will be permanently removed ~1 hour after rejection.</p>
+                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "pending")} className="bg-amber-400 hover:bg-amber-500 text-[#0B2447] font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">↩ Cancel Rejection</button>
+                </div>
+              );
+              if (s === "interview_sent") return (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                  <p className="text-emerald-600 font-bold text-sm m-0">✓ Interview Invitation Sent</p>
+                  {selected.interview_date && <p className="text-slate-600 text-xs mt-1 m-0">Scheduled: {new Date(selected.interview_date).toLocaleString()}</p>}
+                </div>
+              );
+              return (
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "shortlisted")} className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✓ Shortlist</button>
+                  <button onClick={() => handleStatusUpdate(selected.evaluation_id, "rejected")} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✗ Reject</button>
+                </div>
+              );
+            })()}
           </div>
 
           {sortedApplicants.length > 1 && (
@@ -412,6 +436,36 @@ export default function Applicants() {
               >→</button>
             </>
           )}
+        </div>
+      )}
+
+      {showInterviewModal && selected && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setShowInterviewModal(false)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-[460px] mx-4" style={{ boxShadow: "6px 6px 0px #0B2447", border: "2px solid #0B2447" }} onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[#0B2447] mb-1">Send Interview Invitation</h3>
+            <p className="text-sm text-slate-500 mb-4">To: <span className="font-semibold text-[#0f172a]">{selected.applicant_name || "Applicant"}</span> — {selected.job_title}</p>
+
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">Interview Date & Time</label>
+            <input type="datetime-local" value={interviewDate} onChange={(e) => setInterviewDate(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
+
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">Meeting Type</label>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {["Zoom Meeting", "Face to Face"].map((t) => (
+                <button key={t} onClick={() => setMeetingType(t)} className={`py-2 rounded-lg text-sm font-bold border-2 transition ${meetingType === t ? "border-teal-400 bg-teal-50 text-[#0B2447]" : "border-slate-200 text-slate-500 hover:border-teal-200"}`}>{t}</button>
+              ))}
+            </div>
+
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">{meetingType === "Zoom Meeting" ? "Zoom Link" : "Location / Address"}</label>
+            <input type="text" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder={meetingType === "Zoom Meeting" ? "https://zoom.us/j/..." : "Office address"} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
+
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">Message (optional)</label>
+            <textarea value={interviewMessage} onChange={(e) => setInterviewMessage(e.target.value)} rows={3} placeholder="We look forward to meeting you..." className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400 resize-none" />
+
+            <div className="flex gap-3">
+              <button onClick={handleSendInterview} className="flex-1 bg-teal-400 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg transition">Send Invitation</button>
+              <button onClick={() => setShowInterviewModal(false)} className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition">Cancel</button>
+            </div>
+          </div>
         </div>
       )}
     </section>

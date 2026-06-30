@@ -27,9 +27,7 @@ export default function Applicants() {
   // Fetch evaluations
   const fetchEvaluations = () => {
     setLoading(true);
-    fetch(`${API_BASE_URL}/api/evaluations/`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
+    authFetch(`${API_BASE_URL}/api/evaluations/`, {}, auth.token)
       .then((res) => res.json())
       .then((data) => setApplicants(Array.isArray(data) ? data : []))
       .catch(() => setApplicants([]))
@@ -95,19 +93,19 @@ export default function Applicants() {
   };
 
   const handleStatusUpdate = async (evaluationId, status, extra = {}) => {
-      try {
-        await fetch(`${API_BASE_URL}/api/evaluations/${evaluationId}/status/`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-          body: JSON.stringify({ status, ...extra }),
-        });
-        setApplicants((prev) =>
-          prev.map((a) => (a.evaluation_id === evaluationId ? { ...a, status } : a))
-        );
-        setSelected(null);
-      } catch (err) {
-        alert("Failed to update status");
-      }
+    try {
+      await authFetch(`${API_BASE_URL}/api/evaluations/${evaluationId}/status/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, ...extra }),
+      }, auth.token);
+      setApplicants((prev) =>
+        prev.map((a) => (a.evaluation_id === evaluationId ? { ...a, status } : a))
+      );
+      setSelected(null);
+    } catch (err) {
+      if (err.message !== "Session expired") alert("Failed to update status");
+    }
     };
 
     const handleSendInterview = () => {

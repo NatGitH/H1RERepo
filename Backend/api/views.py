@@ -702,7 +702,7 @@ def update_evaluation_status(request, evaluation_id):
 
         from supabase import create_client
         from django.conf import settings
-        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
         update_data = {"application_status": status}
 

@@ -639,24 +639,7 @@
             "node": "Edit Fields",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "Pros": {
-      "main": [
-        [
-          {
-            "node": "Finish",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Cons": {
-      "main": [
-        [
+          },
           {
             "node": "Finish",
             "type": "main",

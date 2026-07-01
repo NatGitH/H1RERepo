@@ -5,7 +5,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from '../../.Context/AuthContext';
-import { API_BASE_URL } from "../../api";
+import { apiFetch } from "../../api";
 
 export default function Navbar() {
   const { pathname } = useLocation();
@@ -31,10 +31,7 @@ export default function Navbar() {
   const fetchNotifications = async () => {
     if (!auth.token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/notifications/`, {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      });
-      const data = await res.json();
+      const data = await apiFetch("/api/notifications/", { token: auth.token });
       if (Array.isArray(data)) {
         setNotifList(
           data.map((n) => ({
@@ -62,10 +59,7 @@ export default function Navbar() {
   const markAllRead = async () => {
     setNotifList((prev) => prev.map((n) => ({ ...n, unread: false })));
     try {
-      await fetch(`${API_BASE_URL}/api/notifications/mark-read/`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${auth.token}` },
-      });
+      await apiFetch("/api/notifications/mark-read/", { method: "POST", token: auth.token });
     } catch (err) {
       console.error(err);
     }

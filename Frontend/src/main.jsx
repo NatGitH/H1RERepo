@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router'
+import { HashRouter } from 'react-router'
 import { CompanyRegistrationProvider } from './.Context/CompanyRegistrationContext.jsx'
 import { HRRegistrationProvider } from './.Context/HRRegistrationContext.jsx'
 import { AuthProvider } from './.Context/AuthContext.jsx'
@@ -12,7 +12,7 @@ import App from './App.jsx'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
+      <HashRouter>
         <AuthProvider>
           <LoginProvider>
             <CompanyRegistrationProvider>
@@ -22,7 +22,7 @@ createRoot(document.getElementById('root')).render(
             </CompanyRegistrationProvider>
           </LoginProvider>
         </AuthProvider>
-      </BrowserRouter>
+      </HashRouter>
     </ErrorBoundary>
   </StrictMode>
 )

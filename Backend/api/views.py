@@ -488,7 +488,8 @@ def forgot_password(request):
         # Generate a reset token (reuse JWT, expires in 30 min)
         token = make_token({"user_id": str(user.user_id), "purpose": "password_reset"})
 
-        reset_link = f"{settings.FRONTEND_URL}/HR-New-Password?token={token}"
+        # Frontend uses HashRouter, so the SPA route lives after the '#'.
+        reset_link = f"{settings.FRONTEND_URL}/#/HR-New-Password?token={token}"
         
         # Notify n8n to send reset email
         try:
@@ -725,11 +726,13 @@ def update_evaluation_status(request, evaluation_id):
             if not interview_date:
                 return JsonResponse({"error": "interview_date is required"}, status=400)
 
-            # Save the interview row (single insert)
+            # Save the interview row (single insert).
+            # Owners have no Users row (their JWT carries no user_id), so scheduled_by
+            # may be None — the column is nullable for exactly this case.
             sb.table("Interviews").insert({
                 "interview_id": str(uuid.uuid4()),
                 "evaluation_id": str(evaluation_id),
-                "scheduled_by_user_id": user_id,
+                "scheduled_by_user_id": user_id or None,
                 "interview_date": interview_date,
                 "message": message,
                 "interview_status": "scheduled",

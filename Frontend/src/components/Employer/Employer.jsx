@@ -7,7 +7,7 @@ import {
   ConfirmRoleModal,
   DeleteConfirmModal,
 } from "./EmployerModals";
-import { API_BASE_URL } from "../../api";
+import { apiFetch, getErrorMessage } from "../../api";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -36,60 +36,58 @@ export default function Employer() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/employers/`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => { setMembers(Array.isArray(data) ? data : []); setLoading(false); })
-      .catch(() => { setMembers([]); setLoading(false); });
+    (async () => {
+      try {
+        const data = await apiFetch("/api/employers/", { token: auth.token });
+        setMembers(Array.isArray(data) ? data : []);
+      } catch {
+        setMembers([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const handleApproveReject = async (userId, status) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/employers/approve-reject/`, {
+      await apiFetch("/api/employers/approve-reject/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ user_id: userId, status }),
+        token: auth.token,
+        body: { user_id: userId, status },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       if (status === "rejected") {
         setMembers((prev) => prev.filter((m) => m.id !== userId));
       } else {
         setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, account_status: status } : m));
       }
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err)); }
   };
 
   const handleChangeRole = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/employers/change-role/`, {
+      await apiFetch("/api/employers/change-role/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ user_id: selectedMember.id, role_name: selectedRole }),
+        token: auth.token,
+        body: { user_id: selectedMember.id, role_name: selectedRole },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setMembers((prev) => prev.map((m) => m.id === selectedMember.id ? { ...m, role_name: selectedRole } : m));
       setSelectedMember((prev) => ({ ...prev, role_name: selectedRole }));
       setShowConfirmRole(false);
       setShowRoleModal(false);
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err)); }
   };
 
   const handleDelete = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/employers/delete/`, {
+      await apiFetch("/api/employers/delete/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ user_id: selectedMember.id }),
+        token: auth.token,
+        body: { user_id: selectedMember.id },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setMembers((prev) => prev.filter((m) => m.id !== selectedMember.id));
       setShowDeleteConfirm(false);
       setSelectedMember(null);
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err)); }
   };
 
   const filtered = members.filter((m) =>

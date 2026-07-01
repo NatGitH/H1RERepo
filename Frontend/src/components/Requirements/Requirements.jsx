@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import SearchIcon from "@mui/icons-material/Search";
 import { useAuth } from "../../.Context/AuthContext";
-import { API_BASE_URL } from "../../api";
+import { apiFetch, getErrorMessage } from "../../api";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -217,13 +217,13 @@ export default function Requirements() {
 
   const autoApprove = role === "owner" || role === "HRManager";
 
-  const fetchRequirements = () => {
-    fetch(`${API_BASE_URL}/api/requirements/`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => setRequirements(Array.isArray(data) ? data : []))
-      .catch(() => setRequirements([]));
+  const fetchRequirements = async () => {
+    try {
+      const data = await apiFetch("/api/requirements/", { token: auth.token });
+      setRequirements(Array.isArray(data) ? data : []);
+    } catch {
+      setRequirements([]);
+    }
   };
 
   useEffect(() => { fetchRequirements(); }, []);
@@ -231,18 +231,16 @@ export default function Requirements() {
   const handleCreate = async () => {
     if (!newReq.job_title || !newReq.description || !newReq.qualifications) { alert("Please fill in all fields."); return; }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/requirements/`, {
+      const created = await apiFetch("/api/requirements/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify(newReq),
+        token: auth.token,
+        body: newReq,
       });
-      const created = await res.json();
-      if (!res.ok) throw new Error(created.error || "Failed to create");
       if (autoApprove && created.id) {
-        await fetch(`${API_BASE_URL}/api/requirements/${created.id}/`, {
+        await apiFetch(`/api/requirements/${created.id}/`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-          body: JSON.stringify({ status: "approved" }),
+          token: auth.token,
+          body: { status: "approved" },
         });
         created.status = "approved";
       }
@@ -250,60 +248,52 @@ export default function Requirements() {
       setRequirements((prev) => [...prev, created]);
       setNewReq({ job_title: "", description: "", qualifications: "" });
       setShowForm(false);
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err, "Failed to create")); }
   };
 
   const handleEditSave = async () => {
     if (!editReq.job_title || !editReq.description || !editReq.qualifications) { alert("Please fill in all fields."); return; }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/requirements/${editReq.id}/`, {
+      const updated = await apiFetch(`/api/requirements/${editReq.id}/`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ job_title: editReq.job_title, description: editReq.description, qualifications: editReq.qualifications }),
+        token: auth.token,
+        body: { job_title: editReq.job_title, description: editReq.description, qualifications: editReq.qualifications },
       });
-      const updated = await res.json();
-      if (!res.ok) throw new Error(updated.error || "Failed to update");
       setRequirements((prev) => prev.map((r) => r.id === editReq.id ? { ...r, ...updated } : r));
       setEditReq(null);
       if (role === "HRStaff") alert("Your changes have been submitted for manager review.");
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err, "Failed to update")); }
   };
 
   const handleDelete = async (id) => {
     if (!confirm("Delete this requirement?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/requirements/${id}/`, {
-        method: "DELETE", headers: { Authorization: `Bearer ${auth.token}` },
-      });
-      if (!res.ok) throw new Error("Failed to delete");
+      await apiFetch(`/api/requirements/${id}/`, { method: "DELETE", token: auth.token });
       setRequirements((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err, "Failed to delete")); }
   };
 
   const handleProposeDelete = async (id) => {
     if (!confirm("Propose deletion? A manager will need to approve.")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/requirements/${id}/`, {
+      await apiFetch(`/api/requirements/${id}/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ status: "deletion_pending" }),
+        token: auth.token,
+        body: { status: "deletion_pending" },
       });
-      const updated = await res.json();
-      if (!res.ok) throw new Error(updated.error || "Failed");
       setRequirements((prev) => prev.map((r) => r.id === id ? { ...r, status: "deletion_pending" } : r));
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err, "Failed")); }
   };
 
   const handleStatus = async (id, status) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/requirements/${id}/`, {
+      const updated = await apiFetch(`/api/requirements/${id}/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ status }),
+        token: auth.token,
+        body: { status },
       });
-      const updated = await res.json();
       setRequirements((prev) => prev.map((r) => r.id === updated.id ? { ...r, status: updated.status, pending_changes: null } : r));
-    } catch { alert("Failed to update status"); }
+    } catch (err) { alert(getErrorMessage(err, "Failed to update status")); }
   };
 
   const handleApprove = async (id) => {

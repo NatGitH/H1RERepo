@@ -4,7 +4,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
 import { useAuth } from "../../.Context/AuthContext";
-import { API_BASE_URL } from "../../api";
+import { apiFetch, getErrorMessage } from "../../api";
 
 export default function Applicants() {
   const { auth } = useAuth();
@@ -27,29 +27,28 @@ export default function Applicants() {
   const [sortBy, setSortBy] = useState("status"); // status | name_asc | name_desc | score_desc | score_asc
 
   // Fetch evaluations
-  const fetchEvaluations = () => {
+  const fetchEvaluations = async () => {
     setLoading(true);
-    fetch(`${API_BASE_URL}/api/evaluations/`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => setApplicants(Array.isArray(data) ? data : []))
-      .catch(() => setApplicants([]))
-      .finally(() => setLoading(false));
+    try {
+      const data = await apiFetch("/api/evaluations/", { token: auth.token });
+      setApplicants(Array.isArray(data) ? data : []);
+    } catch {
+      setApplicants([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Fetch approved requirements for the picker
-  const fetchRequirements = () => {
-    fetch(`${API_BASE_URL}/api/requirements/`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-      .then((res) => res.json())
-      .then((data) =>
-        setRequirements(
-          Array.isArray(data) ? data.filter((r) => r.status === "approved") : []
-        )
-      )
-      .catch(() => setRequirements([]));
+  const fetchRequirements = async () => {
+    try {
+      const data = await apiFetch("/api/requirements/", { token: auth.token });
+      setRequirements(
+        Array.isArray(data) ? data.filter((r) => r.status === "approved") : []
+      );
+    } catch {
+      setRequirements([]);
+    }
   };
 
   useEffect(() => {
@@ -82,12 +81,11 @@ export default function Applicants() {
       formData.append("resume", pendingFiles[i]);
       formData.append("requirement_id", selectedReqId);
       try {
-        const res = await fetch(`${API_BASE_URL}/api/evaluate/`, {
+        await apiFetch("/api/evaluate/", {
           method: "POST",
-          headers: { Authorization: `Bearer ${auth.token}` },
+          token: auth.token,
           body: formData,
         });
-        if (!res.ok) failures++;
       } catch {
         failures++;
       }
@@ -104,17 +102,17 @@ export default function Applicants() {
 
   const handleStatusUpdate = async (evaluationId, status, extra = {}) => {
     try {
-      await fetch(`${API_BASE_URL}/api/evaluations/${evaluationId}/status/`, {
+      await apiFetch(`/api/evaluations/${evaluationId}/status/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ status, ...extra }),
+        token: auth.token,
+        body: { status, ...extra },
       });
       setApplicants((prev) =>
         prev.map((a) => (a.evaluation_id === evaluationId ? { ...a, status } : a))
       );
       setSelected(null);
     } catch (err) {
-      alert("Failed to update status");
+      alert(getErrorMessage(err, "Failed to update status"));
     }
   };
 

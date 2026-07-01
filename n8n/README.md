@@ -7,7 +7,7 @@ checklist that keeps them working after the move to Render.
 
 | Workflow | Trigger | Required? | Notes |
 |---|---|---|---|
-| **Evaluate Resume** | Webhook `/evaluate-resume` | ✅ Core | PDF/OCR → SBERT score → Groq summary → writes Applicant/Resume/Evaluation/Pros/Cons |
+| **Evaluate Resume** | Webhook `/evaluate-resume` | ✅ Core | PDF/OCR → SBERT score → Groq summary → writes Applicant/Resume/Evaluation/Pros/Cons. Responds to the webhook once from the **Evaluations** node; Pros/Cons inserts are a terminal side branch. Depends on Groq model `llama-3.3-70b-versatile` staying active. |
 | **H!RE - Account Registration Email** | Webhook `/register-confirmation` | ✅ | Welcome email |
 | **H!RE - Password Reset Email** | Webhook `/password-reset` | ✅ | Reset link, 30-min expiry |
 | **H!RE - Interview Invitation Email** | Webhook `/interview-invitation` | ✅ | Fired by Django on `interview_sent` |

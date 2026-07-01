@@ -10,7 +10,7 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview
 
 ph = PasswordHasher()
 
@@ -628,6 +628,13 @@ def get_evaluations(request):
             "requirement_id", req_ids
         ).execute().data
 
+        # Requirement details straight from Django (its DB connection bypasses RLS,
+        # which the anon Supabase client cannot read past on Job_Requirements).
+        req_map = {
+            str(r.requirement_id): r
+            for r in JobRequirement.objects.filter(requirement_id__in=req_ids)
+        }
+
         results = []
         for ev in evals:
             # Skip soft-removed evaluations (rejected past the 1h grace, archived by the reject workflow)
@@ -648,19 +655,18 @@ def get_evaluations(request):
                 "evaluation_id", ev["evaluation_id"]
             ).execute().data
 
-            # Get requirement info (title + full details for the applicant's chosen role)
-            req_info = sb.table("Job_Requirements").select(
-                "job_title, description, qualifications"
-            ).eq("requirement_id", ev["requirement_id"]).execute().data
+            # Requirement details (title + description + qualifications) via ORM
+            req_obj = req_map.get(str(ev["requirement_id"]))
 
             applicant = sb.table("Applicants").select("*").eq(
                 "applicant_id", resume[0]["applicant_id"]
             ).execute().data if resume else []
 
-            interview = sb.table("Interviews").select("*").eq(
-                "evaluation_id", ev["evaluation_id"]
-            ).order("date_created", desc=True).limit(1).execute().data
-            
+            # Latest interview row via ORM (also RLS-guarded for the anon client)
+            interview_obj = Interview.objects.filter(
+                evaluation_id=ev["evaluation_id"]
+            ).order_by("-date_created").first()
+
             results.append({
                 "evaluation_id":  ev["evaluation_id"],
                 "resume_id":      ev["resume_id"],
@@ -673,15 +679,15 @@ def get_evaluations(request):
                 "cons":           [c["cons_text"] for c in cons],
                 "file_name":      resume[0]["file_name"] if resume else "",
                 "file_path":      resume[0]["file_path"] if resume else "",
-                "job_title":      req_info[0]["job_title"] if req_info else "",
-                "job_description":    req_info[0].get("description") if req_info else "",
-                "job_qualifications": req_info[0].get("qualifications") if req_info else "",
+                "job_title":      req_obj.job_title if req_obj else "",
+                "job_description":    req_obj.description if req_obj else "",
+                "job_qualifications": req_obj.qualifications if req_obj else "",
                 "evaluated_by":   get_user_fullname(ev.get("evaluated_by_user_id")),
                 "rejected_at":       ev.get("rejected_at"),
                 "shortlisted_by":    get_user_fullname(ev.get("shortlisted_by_user_id")),
                 "shortlisted_by_user_id": ev.get("shortlisted_by_user_id"),
-                "interview_date": interview[0]["interview_date"] if interview else None,
-                "interview_message": interview[0]["message"] if interview else None,
+                "interview_date": interview_obj.interview_date.isoformat() if interview_obj and interview_obj.interview_date else None,
+                "interview_message": interview_obj.message if interview_obj else None,
                 "action_made_by": get_user_fullname(ev.get("action_made_by_user_id")),
                 "action_made_by_user_id": ev.get("action_made_by_user_id"),
             })
@@ -732,18 +738,19 @@ def update_evaluation_status(request, evaluation_id):
             # visibility filter in the Profile "For Interview Applicants" panel.
             update_data["action_made_by_user_id"] = str(user_id) if user_id else None
 
-            # Save the interview row (single insert).
-            # Owners have no Users row (their JWT carries no user_id), so scheduled_by
+            # Save the interview row via Django ORM (its direct Postgres connection
+            # bypasses the Interviews table's row-level-security policy, which blocks
+            # the anon Supabase client). Owners have no Users row, so scheduled_by
             # may be None — the column is nullable for exactly this case.
-            sb.table("Interviews").insert({
-                "interview_id": str(uuid.uuid4()),
-                "evaluation_id": str(evaluation_id),
-                "scheduled_by_user_id": user_id or None,
-                "interview_date": interview_date,
-                "message": message,
-                "interview_status": "scheduled",
-                "sent_date": datetime.datetime.utcnow().isoformat(),
-            }).execute()
+            Interview.objects.create(
+                interview_id=uuid.uuid4(),
+                evaluation_id=evaluation_id,
+                scheduled_by_user_id=(user_id or None),
+                interview_date=interview_date,
+                message=message,
+                interview_status="scheduled",
+                sent_date=datetime.datetime.utcnow(),
+            )
 
             # friendly date for the email (DB still stores the raw ISO above)
             try:

@@ -545,11 +545,11 @@ export default function Profile() {
                             <UserIcon />
                           </div>
                           <div className="flex flex-col gap-2 flex-1 min-w-0">
-                            <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
+                            <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
                               {applicant.applicant_name}
                             </span>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="bg-slate-100 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
+                              <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
                                 H!RE Score: <span className="text-green-500 font-bold">{applicant.hire_score}%</span>
                               </span>
                               <span

@@ -150,3 +150,17 @@ class Document(models.Model):
     class Meta:
         db_table = '"Documents"'
         managed  = False
+
+class Interview(models.Model):
+    interview_id         = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    evaluation_id        = models.UUIDField()
+    scheduled_by_user_id = models.UUIDField(null=True, blank=True)
+    interview_date       = models.DateTimeField(null=True, blank=True)
+    message              = models.TextField(null=True, blank=True)
+    interview_status     = models.CharField(max_length=50, null=True, blank=True, default="scheduled")
+    sent_date            = models.DateTimeField()
+    date_created         = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Interviews"'
+        managed  = False

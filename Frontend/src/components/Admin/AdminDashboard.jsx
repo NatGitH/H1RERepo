@@ -7,7 +7,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import { apiFetch, getErrorMessage } from "../../api";
+import { API_BASE_URL } from "../../api";
 
 export default function AdminDashboard() {
   const { auth, logout } = useAuth();
@@ -29,18 +29,24 @@ export default function AdminDashboard() {
 
   const fetchAll = async () => {
     try {
-      const [statsData, pendingData, companiesData] = await Promise.all([
-        apiFetch("/api/admin/dashboard/", { token: auth.token }),
-        apiFetch("/api/admin/companies/pending/", { token: auth.token }),
-        apiFetch("/api/admin/companies/", { token: auth.token }),
+      const headers = { Authorization: `Bearer ${auth.token}` };
+
+      const [statsRes, pendingRes, companiesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/admin/dashboard/`, { headers }),
+        fetch(`${API_BASE_URL}/api/admin/companies/pending/`, { headers }),
+        fetch(`${API_BASE_URL}/api/admin/companies/`, { headers }),
       ]);
+
+      const statsData     = await statsRes.json();
+      const pendingData   = await pendingRes.json();
+      const companiesData = await companiesRes.json();
 
       setStats(statsData);
       setPending(Array.isArray(pendingData) ? pendingData : []);
       setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setLoading(false);
     } catch (err) {
       console.error(err);
-    } finally {
       setLoading(false);
     }
   };
@@ -48,7 +54,10 @@ export default function AdminDashboard() {
   const fetchDocuments = async (companyId) => {
     if (docsByCompany[companyId]) return;
     try {
-      const data = await apiFetch(`/api/admin/companies/${companyId}/documents/`, { token: auth.token });
+      const res = await fetch(`${API_BASE_URL}/api/admin/companies/${companyId}/documents/`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      });
+      const data = await res.json();
       setDocsByCompany((prev) => ({ ...prev, [companyId]: Array.isArray(data) ? data : [] }));
     } catch (err) {
       console.error(err);
@@ -66,48 +75,56 @@ export default function AdminDashboard() {
 
   const handleApproveReject = async (ap_id, status) => {
     try {
-      await apiFetch("/api/admin/companies/approve-reject/", {
+      const res = await fetch(`${API_BASE_URL}/api/admin/companies/approve-reject/`, {
         method: "POST",
-        token: auth.token,
-        body: { ap_id, status },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ ap_id, status }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
       setPending((prev) => prev.filter((p) => p.ap_id !== ap_id));
       fetchAll();
-    } catch (err) { alert(getErrorMessage(err)); }
+    } catch (err) { alert(err.message); }
   };
 
   const handleRevoke = async (company_id) => {
     try {
-      await apiFetch("/api/admin/companies/revoke/", {
+      const res = await fetch(`${API_BASE_URL}/api/admin/companies/revoke/`, {
         method: "POST",
-        token: auth.token,
-        body: { company_id },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ company_id }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
       fetchAll();
-    } catch (err) { alert(getErrorMessage(err)); }
+    } catch (err) { alert(err.message); }
   };
 
 const handleRestore = async (company_id) => {
   try {
-    await apiFetch("/api/admin/companies/restore/", {
+    const res = await fetch(`${API_BASE_URL}/api/admin/companies/restore/`, {
       method: "POST",
-      token: auth.token,
-      body: { company_id },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ company_id }),
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
     fetchAll();
-  } catch (err) { alert(getErrorMessage(err)); }
+  } catch (err) { alert(err.message); }
 };
 
 const handleDelete = async (company_id, companyName) => {
   if (!window.confirm(`Permanently delete "${companyName}"? This cannot be undone.`)) return;
   try {
-    await apiFetch("/api/admin/companies/delete/", {
+    const res = await fetch(`${API_BASE_URL}/api/admin/companies/delete/`, {
       method: "POST",
-      token: auth.token,
-      body: { company_id },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ company_id }),
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
     fetchAll();
-  } catch (err) { alert(getErrorMessage(err)); }
+  } catch (err) { alert(err.message); }
 };
 
   const filteredCompanies = companies.filter((c) =>
@@ -120,6 +137,12 @@ const handleDelete = async (company_id, companyName) => {
     if (status === "expired") return "bg-red-500";
     return "bg-slate-400";
   };
+
+  // Only approved companies count toward "Total Companies" and "Active Subscription".
+  // Pending companies are tracked separately and shouldn't inflate these totals.
+  const approvedCompanies = companies.filter((c) => c.approval_status === "approved");
+  const totalCompaniesCount = approvedCompanies.length;
+  const activeSubscriptionCount = approvedCompanies.filter((c) => c.subscription_status === "active").length;
 
   const DocumentsList = ({ companyId }) => {
     const docs = docsByCompany[companyId];
@@ -204,12 +227,16 @@ const handleDelete = async (company_id, companyName) => {
 
             <div className="grid grid-cols-4 gap-4 mb-6 max-[900px]:grid-cols-2">
               {[
-                { label: "Total Companies",    value: stats?.total_companies  || 0, sub: "this month",   color: "text-teal-500" },
-                { label: "Pending Approval",   value: stats?.pending_approval || 0, sub: "Needs Review",   color: "text-orange-500" },
-                { label: "Active Subscription",value: stats?.active_subs      || 0, sub: "this week",    color: "text-teal-500" },
-                { label: "Revoked Accounts",   value: stats?.revoked          || 0, sub: "this week",    color: "text-red-500" },
+                { label: "Total Companies",    value: totalCompaniesCount,          sub: "approved",      color: "text-teal-500" },
+                { label: "Pending Approval",   value: pending.length,               sub: "Needs Review",  color: "text-orange-500" },
+                { label: "Active Subscription",value: activeSubscriptionCount,      sub: "this week",     color: "text-teal-500" },
+                { label: "Revoked Accounts",   value: stats?.revoked || 0,          sub: "this week",     color: "text-red-500" },
               ].map((stat) => (
-                <div key={stat.label} className="bg-teal-50 rounded-2xl p-5 border border-teal-100">
+                <div
+                  key={stat.label}
+                  className="rounded-2xl p-5 border"
+                  style={{ backgroundColor: "#e6fbf8", borderColor: "#b2f0e6" }}
+                >
                   <p className="text-xs font-semibold text-slate-500 mb-1">{stat.label}</p>
                   <p className="text-3xl font-extrabold text-[#0B2447]">{stat.value}</p>
                   <p className={`text-xs font-semibold mt-1 ${stat.color}`}>{stat.sub}</p>
@@ -286,7 +313,7 @@ const handleDelete = async (company_id, companyName) => {
               <div className="border-2 border-slate-200 rounded-2xl p-5">
                 <h2 className="font-extrabold text-[#0B2447] text-base mb-4">Subscription Status</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {companies.filter((c) => c.approval_status === "approved").slice(0, 4).map((c) => (
+                  {approvedCompanies.slice(0, 4).map((c) => (
                     <div key={c.id} className="bg-slate-50 rounded-xl p-3 flex items-center gap-2">
                       <div className="w-9 h-9 rounded-lg bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                         {c.company_logo ? (
@@ -313,6 +340,9 @@ const handleDelete = async (company_id, companyName) => {
                       </div>
                     </div>
                   ))}
+                  {approvedCompanies.length === 0 && (
+                    <p className="text-slate-400 text-sm col-span-2">No approved companies.</p>
+                  )}
                 </div>
               </div>
             </div>

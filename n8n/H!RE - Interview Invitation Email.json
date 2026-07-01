@@ -38,7 +38,8 @@
           "id": "I3kOQilN2qpfYa7Q",
           "name": "Gmail account"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},

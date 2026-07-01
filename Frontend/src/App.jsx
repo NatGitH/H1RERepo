@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Routes, Route } from 'react-router'
+import { Routes, Route, Navigate } from 'react-router'
 import DashboardLayout from './components/Functions/DashboardLayout'
 import ProtectedRoute from './components/Functions/ProtectedRoute'
 
@@ -86,6 +86,9 @@ function App() {
             /* Employer */
             <Route path="/Employer" element={<Employer/>}/>
           </Route>
+
+          {/* Any unknown route -> back to Home / Login */}
+          <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   )

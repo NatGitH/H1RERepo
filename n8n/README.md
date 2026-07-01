@@ -41,6 +41,19 @@ disappears from the Applicants UI as intended.
 **Cancel Rejection** flips the status back to `pending` before the hour is up, so the
 row never matches the query — no email, no removal. ✔️
 
+### Batch processing (all rejected rows per trigger)
+- The **Get rejected > 1h** node has `returnAll: true`, so every trigger pulls the
+  *entire* set of eligible rows (not the default 50-row page), and n8n fans out the
+  downstream nodes across all of them in one run.
+- The per-row nodes (**Get Resume, Get Applicant, Send rejection email, Log Email,
+  Archive**) are set to **Continue On Error** (`onError: continueRegularOutput`). This
+  is the important part: without it, a single applicant with a missing/placeholder
+  email makes the Gmail node throw and **halts the whole run**, so each trigger only
+  clears rows up to the first failure — which looks like "one at a time." With it, bad
+  rows are skipped (still archived so they don't re-queue) and the rest of the batch
+  completes. If a node shows blank after import, open its **Settings → On Error →
+  Continue** to re-apply.
+
 ### No prerequisites — no SQL, no schema change
 `'removed'` is just a new value in the existing `application_status` column (a plain
 varchar with no CHECK constraint), so nothing needs to run in Supabase first.

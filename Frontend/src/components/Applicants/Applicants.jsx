@@ -243,7 +243,7 @@ export default function Applicants() {
               )}
             </div>
             <p className="font-bold text-sm text-[#0f172a] m-0 text-center">
-              {uploading ? "Analyzing..." : "Click or drag"}
+              {uploading ? "Analyzing..." : "Click to Upload"}
             </p>
             <p className="text-xs text-slate-500 m-0 text-center">
               {uploading

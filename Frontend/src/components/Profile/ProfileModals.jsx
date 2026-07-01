@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { API_BASE_URL } from "../../api";
+import { apiFetch, getErrorMessage } from "../../api";
 
 // ─────────────────────────────────────────────
 // Change Profile Picture Modal (HR roles)
@@ -176,16 +176,14 @@ export function ChangeCompanyNameModal({ currentName = "", token, onSuccess, onC
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-name/`, {
+      await apiFetch("/api/profile/update-company-name/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ company_name: newName.trim() }),
+        token,
+        body: { company_name: newName.trim() },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update company name.");
       onSuccess(newName.trim());
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
       setConfirmed(false);
     } finally {
       setLoading(false);
@@ -286,16 +284,14 @@ export function ChangeCompanyPasswordModal({ token, onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-password/`, {
+      await apiFetch("/api/profile/update-company-password/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        token,
+        body: { current_password: currentPassword, new_password: newPassword },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update password.");
       setSuccess(true);
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
       setConfirmed(false);
     } finally {
       setLoading(false);
@@ -388,16 +384,14 @@ export function ChangeCompanyProfileModal({ currentDescription = "", token, onSu
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-description/`, {
+      await apiFetch("/api/profile/update-company-description/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ description }),
+        token,
+        body: { description },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update description.");
       onSuccess(description);
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -455,15 +449,13 @@ export function DeleteCompanyModal({ companyName = "", token, onSuccess, onClose
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/profile/delete-company/`, {
+      await apiFetch("/api/profile/delete-company/", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        token,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete company.");
       onSuccess();
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -560,16 +552,14 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/profile/renew-subscription/`, {
+      const data = await apiFetch("/api/profile/renew-subscription/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ plan: selectedPlan }),
+        token,
+        body: { plan: selectedPlan },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update subscription.");
       onSuccess(data.subscription_plan, data.subscription_expiry, data.was_renewal);
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
       setConfirmed(false);
     } finally {
       setLoading(false);
@@ -700,16 +690,13 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/auth/send-reset-code/`, {
+      await apiFetch("/api/auth/send-reset-code/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: { email },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setStep(STEP_CODE);
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -719,16 +706,13 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/auth/verify-reset-code/`, {
+      await apiFetch("/api/auth/verify-reset-code/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
+        body: { email, code },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setStep(STEP_NEWPASS);
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -746,16 +730,13 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE_URL}/api/auth/reset-password/`, {
+      await apiFetch("/api/auth/reset-password/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code, new_password: newPassword }),
+        body: { email, code, new_password: newPassword },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setStep(STEP_SUCCESS);
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

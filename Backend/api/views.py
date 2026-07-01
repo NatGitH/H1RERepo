@@ -726,6 +726,10 @@ def update_evaluation_status(request, evaluation_id):
             if not interview_date:
                 return JsonResponse({"error": "interview_date is required"}, status=400)
 
+            # Record who moved this applicant to interview — used for the per-user
+            # visibility filter in the Profile "For Interview Applicants" panel.
+            update_data["action_made_by_user_id"] = str(user_id) if user_id else None
+
             # Save the interview row (single insert).
             # Owners have no Users row (their JWT carries no user_id), so scheduled_by
             # may be None — the column is nullable for exactly this case.

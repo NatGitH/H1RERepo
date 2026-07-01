@@ -116,12 +116,11 @@ export default function Navbar() {
 
         {/* Logo + Bell */}
         <div className="flex items-center gap-2 shrink-0 h-full">
-          <Link
-            to="/"
+          <div
             className="text-white no-underline font-extrabold text-3xl tracking-tight flex items-center h-full"
           >
             H<span className="text-sky-400">!</span>RE
-          </Link>
+          </div>
           <button
             onClick={() => setShowNotifs((v) => !v)}
             className="relative w-11 h-11 rounded-full bg-teal-400 flex items-center justify-center text-white border-none cursor-pointer hover:bg-teal-300 transition-colors"

@@ -11,7 +11,7 @@ import {
   DeleteCompanyModal,
   ManageSubscriptionModal,
 } from "./ProfileModals";
-import { API_BASE_URL } from "../../api";
+import { apiFetch, getErrorMessage } from "../../api";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -72,41 +72,42 @@ export default function Profile() {
 
   useEffect(() => {
     const endpoint = role === "owner" ? "/api/profile/owner/" : "/api/profile/hr/";
-    fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => { setProfile(data); setLoading(false); })
-      .catch(() => setLoading(false));
+    (async () => {
+      try {
+        const data = await apiFetch(endpoint, { token: auth.token });
+        setProfile(data);
+      } catch {
+        /* leave profile empty */
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchApplicants = () => {
+    const fetchApplicants = async () => {
       setLoadingApplicants(true);
       setApplicantsError("");
-      fetch(`${API_BASE_URL}/api/evaluations/`, {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      })
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Failed to load evaluations.");
-          return data;
-        })
-        .then((data) => {
-          if (cancelled) return;
-          const filtered = (data || []).filter(
-            (ev) => ev.status === "shortlisted" || ev.status === "interview_sent"
-          );
-          setInterviewApplicants(filtered);
-        })
-        .catch((err) => {
-          if (!cancelled) setApplicantsError(err.message || "Failed to load applicants.");
-        })
-        .finally(() => {
-          if (!cancelled) setLoadingApplicants(false);
+      try {
+        const data = await apiFetch("/api/evaluations/", { token: auth.token });
+        if (cancelled) return;
+        // Owners and managers see every recruiter's interview applicants.
+        // HR staff only see the ones they personally moved to interview.
+        const canSeeAll = role === "owner" || role === "HRManager";
+        const filtered = (data || []).filter((ev) => {
+          const isInterviewStage = ev.status === "shortlisted" || ev.status === "interview_sent";
+          if (!isInterviewStage) return false;
+          if (canSeeAll) return true;
+          return ev.action_made_by_user_id === auth.user_id;
         });
+        setInterviewApplicants(filtered);
+      } catch (err) {
+        if (!cancelled) setApplicantsError(getErrorMessage(err, "Failed to load applicants."));
+      } finally {
+        if (!cancelled) setLoadingApplicants(false);
+      }
     };
 
     fetchApplicants();
@@ -128,16 +129,14 @@ export default function Profile() {
 
   const handleStatusChange = async (newStatus) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/profile/update-status/`, {
+      await apiFetch("/api/profile/update-status/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ status: newStatus }),
+        token: auth.token,
+        body: { status: newStatus },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setProfile((prev) => ({ ...prev, account_status: newStatus }));
       setShowStatusMenu(false);
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err)); }
   };
 
   const handlePicFileChange = (e) => {
@@ -177,13 +176,11 @@ export default function Profile() {
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-      const res = await fetch(`${API_BASE_URL}/api/profile/update-picture/`, {
+      await apiFetch("/api/profile/update-picture/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ profile_picture: publicUrl }),
+        token: auth.token,
+        body: { profile_picture: publicUrl },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setProfile((prev) => ({ ...prev, profile_picture: publicUrl }));
       login({ ...auth, profile_picture: publicUrl });
@@ -241,13 +238,11 @@ export default function Profile() {
       const savedUrl   = urlData.publicUrl;
       const displayUrl = `${savedUrl}?t=${Date.now()}`;
 
-      const res = await fetch(`${API_BASE_URL}/api/profile/update-company-logo/`, {
+      await apiFetch("/api/profile/update-company-logo/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ logo: savedUrl }),
+        token: auth.token,
+        body: { logo: savedUrl },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setProfile((prev) => ({ ...prev, logo: displayUrl }));
       setShowLogoModal(false);
@@ -405,10 +400,10 @@ export default function Profile() {
                       onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
                       onBlur={async (e) => {
                         try {
-                          await fetch(`${API_BASE_URL}/api/profile/update-bio/`, {
+                          await apiFetch("/api/profile/update-bio/", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-                            body: JSON.stringify({ bio: e.target.value }),
+                            token: auth.token,
+                            body: { bio: e.target.value },
                           });
                         } catch (err) { console.error(err); }
                       }}
@@ -496,10 +491,10 @@ export default function Profile() {
                       onChange={(e) => setProfile((prev) => ({ ...prev, description: e.target.value }))}
                       onBlur={async (e) => {
                         try {
-                          await fetch(`${API_BASE_URL}/api/profile/update-company-description/`, {
+                          await apiFetch("/api/profile/update-company-description/", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-                            body: JSON.stringify({ description: e.target.value }),
+                            token: auth.token,
+                            body: { description: e.target.value },
                           });
                         } catch (err) { console.error(err); }
                       }}
@@ -611,7 +606,7 @@ export default function Profile() {
                               </p>
                             )}
                             <p className="text-slate-400 text-xs m-0">
-                              Shortlisted by: {applicant.shortlisted_by || "—"}
+                              Handled by: {applicant.action_made_by || "—"}
                             </p>
                           </div>
                         )}

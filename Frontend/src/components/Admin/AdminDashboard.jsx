@@ -7,7 +7,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import { API_BASE_URL } from "../../api";
+import { apiFetch, getErrorMessage } from "../../api";
 
 export default function AdminDashboard() {
   const { auth, logout } = useAuth();
@@ -29,24 +29,18 @@ export default function AdminDashboard() {
 
   const fetchAll = async () => {
     try {
-      const headers = { Authorization: `Bearer ${auth.token}` };
-
-      const [statsRes, pendingRes, companiesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/admin/dashboard/`, { headers }),
-        fetch(`${API_BASE_URL}/api/admin/companies/pending/`, { headers }),
-        fetch(`${API_BASE_URL}/api/admin/companies/`, { headers }),
+      const [statsData, pendingData, companiesData] = await Promise.all([
+        apiFetch("/api/admin/dashboard/", { token: auth.token }),
+        apiFetch("/api/admin/companies/pending/", { token: auth.token }),
+        apiFetch("/api/admin/companies/", { token: auth.token }),
       ]);
-
-      const statsData     = await statsRes.json();
-      const pendingData   = await pendingRes.json();
-      const companiesData = await companiesRes.json();
 
       setStats(statsData);
       setPending(Array.isArray(pendingData) ? pendingData : []);
       setCompanies(Array.isArray(companiesData) ? companiesData : []);
-      setLoading(false);
     } catch (err) {
       console.error(err);
+    } finally {
       setLoading(false);
     }
   };
@@ -54,10 +48,7 @@ export default function AdminDashboard() {
   const fetchDocuments = async (companyId) => {
     if (docsByCompany[companyId]) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/companies/${companyId}/documents/`, {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      });
-      const data = await res.json();
+      const data = await apiFetch(`/api/admin/companies/${companyId}/documents/`, { token: auth.token });
       setDocsByCompany((prev) => ({ ...prev, [companyId]: Array.isArray(data) ? data : [] }));
     } catch (err) {
       console.error(err);
@@ -75,56 +66,48 @@ export default function AdminDashboard() {
 
   const handleApproveReject = async (ap_id, status) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/companies/approve-reject/`, {
+      await apiFetch("/api/admin/companies/approve-reject/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ ap_id, status }),
+        token: auth.token,
+        body: { ap_id, status },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setPending((prev) => prev.filter((p) => p.ap_id !== ap_id));
       fetchAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err)); }
   };
 
   const handleRevoke = async (company_id) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/companies/revoke/`, {
+      await apiFetch("/api/admin/companies/revoke/", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ company_id }),
+        token: auth.token,
+        body: { company_id },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       fetchAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(getErrorMessage(err)); }
   };
 
 const handleRestore = async (company_id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/companies/restore/`, {
+    await apiFetch("/api/admin/companies/restore/", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ company_id }),
+      token: auth.token,
+      body: { company_id },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
     fetchAll();
-  } catch (err) { alert(err.message); }
+  } catch (err) { alert(getErrorMessage(err)); }
 };
 
 const handleDelete = async (company_id, companyName) => {
   if (!window.confirm(`Permanently delete "${companyName}"? This cannot be undone.`)) return;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/companies/delete/`, {
+    await apiFetch("/api/admin/companies/delete/", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ company_id }),
+      token: auth.token,
+      body: { company_id },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
     fetchAll();
-  } catch (err) { alert(err.message); }
+  } catch (err) { alert(getErrorMessage(err)); }
 };
 
   const filteredCompanies = companies.filter((c) =>

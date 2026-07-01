@@ -2,7 +2,7 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useCompanyRegistration } from "../../../../.Context/CompanyRegistrationContext";
 import { supabase } from "../../../../.Context/supabaseClient";
-import { API_BASE_URL } from "../../../../api";
+import { apiFetch, getErrorMessage } from "../../../../api";
 
 
 export default function SubscriptionPlan() {
@@ -92,13 +92,11 @@ export default function SubscriptionPlan() {
     formData.append("staff_password", registrationData.staffPassword);
     formData.append("plan", plan.planType);
 
-    const res = await fetch(`${API_BASE_URL}/api/auth/register-company/`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-
-    if (res.ok) {
+    try {
+      const data = await apiFetch("/api/auth/register-company/", {
+        method: "POST",
+        body: formData,
+      });
       const companyId = data.company_id;
 
       // Upload documents directly to Supabase Storage from the frontend
@@ -112,20 +110,21 @@ export default function SubscriptionPlan() {
         if (!file) continue;
         const url = await uploadDocument(file, companyId, fieldName);
         if (url) {
-          await fetch(`${API_BASE_URL}/api/auth/save-document/`, {
+          await apiFetch("/api/auth/save-document/", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+            body: {
               company_id: companyId,
               document_name: label,
               document_type: fieldName,
               document_url: url,
-            }),
+            },
           });
         }
       }
 
       navigate(plan.planType === "free" ? "/Account-Verification" : "/Receipt");
+    } catch (err) {
+      alert(getErrorMessage(err, "Registration failed. Please try again."));
     }
   };
 

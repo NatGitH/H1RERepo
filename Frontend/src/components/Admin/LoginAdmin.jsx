@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useAuth } from "../../.Context/AuthContext";
-import { API_BASE_URL } from "../../api";
+import { apiFetch, getErrorMessage } from "../../api";
 
 export default function LoginAdmin() {
   const navigate = useNavigate();
@@ -20,21 +20,14 @@ export default function LoginAdmin() {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`${API_BASE_URL}/api/auth/login-admin/`, {
+      const data = await apiFetch("/api/auth/login-admin/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           username: form.username,
           email:    form.email,
           password: form.password,
-        }),
+        },
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Invalid credentials");
-        return;
-      }
 
       login({
         token:   data.token,
@@ -45,7 +38,7 @@ export default function LoginAdmin() {
 
       navigate("/Admin-Dashboard");
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      setError(getErrorMessage(err, "Invalid credentials"));
     } finally {
       setLoading(false);
     }

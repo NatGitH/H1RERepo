@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from '../../../.Context/LoginContext';
-import { API_BASE_URL } from "../../../api";
+import { apiFetch, getErrorMessage } from "../../../api";
 
 export default function LoginCompany() {
   const navigate = useNavigate();
@@ -16,18 +16,15 @@ export default function LoginCompany() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/find-company/`, {
+      const data = await apiFetch("/api/auth/find-company/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_name: form.company_name, staff_password: form.staff_password }),
+        body: { company_name: form.company_name, staff_password: form.staff_password },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Company not found");
 
       setCompany({ companyId: data.company_id, companyName: data.company_name });
       navigate("/Company-Home");
     } catch (err) {
-      alert(err.message);
+      alert(getErrorMessage(err, "Company not found"));
     }
   };
 

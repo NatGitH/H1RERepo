@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import CloseIcon from "@mui/icons-material/Close";
 import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationContext";
-import { API_BASE_URL } from "../../../api";
+import { apiFetch, getErrorMessage } from "../../../api";
 
 export default function CreateCompany() {
   const navigate = useNavigate();
@@ -58,18 +58,12 @@ export default function CreateCompany() {
 
     // Check if company name already exists
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/check-company-name/`, {
+      await apiFetch("/api/auth/check-company-name/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_name: form.companyName }),
+        body: { company_name: form.companyName },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error);
-        return;
-      }
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      setError(getErrorMessage(err));
       return;
     }
 

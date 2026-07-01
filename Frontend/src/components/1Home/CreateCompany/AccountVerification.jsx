@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationContext";
-import { API_BASE_URL } from "../../../api";
+import { apiFetch } from "../../../api";
 
 export default function AccountVerification() {
   const navigate = useNavigate();
@@ -14,15 +14,11 @@ export default function AccountVerification() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/check-approval-status/`, {
+        const data = await apiFetch("/api/auth/check-approval-status/", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: registrationData.email }),
+          body: { email: registrationData.email },
         });
-        const data = await res.json();
-        if (res.ok) {
-          setStatus(data.status);
-        }
+        setStatus(data.status);
       } catch (err) {
         console.error(err);
       } finally {

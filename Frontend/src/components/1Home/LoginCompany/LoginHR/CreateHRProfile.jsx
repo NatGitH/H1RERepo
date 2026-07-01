@@ -4,7 +4,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from "../../../../.Context/LoginContext";
 import { useHRRegistration } from "../../../../.Context/HRRegistrationContext";
 import { supabase } from "../../../../.Context/supabaseClient";
-import { API_BASE_URL } from "../../../../api";
+import { apiFetch, getErrorMessage } from "../../../../api";
 
 export default function CreateHRProfile() {
   const navigate = useNavigate();
@@ -78,10 +78,9 @@ export default function CreateHRProfile() {
         profilePictureUrl = urlData.publicUrl;
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/auth/create-hr-account/`, {
+      await apiFetch("/api/auth/create-hr-account/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           username:        registrationData.username,
           email:           registrationData.email,
           password:        registrationData.password,
@@ -92,18 +91,15 @@ export default function CreateHRProfile() {
           birthdate:       form.dateOfBirth || null,
           bio:             form.bio,
           profile_picture: profilePictureUrl,
-        }),
+        },
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create account");
 
       // Reset registration state now that the account is created
       updateData({ username: "", email: "", password: "" });
       setShowVerification(true);
 
     } catch (err) {
-      alert(err.message);
+      alert(getErrorMessage(err, "Failed to create account"));
     } finally {
       setUploading(false);
     }

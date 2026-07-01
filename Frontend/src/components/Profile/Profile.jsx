@@ -93,12 +93,12 @@ export default function Profile() {
       try {
         const data = await apiFetch("/api/evaluations/", { token: auth.token });
         if (cancelled) return;
-        // Owners and managers see every recruiter's interview applicants.
-        // HR staff only see the ones they personally moved to interview.
+        // Only applicants actually sent to interview (not merely shortlisted).
+        // Owners and HR managers see every recruiter's interviews; an HR staff
+        // only sees the interviews they personally sent.
         const canSeeAll = role === "owner" || role === "HRManager";
         const filtered = (data || []).filter((ev) => {
-          const isInterviewStage = ev.status === "shortlisted" || ev.status === "interview_sent";
-          if (!isInterviewStage) return false;
+          if (ev.status !== "interview_sent") return false;
           if (canSeeAll) return true;
           return ev.action_made_by_user_id === auth.user_id;
         });
@@ -568,6 +568,22 @@ export default function Profile() {
 
                         {isExpanded && (
                           <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 text-sm">
+                            {/* Requirement chosen for this applicant */}
+                            <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                              <p className="text-[#0B2447] m-0 font-bold">
+                                💼 {applicant.job_title || "Untitled Requirement"}
+                              </p>
+                              {applicant.job_description && (
+                                <p className="text-slate-600 m-0">
+                                  <span className="font-semibold text-[#0B2447]">Description:</span> {applicant.job_description}
+                                </p>
+                              )}
+                              {applicant.job_qualifications && (
+                                <p className="text-slate-600 m-0">
+                                  <span className="font-semibold text-[#0B2447]">Qualifications:</span> {applicant.job_qualifications}
+                                </p>
+                              )}
+                            </div>
                             {applicant.applicant_email && (
                               <p className="text-slate-600 m-0">
                                 <span className="font-semibold text-[#0B2447]">Email:</span> {applicant.applicant_email}

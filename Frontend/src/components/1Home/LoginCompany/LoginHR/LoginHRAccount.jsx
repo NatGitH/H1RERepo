@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from '../../../../.Context/LoginContext';
 import { useAuth } from '../../../../.Context/AuthContext';
-import { API_BASE_URL } from "../../../../api";
+import { apiFetch, getErrorMessage } from "../../../../api";
 
 export default function LoginHRAccount() {
   const navigate  = useNavigate();
@@ -21,31 +21,27 @@ export default function LoginHRAccount() {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`${API_BASE_URL}/api/auth/login-hr/`, {
+      const data = await apiFetch("/api/auth/login-hr/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           email:      form.email,
           password:   form.password,
           company_id: loginData.companyId,
-        }),
+        },
       });
-      const data = await res.json();
 
-      if (!res.ok) {
-        setError(data.error || "Login failed");
-        return;
+      let profileData = {};
+      try {
+        profileData = await apiFetch("/api/profile/hr/", { token: data.token });
+      } catch {
+        /* profile details are optional for login */
       }
-
-      const profileRes = await fetch(`${API_BASE_URL}/api/profile/hr/`, {
-        headers: { Authorization: `Bearer ${data.token}` },
-      });
-      const profileData = await profileRes.json();
 
       login({
         token:           data.token,
         role:            data.role,
         companyId:       data.company_id,
+        user_id:         data.user_id,   // needed for per-user interview visibility
         email:           form.email,
         profile_picture: profileData.profile_picture || null,
         firstname:       profileData.firstname || null,
@@ -54,7 +50,7 @@ export default function LoginHRAccount() {
 
       navigate("/Applicants");
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      setError(getErrorMessage(err, "Login failed"));
     } finally {
       setLoading(false);
     }

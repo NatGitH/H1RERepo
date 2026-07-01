@@ -82,11 +82,6 @@ export async function apiFetch(path, { method = "GET", body, headers = {}, token
     );
   }
 
-  if (res.status === 401) {
-    redirectToLogin();
-    throw new ApiError("Your session has expired. Please log in again.", { status: 401 });
-  }
-
   // Parse the body once (JSON when possible, else raw text).
   let data = null;
   const raw = await res.text();
@@ -96,6 +91,13 @@ export async function apiFetch(path, { method = "GET", body, headers = {}, token
     } catch {
       data = raw;
     }
+  }
+
+  // A 401 on an AUTHENTICATED request means the session expired -> bounce to login.
+  // A 401 on an unauthenticated request (e.g. a login attempt with bad credentials)
+  // should just surface the server's message inline, NOT redirect.
+  if (res.status === 401 && token) {
+    redirectToLogin();
   }
 
   if (!res.ok) {

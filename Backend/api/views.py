@@ -648,9 +648,9 @@ def get_evaluations(request):
                 "evaluation_id", ev["evaluation_id"]
             ).execute().data
 
-            # Get requirement info
+            # Get requirement info (title + full details for the applicant's chosen role)
             req_info = sb.table("Job_Requirements").select(
-                "job_title"
+                "job_title, description, qualifications"
             ).eq("requirement_id", ev["requirement_id"]).execute().data
 
             applicant = sb.table("Applicants").select("*").eq(
@@ -674,6 +674,8 @@ def get_evaluations(request):
                 "file_name":      resume[0]["file_name"] if resume else "",
                 "file_path":      resume[0]["file_path"] if resume else "",
                 "job_title":      req_info[0]["job_title"] if req_info else "",
+                "job_description":    req_info[0].get("description") if req_info else "",
+                "job_qualifications": req_info[0].get("qualifications") if req_info else "",
                 "evaluated_by":   get_user_fullname(ev.get("evaluated_by_user_id")),
                 "rejected_at":       ev.get("rejected_at"),
                 "shortlisted_by":    get_user_fullname(ev.get("shortlisted_by_user_id")),

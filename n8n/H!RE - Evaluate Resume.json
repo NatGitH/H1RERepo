@@ -1,0 +1,775 @@
+{
+  "name": "Evaluate Resume",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evaluate-resume",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1872,
+        400
+      ],
+      "id": "92666e11-387b-475b-b84c-2344137b1d33",
+      "name": "Webhook",
+      "webhookId": "a64c042f-c670-460a-8100-3ee7dab653e6"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1344,
+        384
+      ],
+      "id": "9b5eae70-1019-492b-bc10-cf8fce93ae7d",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a senior HR evaluator for the H!RE platform, specializing in objective, data-driven candidate assessment.\n\nYour task is to analyze the provided resume against the given job requirements and return a single, valid JSON object. Follow these instructions precisely:\n\n---\n\n**INPUT DATA:**\n\nJOB TITLE: {{ $('Webhook').item.json.body.job_title }}\n\nJOB DESCRIPTION: {{ $('Webhook').item.json.body.description }}\n\nQUALIFICATIONS: {{ $('Webhook').item.json.body.qualifications }}\n\nRESUME (raw text): \n{{ $json.text }}\n\n**PRECOMPUTED SEMANTIC FIT SCORE:** {{ $json.hire_score }}/100 ({{ $json.score_band }}). This reflects how well the resume matches the job requirements. Keep your pros, cons, and overall summary verdict consistent with this fit level — do not contradict it.\n\n---\n\nExtract the candidate's full name and email address if present in the resume. If not found, use \"Unknown Applicant\" for name and \"unknown@placeholder.com\" for email.\n\n**EVALUATION RULES:**\n\n1. **Pros (max 4):** List the candidate’s strongest, most relevant strengths—specifically those that align with the job title, description, and qualifications. Be concrete (e.g., \"5+ years of Python in fintech\" not just \"experienced\").\n\n2. **Cons (max 3):** List meaningful gaps or weaknesses that reduce fit (e.g., missing required skills, lack of industry experience, short tenure, irrelevant background). Only include if relevant.\n\n3. **Summary (2–3 sentences):** Provide a balanced, professional summary that highlights:\n   - Overall alignment with the role\n   - Key strengths and critical gaps\n   - A clear verdict on potential fit\n\n4. **hire_score (0–100):** A weighted, objective score based on:\n   - **40%:** Direct match with required qualifications (skills, experience, education)\n   - **30%:** Relevance of past roles and accomplishments\n   - **20%:** Demonstrated impact (metrics, leadership, projects)\n   - **10%:** Soft signals (culture fit, communication, career progression)\n\n   Score consistently:\n   - 90–100: Exceptional fit, exceeds requirements\n   - 80–89: Strong fit, meets all key requirements\n   - 70–79: Good fit, minor gaps\n   - 60–69: Passable, notable gaps\n   - Below 60: Weak fit\n\n---\n\n**CRITICAL OUTPUT FORMATTING:**\n\n- Return **ONLY** valid JSON.\n- Do NOT include markdown (e.g., ```json), explanations, or extra text.\n- Use double quotes for all keys and string values.\n- Ensure the JSON is parseable by `JSON.parse()`.\n\n---\n\n**OUTPUT TEMPLATE:**\n\n{\n  \"applicant_name\": \"candidate's full name or Unknown\",\n  \"applicant_email\": \"candidate's email or unknown@placeholder.com\",\n  \"pros\": [\"pro1\", \"pro2\", \"pro3\"],\n  \"cons\": [\"con1\", \"con2\"],\n  \"summary\": \"2-3 sentence summary of the candidate's fit for this role\"\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -832,
+        384
+      ],
+      "id": "b85e9831-4c7b-4157-ad00-fbbac970da55",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content || $input.first().json.output || $input.first().json.text;\nconst cleaned = raw.replace(/```json|```/g, '').trim();\nconst parsed = JSON.parse(cleaned);\nconst webhookData = $('Webhook').first().json.body;\nconst webhookBinary = $('Webhook').first().binary; // ← grab the binary too\nreturn [{\n  json: {\n    ...parsed,\n    requirement_id: webhookData.requirement_id,\n    uploaded_by_user_id: webhookData.uploaded_by_user_id || null,\n    evaluated_by_user_id: webhookData.evaluated_by_user_id || null,\n    job_title: webhookData.job_title,\n    description: webhookData.description,\n    qualifications: webhookData.qualifications\n  },\n  binary: webhookBinary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        384
+      ],
+      "id": "f4837576-a109-47bb-8008-4e456595e6ae",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        560
+      ],
+      "id": "ffb4fcab-b6a3-44fe-9922-1379ae9aa721",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "1wZAR4BxHTZ02Ngf",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://kzszvpmwvvtfvcgdzgnj.supabase.co/storage/v1/object/resumes/{{ $('Webhook').item.json.body.requirement_id }}_{{ Date.now() }}_{{ $binary.resume.fileName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $binary.resume.mimeType }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -336,
+        384
+      ],
+      "id": "ed3d16a7-a220-4ab7-bf69-34388cff4896",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9e969a98-b335-43f1-b51a-a4964c4266d9",
+              "leftValue": "={{ $binary.resume.mimeType }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        400
+      ],
+      "id": "945016e0-4374-4a78-94af-fe85b912d9ee",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "tableId": "Applicants",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "applicant_id",
+              "fieldValue": "={{ $json.applicant_id }}"
+            },
+            {
+              "fieldId": "full_name",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.applicant_name }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.applicant_email }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        80,
+        384
+      ],
+      "id": "a649c04a-1e27-4783-bc7b-319fd07f08c3",
+      "name": "Applicant",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "Resumes",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "resume_id",
+              "fieldValue": "={{ $('UIID').item.json.resume_id }}"
+            },
+            {
+              "fieldId": "applicant_id",
+              "fieldValue": "={{ $('UIID').item.json.applicant_id }}"
+            },
+            {
+              "fieldId": "uploaded_by_user_id",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.uploaded_by_user_id }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $('Code in JavaScript').item.binary.resume.fileName }}"
+            },
+            {
+              "fieldId": "file_type",
+              "fieldValue": "={{ $('Code in JavaScript').item.binary.resume.mimeType }}"
+            },
+            {
+              "fieldId": "file_path",
+              "fieldValue": "={{ $('HTTP Request').item.json.Key }}"
+            },
+            {
+              "fieldId": "extracted_text",
+              "fieldValue": "={{ $('Extract from File').item.json.text }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        240,
+        384
+      ],
+      "id": "954ad9e7-bf21-45f4-a314-37bb2c7f1203",
+      "name": "Resume",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n    const r = Math.random() * 16 | 0;\n    const v = c === 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n}\n\nconst codeData = $('Code in JavaScript').first().json;\nconst item = $input.first().json;\nreturn [{\n  json: {\n    ...codeData,\n    ...item,\n    applicant_id: uuidv4(),\n    resume_id: uuidv4(),\n    evaluation_id: uuidv4(),\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        384
+      ],
+      "id": "555f1519-1838-4359-b83c-ac26a78e8500",
+      "name": "UIID"
+    },
+    {
+      "parameters": {
+        "tableId": "Evaluations",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "evaluation_id",
+              "fieldValue": "={{ $('UIID').item.json.evaluation_id }}"
+            },
+            {
+              "fieldId": "requirement_id",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.requirement_id }}"
+            },
+            {
+              "fieldId": "resume_id",
+              "fieldValue": "={{ $json.resume_id }}"
+            },
+            {
+              "fieldId": "hire_score",
+              "fieldValue": "={{ $('SBERT Score').item.json.hire_score }}"
+            },
+            {
+              "fieldId": "ai_summary",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.summary }}"
+            },
+            {
+              "fieldId": "application_status",
+              "fieldValue": "pending"
+            },
+            {
+              "fieldId": "evaluated_by_user_id",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.evaluated_by_user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        416,
+        384
+      ],
+      "id": "30a57107-e82c-47d4-b9a2-8e32a0567c26",
+      "name": "Evaluations",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "Evaluation_Pros",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "pros_id",
+              "fieldValue": "={{ $json.generated_id }}"
+            },
+            {
+              "fieldId": "evaluation_id",
+              "fieldValue": "={{ $json.evaluation_id }}"
+            },
+            {
+              "fieldId": "pros_text",
+              "fieldValue": "={{ $json.pros }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        288
+      ],
+      "id": "19dabd2a-7d97-4b2f-a0a2-b64b3b27291e",
+      "name": "Pros",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "Evaluation_Cons",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "cons_id",
+              "fieldValue": "={{ $json.generated_id }}"
+            },
+            {
+              "fieldId": "evaluation_id",
+              "fieldValue": "={{ $json.evaluation_id }}"
+            },
+            {
+              "fieldId": "cons_text",
+              "fieldValue": "={{ $json.cons }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        496
+      ],
+      "id": "9fd2dea5-9837-45ba-96df-2f24c4c5fece",
+      "name": "Cons",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "pros",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        752,
+        288
+      ],
+      "id": "7cce8471-caa7-41ac-98da-499e72785916",
+      "name": "Pros Split Out"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "cons",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        752,
+        496
+      ],
+      "id": "bf34db16-1e10-48c6-8169-5cd5c9559c2d",
+      "name": "Cons Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n  });\n}\nreturn $input.all().map(item => ({\n  json: { ...item.json, generated_id: uuidv4() }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        288
+      ],
+      "id": "d74069e6-2ab5-440e-8fb5-620b398f77ad",
+      "name": "Pros ID"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"evaluation_id\": \"{{ $('Evaluations').item.json.evaluation_id }}\",\n  \"pros\": {{ JSON.stringify($('Code in JavaScript').item.json.pros) }},\n  \"cons\": {{ JSON.stringify($('Code in JavaScript').item.json.cons) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        576,
+        384
+      ],
+      "id": "e03d6b0f-ecb1-42d7-8bba-15704ef94477",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  evaluation_id: $('Evaluations').item.json.evaluation_id,\n  resume_id: $('Resume').item.json.resume_id,\n  hire_score: $('SBERT Score').item.json.hire_score,\n  summary: $('Code in JavaScript').item.json.summary,\n  pros: $('Code in JavaScript').item.json.pros,\n  cons: $('Code in JavaScript').item.json.cons,\n  file_url: $('HTTP Request').item.json.Key\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1248,
+        384
+      ],
+      "id": "15f84c16-2819-46af-8300-1305340b3265",
+      "name": "Finish"
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n  });\n}\nreturn $input.all().map(item => ({\n  json: { ...item.json, generated_id: uuidv4() }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        496
+      ],
+      "id": "589c6ca5-ceff-432b-ab2b-bd0d6ab2f01d",
+      "name": "Cons ID"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.OCR_SPACE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "resume"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1344,
+        576
+      ],
+      "id": "e8156e11-6836-4497-af37-e28afe15435b",
+      "name": "Extract from Images"
+    },
+    {
+      "parameters": {
+        "jsCode": "// OCR.space returns ParsedResults[0].ParsedText; normalize to .text\nconst r = $input.first().json;\nconst text = (r.ParsedResults && r.ParsedResults[0] && r.ParsedResults[0].ParsedText) || r.text || '';\nreturn [{ json: { text }, binary: $input.first().binary }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        576
+      ],
+      "id": "8b5c0695-ad66-49bc-92e5-b9ae2ee0dcde",
+      "name": "Normalize OCR Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === H!RE Score: whole-resume vs whole-job cosine (Sentence-BERT) ===\nconst CAL_LO = 0.0, CAL_HI = 1.0;  // optional calibration; leave equal to disable\n\nconst resumeText = String($input.first().json.text || '');\nconst body = $('Webhook').first().json.body || {};\nconst jobText = `${body.job_title||''} ${body.description||''} ${body.qualifications||''}`.trim();\n\nfunction cos(a,b){let d=0,na=0,nb=0;for(let i=0;i<a.length;i++){d+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i];}return d/(Math.sqrt(na)*Math.sqrt(nb)||1);}\nconst clamp=(x,lo,hi)=>Math.min(Math.max(x,lo),hi);\n\nlet hire_score = 0, score_band = 'Unknown';\ntry {\n  const resp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction',\n    headers: { Authorization: `Bearer ${$env.HF_API_KEY}`, 'Content-Type': 'application/json' },\n    body: { inputs: [resumeText.slice(0,4000), jobText.slice(0,4000)], options: { wait_for_model: true } },\n    json: true,\n  });\n  const embs = Array.isArray(resp[0][0])\n    ? resp.map(s => { const d=s[0].length,o=new Array(d).fill(0); s.forEach(t=>t.forEach((x,i)=>o[i]+=x)); return o.map(x=>x/s.length); })\n    : resp;\n  let raw = cos(embs[0], embs[1]);\n  if (CAL_HI > CAL_LO) raw = clamp((raw - CAL_LO)/(CAL_HI - CAL_LO), 0, 1);\n  hire_score = Math.round(clamp(raw*100, 0, 100) * 100) / 100;\n} catch (err) { hire_score = 0; }\n\nif      (hire_score >= 70) score_band = 'Strong fit';\nelse if (hire_score >= 55) score_band = 'Good fit, minor gaps';\nelse if (hire_score >= 40) score_band = 'Moderate fit, notable gaps';\nelse                       score_band = 'Weak fit';\n\nreturn [{ json: { ...$input.first().json, hire_score, score_band }, binary: $input.first().binary }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -992,
+        384
+      ],
+      "id": "0db8d847-378d-42f8-9690-18566353eaad",
+      "name": "SBERT Score"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "SBERT Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "UIID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UIID": {
+      "main": [
+        [
+          {
+            "node": "Applicant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Applicant": {
+      "main": [
+        [
+          {
+            "node": "Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume": {
+      "main": [
+        [
+          {
+            "node": "Evaluations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluations": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pros": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cons": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pros Split Out": {
+      "main": [
+        [
+          {
+            "node": "Pros ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cons Split Out": {
+      "main": [
+        [
+          {
+            "node": "Cons ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pros ID": {
+      "main": [
+        [
+          {
+            "node": "Pros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Pros Split Out",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Cons Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cons ID": {
+      "main": [
+        [
+          {
+            "node": "Cons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from Images": {
+      "main": [
+        [
+          {
+            "node": "Normalize OCR Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize OCR Text": {
+      "main": [
+        [
+          {
+            "node": "SBERT Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SBERT Score": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6be2ac59-7777-45c4-af63-af55a963e019",
+  "meta": {
+    "instanceId": "4cb4753f189c03c13c560a0eadb324c7d7fc4ae5c2020b5edef05abe98329218"
+  },
+  "nodeGroups": [],
+  "id": "cxBB4vpdhbdpsM49",
+  "tags": []
+}

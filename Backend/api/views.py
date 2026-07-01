@@ -629,6 +629,9 @@ def get_evaluations(request):
 
         results = []
         for ev in evals:
+            # Skip soft-removed evaluations (rejected past the 1h grace, archived by the reject workflow)
+            if ev.get("application_status") == "removed":
+                continue
             # Get resume info
             resume = sb.table("Resumes").select("*").eq(
                 "resume_id", ev["resume_id"]
@@ -702,7 +705,7 @@ def update_evaluation_status(request, evaluation_id):
 
         from supabase import create_client
         from django.conf import settings
-        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
         update_data = {"application_status": status}
 

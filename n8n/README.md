@@ -12,11 +12,12 @@ checklist that keeps them working after the move to Render.
 | **H!RE - Password Reset Email** | Webhook `/password-reset` | ✅ | Reset link, 30-min expiry |
 | **H!RE - Interview Invitation Email** | Webhook `/interview-invitation` | ✅ | Fired by Django on `interview_sent` |
 | **H!RE - Reject Email & Cleanup** | Schedule (every 15 min) | ✅ | NEW — replaces the old "Evaluation Clean Up" |
-| _Fairness monitor_ | Schedule | ⬜ Planned | Paper NFR (selection-rate / adverse-impact) |
-| _Interview reminder_ | Schedule | ⬜ Planned | Reminder before interview date |
-| _Employer account-request email_ | Webhook | ⬜ Planned | |
-| _Company approval email_ | Webhook | ⬜ Planned | |
-| _Subscription expiry reminder_ | Schedule | ⬜ Planned | |
+| **H!RE - Interview Reminder** | Schedule (daily) | ✅ | NEW — emails applicants ~1 day before their interview |
+| **H!RE - Subscription Expiry Reminder** | Schedule (daily) | ✅ | NEW — emails owners ~7 days before their plan expires |
+| **H!RE - Company Approval Email** | Webhook `/company-approval` | ✅ | NEW — emails owner on admin approve/reject (fired by `admin_approve_reject_company`) |
+| **H!RE - Password Reset Code** | Webhook `/password-reset-code` | ✅ | NEW — emails the 6-digit code for the in-profile Change Password flow (fired by `send_reset_code`) |
+| _Employer account-request email_ | Webhook | ⬜ Low priority | Managers already get in-app notifications |
+| _Fairness monitor_ | Schedule | ❌ Not feasible | Needs protected-attribute data the frozen schema doesn't have — document as thesis future work |
 
 ## Reject → Email & Cleanup (how it works) — SOFT DELETE, no schema change
 

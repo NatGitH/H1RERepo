@@ -1,0 +1,55 @@
+{
+  "name": "H!RE - Company Approval Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-approval",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-320, 0],
+      "id": "d4000000-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "webhookId": "hire-company-approval"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst name  = body.company_name || 'there';\nconst email = (body.email || '').trim();\nconst approved = (body.status || '').toLowerCase() === 'approved';\n\nconst subject = approved\n  ? 'Your H!RE company account has been approved'\n  : 'Update on your H!RE company registration';\n\nconst html = approved\n  ? `<div style=\"font-family: Arial, sans-serif; max-width:600px; margin:0 auto; color:#0d1b3e;\">\\n  <h2 style=\"color:#f97316;\">You're approved! \\uD83C\\uDF89</h2>\\n  <p>Hi ${name},</p>\\n  <p>Great news — your company account has been approved by the H!RE admin team. You can now log in as the company owner and start setting up your hiring workflow.</p>\\n  <br/>\\n  <p>Best regards,<br/><strong>The H!RE Team</strong></p>\\n</div>`\n  : `<div style=\"font-family: Arial, sans-serif; max-width:600px; margin:0 auto; color:#0d1b3e;\">\\n  <h2 style=\"color:#f97316;\">Registration Update</h2>\\n  <p>Hi ${name},</p>\\n  <p>Thank you for your interest in H!RE. After review, your company registration was not approved at this time. If you believe this was a mistake or would like more information, please contact our support team.</p>\\n  <br/>\\n  <p>Best regards,<br/><strong>The H!RE Team</strong></p>\\n</div>`;\n\nreturn [{ json: { recipient_email: email, email_subject: subject, email_html: html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-100, 0],
+      "id": "d4000000-0000-4000-8000-000000000002",
+      "name": "Email Content"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [120, 0],
+      "id": "d4000000-0000-4000-8000-000000000003",
+      "name": "Send a message",
+      "webhookId": "hire-company-approval-send",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "gmailOAuth2": { "id": "I3kOQilN2qpfYa7Q", "name": "Gmail account" }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Email Content", "type": "main", "index": 0 }]] },
+    "Email Content": { "main": [[{ "node": "Send a message", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "meta": { "templateCredsSetupCompleted": true },
+  "tags": []
+}

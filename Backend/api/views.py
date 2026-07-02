@@ -3,7 +3,7 @@ import email
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-import json, datetime, jwt, requests
+import json, datetime, jwt, requests, random
 from django.conf import settings
 import requests
 from .models import Company, HRUser, Roles
@@ -513,22 +513,107 @@ def forgot_password(request):
 
 @csrf_exempt
 @require_POST
+def send_reset_code(request):
+    """Email a 6-digit password-reset code (stored in the Django cache for 10 min)."""
+    try:
+        data  = json.loads(request.body)
+        email = data.get("email", "").strip()
+
+        # The Change Password modal is used by BOTH HR users and company owners.
+        user    = HRUser.objects.filter(email=email).first()
+        company = None if user else Company.objects.filter(owner_email=email).first()
+        # Don't reveal whether the email exists.
+        if not user and not company:
+            return JsonResponse({"message": "If that email exists, a code was sent."})
+
+        display_name = user.username if user else company.company_name
+        code = f"{random.randint(0, 999999):06d}"
+        from django.core.cache import cache
+        cache.set(f"pwcode:{email}", code, timeout=600)  # 10 minutes
+
+        try:
+            requests.post(
+                f"{settings.N8N_BASE_URL}/webhook/password-reset-code",
+                json={"email": email, "username": display_name, "code": code},
+                timeout=5,
+            )
+        except Exception as n8n_err:
+            print("reset code email error:", n8n_err)
+
+        return JsonResponse({"message": "If that email exists, a code was sent."})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def verify_reset_code(request):
+    """Check a submitted code against the one stored in the cache."""
+    try:
+        data  = json.loads(request.body)
+        email = data.get("email", "").strip()
+        code  = data.get("code", "").strip()
+
+        from django.core.cache import cache
+        stored = cache.get(f"pwcode:{email}")
+        if not stored or stored != code:
+            return JsonResponse({"error": "Invalid or expired code"}, status=400)
+
+        return JsonResponse({"message": "Code verified"})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
 def reset_password(request):
+    """Set a new password via EITHER the emailed link (JWT token) or the emailed code."""
     try:
         data      = json.loads(request.body)
         token     = data.get("token", "").strip()
+        email     = data.get("email", "").strip()
+        code      = data.get("code", "").strip()
         new_pass  = data.get("new_password", "").strip()
 
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        if not new_pass:
+            return JsonResponse({"error": "New password is required"}, status=400)
 
-        if payload.get("purpose") != "password_reset":
-            return JsonResponse({"error": "Invalid token"}, status=400)
+        if token:
+            # Link-based flow (JWT from forgot_password) — HR users only.
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            if payload.get("purpose") != "password_reset":
+                return JsonResponse({"error": "Invalid token"}, status=400)
+            user = HRUser.objects.get(user_id=payload["user_id"])
+            user.password = ph.hash(new_pass)
+            user.save()
+            return JsonResponse({"message": "Password reset successfully"})
 
-        user = HRUser.objects.get(user_id=payload["user_id"])
-        user.password = ph.hash(new_pass)
-        user.save()
+        if email and code:
+            # Code-based flow (send_reset_code / verify_reset_code) — HR users OR owners.
+            from django.core.cache import cache
+            stored = cache.get(f"pwcode:{email}")
+            if not stored or stored != code:
+                return JsonResponse({"error": "Invalid or expired code"}, status=400)
+            cache.delete(f"pwcode:{email}")  # one-time use
 
-        return JsonResponse({"message": "Password reset successfully"})
+            hashed = ph.hash(new_pass)
+            hr = HRUser.objects.filter(email=email).first()
+            if hr:
+                hr.password = hashed
+                hr.save()
+                return JsonResponse({"message": "Password reset successfully"})
+
+            company = Company.objects.filter(owner_email=email).first()
+            if company:
+                company.owner_password = hashed
+                company.save()
+                return JsonResponse({"message": "Password reset successfully"})
+
+            return JsonResponse({"error": "User not found"}, status=404)
+
+        return JsonResponse({"error": "Missing reset token or code"}, status=400)
 
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Reset link has expired"}, status=401)
@@ -766,10 +851,13 @@ def update_evaluation_status(request, evaluation_id):
                 res_rows  = sb.table("Resumes").select("applicant_id").eq("resume_id", ev.get("resume_id")).execute().data if ev.get("resume_id") else []
                 appl_rows = sb.table("Applicants").select("full_name, email").eq("applicant_id", res_rows[0]["applicant_id"]).execute().data if res_rows else []
                 appl      = appl_rows[0] if appl_rows else {}
-                req_rows  = sb.table("Job_Requirements").select("job_title, company_id").eq("requirement_id", ev.get("requirement_id")).execute().data if ev.get("requirement_id") else []
-                req       = req_rows[0] if req_rows else {}
-                comp_rows = sb.table("Companies").select("company_name").eq("company_id", req.get("company_id")).execute().data if req.get("company_id") else []
-                comp      = comp_rows[0] if comp_rows else {}
+                # Job_Requirements + Companies are RLS-locked for the anon key, so read
+                # them via Django ORM (bypasses RLS) — otherwise the interview email
+                # would go out with a blank job title and company name.
+                req_obj   = JobRequirement.objects.filter(requirement_id=ev.get("requirement_id")).first() if ev.get("requirement_id") else None
+                req       = {"job_title": req_obj.job_title, "company_id": str(req_obj.company_id)} if req_obj else {}
+                comp_obj  = Company.objects.filter(company_id=req.get("company_id")).first() if req.get("company_id") else None
+                comp      = {"company_name": comp_obj.company_name} if comp_obj else {}
 
                 recipient = (appl.get("email") or "").strip()
                 if recipient and "@" in recipient and "placeholder" not in recipient:
@@ -1808,6 +1896,21 @@ def admin_approve_reject_company(request):
         approval.reviewed_by_admin_id = admin_id
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
+
+        # Notify the company owner of the decision (fully guarded: never 500s)
+        try:
+            company = Company.objects.get(company_id=approval.subscribing_company_id)
+            requests.post(
+                f"{settings.N8N_BASE_URL}/webhook/company-approval",
+                json={
+                    "email":        company.owner_email,
+                    "company_name": company.company_name,
+                    "status":       new_status,
+                },
+                timeout=5,
+            )
+        except Exception as n8n_err:
+            print("company approval email error:", n8n_err)
 
         return JsonResponse({"message": f"Company {new_status}", "status": new_status})
 

@@ -29,6 +29,8 @@ urlpatterns = [
     path("profile/renew-subscription/", views.renew_subscription, name="renew_subscription"),
     
     path("auth/forgot-password/",   views.forgot_password),
+    path("auth/send-reset-code/",   views.send_reset_code),
+    path("auth/verify-reset-code/", views.verify_reset_code),
     path("auth/reset-password/",    views.reset_password),
 
     path("employers/",                views.get_employers),

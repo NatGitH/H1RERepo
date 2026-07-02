@@ -68,7 +68,7 @@ export default function Profile() {
   const [interviewApplicants, setInterviewApplicants] = useState([]);
   const [loadingApplicants, setLoadingApplicants]     = useState(true);
   const [applicantsError, setApplicantsError]         = useState("");
-  const [expandedId, setExpandedId]                   = useState(null);
+  const [selectedInterview, setSelectedInterview]     = useState(null);
 
   useEffect(() => {
     const endpoint = role === "owner" ? "/api/profile/owner/" : "/api/profile/hr/";
@@ -521,114 +521,38 @@ export default function Profile() {
                 <p className="text-red-500 text-sm">{applicantsError}</p>
               ) : interviewApplicants.length > 0 ? (
                 <div className="flex flex-col gap-4">
-                  {interviewApplicants.map((applicant) => {
-                    const isExpanded   = expandedId === applicant.evaluation_id;
-                    const isScheduled  = applicant.status === "interview_sent";
-
-                    return (
-                      <div key={applicant.evaluation_id} className="flex flex-col gap-2">
-                        {/* Job requirement label */}
-                        <div className="flex items-center gap-1.5 text-[0.78rem] font-bold text-[#0B2447]">
-                          <span>💼</span> {applicant.job_title || "Untitled Requirement"}
-                        </div>
-
-                        <button
-                          onClick={() =>
-                            setExpandedId((prev) =>
-                              prev === applicant.evaluation_id ? null : applicant.evaluation_id
-                            )
-                          }
-                          className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer text-left transition-colors hover:bg-slate-50"
-                          style={{ border: "1px solid #e2e8f0" }}
-                        >
-                          <div className="w-[60px] min-w-[60px] h-[60px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
-                            <UserIcon />
-                          </div>
-                          <div className="flex flex-col gap-2 flex-1 min-w-0">
-                            <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
-                              {applicant.applicant_name}
-                            </span>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
-                                H!RE Score: <span className="text-green-500 font-bold">{applicant.hire_score}%</span>
-                              </span>
-                              <span
-                                className={`rounded-full px-3 py-1 text-[0.72rem] font-bold ${
-                                  isScheduled
-                                    ? "bg-blue-50 text-blue-600 border border-blue-200"
-                                    : "bg-amber-50 text-amber-600 border border-amber-200"
-                                }`}
-                              >
-                                {isScheduled ? "Interview Scheduled" : "Shortlisted"}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-slate-400 text-sm shrink-0">{isExpanded ? "▲" : "▼"}</span>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 text-sm">
-                            {/* Requirement chosen for this applicant */}
-                            <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
-                              <p className="text-[#0B2447] m-0 font-bold">
-                                💼 {applicant.job_title || "Untitled Requirement"}
-                              </p>
-                              {applicant.job_description && (
-                                <p className="text-slate-600 m-0">
-                                  <span className="font-semibold text-[#0B2447]">Description:</span> {applicant.job_description}
-                                </p>
-                              )}
-                              {applicant.job_qualifications && (
-                                <p className="text-slate-600 m-0">
-                                  <span className="font-semibold text-[#0B2447]">Qualifications:</span> {applicant.job_qualifications}
-                                </p>
-                              )}
-                            </div>
-                            {applicant.applicant_email && (
-                              <p className="text-slate-600 m-0">
-                                <span className="font-semibold text-[#0B2447]">Email:</span> {applicant.applicant_email}
-                              </p>
-                            )}
-                            {applicant.summary && (
-                              <p className="text-slate-600 m-0">
-                                <span className="font-semibold text-[#0B2447]">AI Summary:</span> {applicant.summary}
-                              </p>
-                            )}
-                            {applicant.pros?.length > 0 && (
-                              <div>
-                                <p className="font-semibold text-green-600 m-0 mb-1">Pros</p>
-                                <ul className="list-disc pl-5 m-0 text-slate-600">
-                                  {applicant.pros.map((p, i) => <li key={i}>{p}</li>)}
-                                </ul>
-                              </div>
-                            )}
-                            {applicant.cons?.length > 0 && (
-                              <div>
-                                <p className="font-semibold text-red-500 m-0 mb-1">Cons</p>
-                                <ul className="list-disc pl-5 m-0 text-slate-600">
-                                  {applicant.cons.map((c, i) => <li key={i}>{c}</li>)}
-                                </ul>
-                              </div>
-                            )}
-                            {isScheduled && applicant.interview_date && (
-                              <p className="text-blue-600 m-0">
-                                <span className="font-semibold">Interview Date:</span>{" "}
-                                {new Date(applicant.interview_date).toLocaleString()}
-                              </p>
-                            )}
-                            {isScheduled && applicant.interview_message && (
-                              <p className="text-slate-600 m-0">
-                                <span className="font-semibold text-[#0B2447]">Message:</span> {applicant.interview_message}
-                              </p>
-                            )}
-                            <p className="text-slate-400 text-xs m-0">
-                              Handled by: {applicant.action_made_by || "—"}
-                            </p>
-                          </div>
-                        )}
+                  {interviewApplicants.map((applicant) => (
+                    <div key={applicant.evaluation_id} className="flex flex-col gap-2">
+                      {/* Job requirement label */}
+                      <div className="flex items-center gap-1.5 text-[0.78rem] font-bold text-[#0B2447]">
+                        <span>💼</span> {applicant.job_title || "Untitled Requirement"}
                       </div>
-                    );
-                  })}
+
+                      <button
+                        onClick={() => setSelectedInterview(applicant)}
+                        className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer text-left transition-colors hover:bg-slate-50"
+                        style={{ border: "1px solid #e2e8f0" }}
+                      >
+                        <div className="w-[60px] min-w-[60px] h-[60px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
+                          <UserIcon />
+                        </div>
+                        <div className="flex flex-col gap-2 flex-1 min-w-0">
+                          <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
+                            {applicant.applicant_name}
+                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
+                              H!RE Score: <span className="text-green-500 font-bold">{applicant.hire_score}%</span>
+                            </span>
+                            <span className="rounded-full px-3 py-1 text-[0.72rem] font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                              Interview Scheduled
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-slate-400 text-lg shrink-0">›</span>
+                      </button>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>
@@ -638,6 +562,90 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* ══ Interview applicant detail modal ══ */}
+      {selectedInterview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          onClick={() => setSelectedInterview(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg flex flex-col overflow-hidden"
+            style={{ maxHeight: "85vh", border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+              <h3 className="font-extrabold text-[#0B2447] text-base m-0">{selectedInterview.applicant_name}</h3>
+              <button
+                onClick={() => setSelectedInterview(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-slate-100 transition bg-transparent cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 text-sm">
+              {/* Interview date + location at the top */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex flex-col gap-1">
+                {selectedInterview.interview_date && (
+                  <p className="text-blue-700 m-0">
+                    <span className="font-semibold">📅 Interview Date:</span>{" "}
+                    {new Date(selectedInterview.interview_date).toLocaleString()}
+                  </p>
+                )}
+                {selectedInterview.interview_location && (
+                  <p className="text-blue-700 m-0 break-words">
+                    <span className="font-semibold">📍 Location / Link:</span> {selectedInterview.interview_location}
+                  </p>
+                )}
+              </div>
+
+              {/* Requirement */}
+              <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                <p className="text-[#0B2447] m-0 font-bold">💼 {selectedInterview.job_title || "Untitled Requirement"}</p>
+                {selectedInterview.job_description && (
+                  <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Description:</span> {selectedInterview.job_description}</p>
+                )}
+                {selectedInterview.job_qualifications && (
+                  <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Qualifications:</span> {selectedInterview.job_qualifications}</p>
+                )}
+              </div>
+
+              <p className="text-slate-600 m-0">
+                <span className="font-semibold text-[#0B2447]">H!RE Score:</span>{" "}
+                <span className="text-green-500 font-bold">{selectedInterview.hire_score}%</span>
+              </p>
+              {selectedInterview.applicant_email && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Email:</span> {selectedInterview.applicant_email}</p>
+              )}
+              {selectedInterview.applicant_phone && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Phone:</span> {selectedInterview.applicant_phone}</p>
+              )}
+              {selectedInterview.summary && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">AI Summary:</span> {selectedInterview.summary}</p>
+              )}
+              {selectedInterview.pros?.length > 0 && (
+                <div>
+                  <p className="font-semibold text-green-600 m-0 mb-1">Pros</p>
+                  <ul className="list-disc pl-5 m-0 text-slate-600">
+                    {selectedInterview.pros.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </div>
+              )}
+              {selectedInterview.cons?.length > 0 && (
+                <div>
+                  <p className="font-semibold text-red-500 m-0 mb-1">Cons</p>
+                  <ul className="list-disc pl-5 m-0 text-slate-600">
+                    {selectedInterview.cons.map((c, i) => <li key={i}>{c}</li>)}
+                  </ul>
+                </div>
+              )}
+              <p className="text-slate-400 text-xs m-0">Handled by: {selectedInterview.action_made_by || "—"}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ HR Modals ══ */}
       {showPicModal && (

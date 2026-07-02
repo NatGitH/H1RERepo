@@ -74,9 +74,8 @@ const Modal = ({ req, onClose, onEdit, onDelete, onProposeDelete, role }) => {
         <div className="text-xs text-slate-400 mb-1">
           Created: {req.date_created}{req.created_by ? ` · by ${req.created_by}` : ""}
         </div>
-        {req.modified_by && <div className="text-xs text-purple-500 mb-1">Modified by: {req.modified_by}</div>}
-        {req.date_updated && req.date_updated !== req.date_created && (
-          <div className="text-xs text-slate-400 mb-3">Last updated: {req.date_updated}</div>
+        {req.modified_by && (
+          <div className="text-xs text-purple-500 mb-3">Modified: {req.date_modified || "—"} · {req.modified_by}</div>
         )}
 
         {hasPending && canDelete && (
@@ -166,9 +165,9 @@ const ReqForm = ({ value, onChange, onSave, onCancel, submitLabel = "Save", role
   </div>
 );
 
-const CreateButton = ({ onClick }) => (
+const CreateButton = ({ onClick, stretch }) => (
   <div onClick={onClick}
-    className="border-[3px] border-dashed border-teal-400 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-teal-50 transition-colors p-6 w-full">
+    className={`border-[3px] border-dashed border-teal-400 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-teal-50 transition-colors p-6 w-full ${stretch ? "flex-1" : ""}`}>
     <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-teal-300 text-white text-2xl shadow-lg">+</span>
     <span className="font-extrabold text-[#0f172a] text-sm">Create new</span>
     <span className="text-slate-500 text-xs">requirement</span>
@@ -185,7 +184,7 @@ const ReqCard = ({ req, showActions, onApprove, onReject, onClick }) => (
     <p className="text-slate-500 text-xs leading-relaxed m-0 line-clamp-2">{req.description}</p>
     <div className="text-xs text-slate-400">
       <span>Created: {req.date_created}{req.created_by ? ` · ${req.created_by}` : ""}</span>
-      {req.modified_by && <span className="block text-purple-500 mt-0.5">Modified by: {req.modified_by}</span>}
+      {req.modified_by && <span className="block text-purple-500 mt-0.5">Modified: {req.date_modified || "—"} · {req.modified_by}</span>}
     </div>
     {showActions && ["pending", "changes_pending", "deletion_pending"].includes(req.status) && (
       <div className="flex gap-2 mt-1" onClick={(e) => e.stopPropagation()}>
@@ -326,7 +325,7 @@ export default function Requirements() {
       <ReqForm value={newReq} onChange={setNewReq} onSave={handleCreate}
         onCancel={cancelFn} submitLabel={submitLabel} role={role} />
     ) : (
-      <CreateButton onClick={() => setShowForm(true)} />
+      <CreateButton onClick={() => setShowForm(true)} stretch={pending.length === 0} />
     );
 
 return (

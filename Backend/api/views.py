@@ -204,7 +204,20 @@ def delete_employer(request):
         user_id = data.get("user_id", "").strip()
 
         user = HRUser.objects.get(user_id=user_id)
+        deleted_email = user.email
+        deleted_name  = f"{user.firstname or ''} {user.lastname or ''}".strip() or user.username or "there"
         user.delete()
+
+        # Notify the deleted employer by email (guarded: never 500s)
+        try:
+            if deleted_email:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/employer-deleted",
+                    json={"email": deleted_email, "name": deleted_name},
+                    timeout=5,
+                )
+        except Exception as n8n_err:
+            print("employer deleted email error:", n8n_err)
 
         return JsonResponse({"message": "Employer deleted successfully"})
 
@@ -759,6 +772,7 @@ def get_evaluations(request):
                 "summary":        ev["ai_summary"],
                 "applicant_name": applicant[0]["full_name"] if applicant else "Unknown Applicant",
                 "applicant_email": applicant[0]["email"] if applicant else "",
+                "applicant_phone": applicant[0].get("phone") if applicant else "",
                 "status":         ev["application_status"],
                 "pros":           [p["pros_text"] for p in pros],
                 "cons":           [c["cons_text"] for c in cons],
@@ -772,7 +786,7 @@ def get_evaluations(request):
                 "shortlisted_by":    get_user_fullname(ev.get("shortlisted_by_user_id")),
                 "shortlisted_by_user_id": ev.get("shortlisted_by_user_id"),
                 "interview_date": interview_obj.interview_date.isoformat() if interview_obj and interview_obj.interview_date else None,
-                "interview_message": interview_obj.message if interview_obj else None,
+                "interview_location": interview_obj.message if interview_obj else None,
                 "action_made_by": get_user_fullname(ev.get("action_made_by_user_id")),
                 "action_made_by_user_id": ev.get("action_made_by_user_id"),
             })
@@ -827,12 +841,14 @@ def update_evaluation_status(request, evaluation_id):
             # bypasses the Interviews table's row-level-security policy, which blocks
             # the anon Supabase client). Owners have no Users row, so scheduled_by
             # may be None — the column is nullable for exactly this case.
+            # The Interviews.message column stores the meeting location / link
+            # (Zoom URL or address) so it can be shown in the interview panel.
             Interview.objects.create(
                 interview_id=uuid.uuid4(),
                 evaluation_id=evaluation_id,
                 scheduled_by_user_id=(user_id or None),
                 interview_date=interview_date,
-                message=message,
+                message=meeting_link,
                 interview_status="scheduled",
                 sent_date=datetime.datetime.utcnow(),
             )
@@ -1017,6 +1033,21 @@ def change_role(request):
         user.role_id  = role_obj.role_id
         user.save()
 
+        # Notify the affected user in-app
+        try:
+            display_role = "HR Manager" if role_name == "HRManager" else "HR Staff"
+            actor        = get_user_fullname(payload.get("user_id"))  # "Owner" when the owner does it
+            Notification.objects.create(
+                notification_id=uuid.uuid4(),
+                recipient_user_id=user.user_id,
+                notification_type="role_change",
+                title="Your Role Was Changed",
+                message=f"Your role was changed to {display_role} by {actor}.",
+                is_read=False,
+            )
+        except Exception as notif_err:
+            print("role change notification error:", notif_err)
+
         return JsonResponse({"message": f"Role changed to {role_name}"})
 
     except Roles.DoesNotExist:
@@ -1065,6 +1096,7 @@ def requirements_list(request):
                     "date_created":   r.date_created.strftime("%m/%d/%Y"),
                     "created_by":     get_user_fullname(r.created_by_user_id),
                     "modified_by":    get_user_fullname(r.modified_by_user_id) if r.modified_by_user_id else None,
+                    "date_modified":  r.date_updated.strftime("%m/%d/%Y") if (r.modified_by_user_id and r.date_updated) else None,
                     "pending_changes": r.pending_changes,  # json or None
                 }
                 for r in reqs

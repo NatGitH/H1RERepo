@@ -282,6 +282,11 @@ export default function Applicants() {
                       <span className="bg-slate-100 border border-slate-300 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a] truncate max-w-[140px]">
                         {applicant.job_title}
                       </span>
+                      {applicant.applicant_phone && (
+                        <span className="bg-slate-100 border border-slate-300 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a] truncate max-w-[140px]">
+                          📞 {applicant.applicant_phone}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -394,6 +399,11 @@ export default function Applicants() {
                   <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
                     {selected.job_title}
                   </span>
+                  {selected.applicant_phone && (
+                    <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
+                      📞 {selected.applicant_phone}
+                    </span>
+                  )}
                 </div>
                 <div className="self-start">
                   <a

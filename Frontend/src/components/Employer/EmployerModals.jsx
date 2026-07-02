@@ -176,7 +176,7 @@ export function ChangeRoleModal({ selectedRole, onSelectRole, onCancel, onDone }
                   : "bg-white border-slate-200 text-[#0B2447] hover:bg-slate-50"
               }`}
             >
-              {r === "HRManager" ? "HR Manager" : "Employer"}
+              {r === "HRManager" ? "HR Manager" : "HR Staff"}
             </button>
           ))}
         </div>
@@ -221,7 +221,7 @@ export function ConfirmRoleModal({ memberName, selectedRole, onCancel, onConfirm
         <p className="text-center text-slate-600 text-sm">
           Are you sure you want to change{" "}
           <strong>{memberName.split(" ")[0]}'s</strong> Role to{" "}
-          <strong>{selectedRole === "HRManager" ? "HR Manager" : "Employer"}</strong>?
+          <strong>{selectedRole === "HRManager" ? "HR Manager" : "HR Staff"}</strong>?
         </p>
         <div className="grid grid-cols-2 gap-3">
           <button

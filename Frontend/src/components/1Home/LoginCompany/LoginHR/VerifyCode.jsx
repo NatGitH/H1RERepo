@@ -1,13 +1,43 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { apiFetch, getErrorMessage } from "../../../../api";
 
 export default function VerifyCode() {
   const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [showResent, setShowResent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleResend = () => {
+  const email = sessionStorage.getItem("pwreset_email") || "";
+
+  const handleVerify = async () => {
+    if (!email) { navigate("/HR-Forgot-Password"); return; }
+    if (!code.trim()) { setError("Please enter the code."); return; }
+    try {
+      setLoading(true);
+      setError("");
+      await apiFetch("/api/auth/verify-reset-code/", {
+        method: "POST",
+        body: { email, code: code.trim() },
+      });
+      sessionStorage.setItem("pwreset_code", code.trim());
+      navigate("/HR-New-Password");
+    } catch (err) {
+      setError(getErrorMessage(err, "Invalid or expired code."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) { navigate("/HR-Forgot-Password"); return; }
+    try {
+      await apiFetch("/api/auth/send-reset-code/", { method: "POST", body: { email } });
+    } catch {
+      /* non-fatal */
+    }
     setShowResent(true);
     setTimeout(() => setShowResent(false), 3000);
   };
@@ -61,14 +91,21 @@ export default function VerifyCode() {
               Resend Code
             </button>
           </p>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+            </div>
+          )}
         </div>
 
         <div className="mt-6">
           <button
-            onClick={() => navigate("/HR-New-Password")}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
+            onClick={handleVerify}
+            disabled={loading}
+            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 disabled:opacity-60"
           >
-            Send Code
+            {loading ? "Verifying..." : "Verify Code"}
           </button>
         </div>
 

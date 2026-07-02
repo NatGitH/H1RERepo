@@ -1,25 +1,45 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { apiFetch, getErrorMessage } from "../../../../api";
 
 export default function HRNewPassword() {
   const navigate = useNavigate();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     newPassword: "",
     confirmPassword: "",
   });
 
+  const email = sessionStorage.getItem("pwreset_email") || "";
+  const code  = sessionStorage.getItem("pwreset_code") || "";
+
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = () => {
-    if (form.newPassword !== form.confirmPassword) {
-      alert("Passwords do not match.");
-      return;
+  const handleSubmit = async () => {
+    if (!email || !code) { navigate("/HR-Forgot-Password"); return; }
+    if (!form.newPassword || !form.confirmPassword) { setError("Please fill in both fields."); return; }
+    if (form.newPassword !== form.confirmPassword) { setError("Passwords do not match."); return; }
+    if (form.newPassword.length < 6) { setError("Password must be at least 6 characters."); return; }
+    try {
+      setLoading(true);
+      setError("");
+      await apiFetch("/api/auth/reset-password/", {
+        method: "POST",
+        body: { email, code, new_password: form.newPassword },
+      });
+      sessionStorage.removeItem("pwreset_email");
+      sessionStorage.removeItem("pwreset_code");
+      setShowSuccess(true);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not reset password. Please try again."));
+    } finally {
+      setLoading(false);
     }
-    setShowSuccess(true);
   };
 
   return (
@@ -78,12 +98,19 @@ export default function HRNewPassword() {
           </div>
         </div>
 
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+          </div>
+        )}
+
         <div className="mt-6">
           <button
             onClick={handleSubmit}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
+            disabled={loading}
+            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 disabled:opacity-60"
           >
-            Change Password
+            {loading ? "Saving..." : "Change Password"}
           </button>
         </div>
 

@@ -19,6 +19,36 @@ checklist that keeps them working after the move to Render.
 | _Employer account-request email_ | Webhook | ⬜ Low priority | Managers already get in-app notifications |
 | _Fairness monitor_ | Schedule | ❌ Not feasible | Needs protected-attribute data the frozen schema doesn't have — document as thesis future work |
 
+## ✅ Deploy checklist (verified 2026-07-01)
+
+**Webhook paths — Django ↔ n8n all match (6/6):** register-confirmation, password-reset,
+password-reset-code, interview-invitation, company-approval, evaluate-resume.
+
+**Activate these n8n workflows (they ship inactive):**
+- H!RE - Company Approval Email (webhook)
+- H!RE - Password Reset Code (webhook)
+- H!RE - Reject Email & Cleanup (schedule) — and **deactivate the old "Evaluation Clean Up"** in the n8n instance
+- H!RE - Interview Reminder (schedule)
+- H!RE - Subscription Expiry Reminder (schedule)
+
+Already active: Account Registration, Evaluate Resume, Interview Invitation, Password Reset.
+
+**n8n instance env vars (only Evaluate Resume needs these):** `HF_API_KEY`,
+`OCR_SPACE_API_KEY`, `SUPABASE_SERVICE_KEY`. All other workflows use the stored
+Supabase + Gmail credentials.
+
+**Render (Django) env vars:** `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `DB_NAME/USER/PASSWORD/HOST/PORT`,
+`CORS_ALLOWED_ORIGINS`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `GROQ_API_KEY`,
+`N8N_BASE_URL` (base only, no `/webhook`), `N8N_EVALUATE_WEBHOOK_URL` (`<N8N_BASE_URL>/webhook/evaluate-resume`),
+`FRONTEND_URL`.
+
+**Render (frontend) env var:** `VITE_API_URL` = the deployed backend origin.
+
+**Redeploy order:** backend (Django) → frontend → then activate/import the n8n workflows.
+
+> Note: `/auth/forgot-password/` (JWT link flow) + the "Password Reset Email" workflow are
+> now redundant — the public reset uses the code flow. Harmless to leave; nothing calls them.
+
 ## Reject → Email & Cleanup (how it works) — SOFT DELETE, no schema change
 
 > **DB is frozen** — no columns may be added/removed/changed. This flow therefore

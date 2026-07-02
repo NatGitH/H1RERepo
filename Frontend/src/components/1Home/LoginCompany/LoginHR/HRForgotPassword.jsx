@@ -1,11 +1,32 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { apiFetch, getErrorMessage } from "../../../../api";
 
 export default function HRForgotPassword() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSend = async () => {
+    if (!email.trim()) { setError("Please enter your email."); return; }
+    try {
+      setLoading(true);
+      setError("");
+      await apiFetch("/api/auth/send-reset-code/", {
+        method: "POST",
+        body: { email: email.trim() },
+      });
+      sessionStorage.setItem("pwreset_email", email.trim());
+      navigate("/Verify-Code");
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not send code. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e] relative overflow-hidden">
@@ -53,12 +74,19 @@ export default function HRForgotPassword() {
           </p>
         </div>
 
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="text-red-600 text-sm font-medium text-center">{error}</p>
+          </div>
+        )}
+
         <div className="mt-6">
           <button
-            onClick={() => navigate("/verify-code")}
-            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200"
+            onClick={handleSend}
+            disabled={loading}
+            className="w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-2.5 rounded-lg transition duration-200 disabled:opacity-60"
           >
-            Send Code
+            {loading ? "Sending..." : "Send Code"}
           </button>
         </div>
 

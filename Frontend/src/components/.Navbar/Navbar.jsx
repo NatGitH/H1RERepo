@@ -96,6 +96,7 @@ export default function Navbar() {
   const NAV_LINKS = NAV_LINKS_BY_ROLE[role] || [];
 
   const getInitials = () => {
+    if (role === "owner" && auth.companyName) return auth.companyName.substring(0, 2).toUpperCase();
     if (auth.firstname && auth.lastname) {
       return `${auth.firstname[0]}${auth.lastname[0]}`.toUpperCase();
     }
@@ -194,7 +195,9 @@ export default function Navbar() {
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-bold text-[#0B2447] truncate">
-                      {auth.firstname && auth.lastname
+                      {role === "owner"
+                        ? auth.companyName || auth.email || "Company"
+                        : auth.firstname && auth.lastname
                         ? `${auth.firstname} ${auth.lastname}`
                         : auth.email || "User"}
                     </span>

@@ -8,6 +8,7 @@ const defaultAuth = {
   token: null,
   role: null,
   companyId: null,
+  companyName: null,
   email: null,
   user_id: null,
   adminId: null,

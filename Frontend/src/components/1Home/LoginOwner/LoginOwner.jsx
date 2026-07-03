@@ -27,10 +27,12 @@ export default function LoginOwner() {
       });
 
       login({
-        token:     data.token,
-        role:      data.role,
-        companyId: data.company_id,
-        email:     form.email,
+        token:           data.token,
+        role:            data.role,
+        companyId:       data.company_id,
+        email:           form.email,
+        companyName:     data.company_name || null,
+        profile_picture: data.company_logo || null,
       });
       navigate("/Applicants");
     } catch (err) {

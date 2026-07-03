@@ -58,7 +58,13 @@ def login_owner(request):
             "email":      email,
         })
 
-        return JsonResponse({"token": token, "role": "owner", "company_id": str(company.company_id)})
+        return JsonResponse({
+            "token":        token,
+            "role":         "owner",
+            "company_id":   str(company.company_id),
+            "company_name": company.company_name,
+            "company_logo": company.company_logo or None,
+        })
 
     except Company.DoesNotExist:
         return JsonResponse({"error": "Invalid credentials"}, status=401)

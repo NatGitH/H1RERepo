@@ -353,10 +353,10 @@ const handleDelete = async (company_id, companyName) => {
 
         {activeNav === "companies" && (
           <div
-            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
-            style={{ boxShadow: "6px 6px 0px #0B2447" }}
+            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447] flex flex-col"
+            style={{ boxShadow: "6px 6px 0px #0B2447", height: "calc(100vh - 104px)", overflow: "hidden" }}
           >
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4 shrink-0">
               <div
                 className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg w-[200px] h-[50px] flex items-center justify-center"
                 style={{ boxShadow: "3px 3px 0px #0B2447" }}
@@ -375,9 +375,10 @@ const handleDelete = async (company_id, companyName) => {
               </div>
             </div>
 
+            <div className="overflow-y-auto flex-1 min-h-0 pr-1">
             {/* Active Companies */}
             <h3 className="font-bold text-[#0B2447] text-sm mb-3">Active</h3>
-            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 mb-8">
+            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 mb-8 items-start">
               {filteredCompanies.filter((c) => c.approval_status === "approved").map((c) => (
                 <div
                   key={c.id}
@@ -400,7 +401,7 @@ const handleDelete = async (company_id, companyName) => {
                       </div>
                       <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
                       <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
-                      <p className="text-xs text-slate-400">{c.active_employees} / {c.total_employees} employees active</p>
+                      <p className="text-xs text-slate-400">{c.active_employees} employees active</p>
                     </div>
                     <div className="flex flex-col gap-1">
                       <button
@@ -435,7 +436,7 @@ const handleDelete = async (company_id, companyName) => {
 
             {/* Revoked Companies */}
             <h3 className="font-bold text-red-500 text-sm mb-3">Revoked</h3>
-            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1">
+            <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 items-start">
               {filteredCompanies.filter((c) => c.approval_status === "rejected").map((c) => (
                 <div
                   key={c.id}
@@ -458,7 +459,7 @@ const handleDelete = async (company_id, companyName) => {
                       </div>
                       <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
                       <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
-                      <p className="text-xs text-slate-400">{c.active_employees} / {c.total_employees} employees active</p>
+                      <p className="text-xs text-slate-400">{c.active_employees} employees active</p>
                     </div>
                     <div className="flex flex-col gap-1">
                       <button
@@ -495,6 +496,7 @@ const handleDelete = async (company_id, companyName) => {
               {filteredCompanies.filter((c) => c.approval_status === "rejected").length === 0 && (
                 <p className="text-slate-400 text-sm col-span-2">No revoked companies.</p>
               )}
+            </div>
             </div>
           </div>
         )}
@@ -534,7 +536,7 @@ const handleDelete = async (company_id, companyName) => {
             </div>
 
             <div className="flex-1 overflow-auto bg-slate-100">
-              {previewDoc.document_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+              {previewDoc.document_url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
                 <img
                   src={previewDoc.document_url}
                   alt={previewDoc.document_name}

@@ -245,6 +245,7 @@ export default function Profile() {
       });
 
       setProfile((prev) => ({ ...prev, logo: displayUrl }));
+      login({ ...auth, profile_picture: displayUrl });   // keep navbar logo fresh
       setShowLogoModal(false);
       setNewLogoFile(null);
       setNewLogoPreview(null);
@@ -686,6 +687,7 @@ export default function Profile() {
           token={auth.token}
           onSuccess={(newName) => {
             setProfile((prev) => ({ ...prev, company_name: newName }));
+            login({ ...auth, companyName: newName });   // keep navbar name fresh
             setShowCompanyNameModal(false);
           }}
           onClose={() => setShowCompanyNameModal(false)}

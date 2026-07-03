@@ -70,8 +70,8 @@ export function ProfileOverlay({
               </div>
             </div>
 
-            {/* ⋯ dots — Owner only */}
-            {role === "owner" && (
+            {/* ⋯ dots — Owner / Manager */}
+            {(role === "owner" || role === "HRManager") && (
               <div className="absolute top-0 right-0">
                 <button
                   onClick={onToggleDotsMenu}
@@ -90,19 +90,21 @@ export function ProfileOverlay({
                     >
                       Change Role
                     </button>
-                    <button
-                      onClick={onOpenDeleteConfirm}
-                      className="w-full text-left px-3 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg border-none bg-transparent cursor-pointer"
-                    >
-                      Delete Employer
-                    </button>
+                    {role === "owner" && (
+                      <button
+                        onClick={onOpenDeleteConfirm}
+                        className="w-full text-left px-3 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg border-none bg-transparent cursor-pointer"
+                      >
+                        Delete Employer
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Close button — non-owner */}
-            {role !== "owner" && (
+            {/* Close button — HR Staff view */}
+            {role !== "owner" && role !== "HRManager" && (
               <button
                 onClick={onClose}
                 className="absolute top-0 right-0 text-slate-400 text-xl font-bold px-2 cursor-pointer bg-transparent border-none hover:text-slate-600"

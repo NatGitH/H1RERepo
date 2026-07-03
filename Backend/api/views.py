@@ -159,6 +159,23 @@ def register_company(request):
         except Exception as n8n_err:
             print("n8n error:", n8n_err)
 
+        # Notify all platform admins by email that a company is awaiting approval
+        try:
+            from .models import Admin
+            admin_emails = [a.admin_email for a in Admin.objects.all() if a.admin_email]
+            if admin_emails:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/admin-new-company",
+                    json={
+                        "admin_emails": ",".join(admin_emails),
+                        "company_name": company_name,
+                        "owner_email":  email,
+                    },
+                    timeout=5,
+                )
+        except Exception as n8n_err:
+            print("admin new-company email error:", n8n_err)
+
         return JsonResponse({"message": "Company registered successfully", "company_id": str(company.company_id)})
 
     except Exception as e:
@@ -1018,8 +1035,8 @@ def change_role(request):
         payload = decode_token(request)
         role    = payload.get("role")
 
-        if role != "owner":
-            return JsonResponse({"error": "Only owners can change roles"}, status=403)
+        if role not in ["owner", "HRManager"]:
+            return JsonResponse({"error": "Only owners and managers can change roles"}, status=403)
 
         data      = json.loads(request.body)
         user_id   = data.get("user_id", "").strip()

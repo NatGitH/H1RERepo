@@ -187,16 +187,16 @@ const handleDelete = async (company_id, companyName) => {
         <div className="flex items-center gap-6">
           <button
             onClick={() => setActiveNav("home")}
-            className={`text-base font-semibold pb-1 bg-transparent border-none cursor-pointer transition-colors ${
-              activeNav === "home" ? "text-white border-b-2 border-sky-400" : "text-slate-400"
+            className={`text-base font-semibold pb-1 bg-transparent border-0 border-b-2 border-solid cursor-pointer transition-colors ${
+              activeNav === "home" ? "text-white border-sky-400" : "text-slate-400 border-transparent"
             }`}
           >
             Home
           </button>
           <button
             onClick={() => setActiveNav("companies")}
-            className={`text-base font-semibold pb-1 bg-transparent border-none cursor-pointer transition-colors ${
-              activeNav === "companies" ? "text-white border-b-2 border-sky-400" : "text-slate-400"
+            className={`text-base font-semibold pb-1 bg-transparent border-0 border-b-2 border-solid cursor-pointer transition-colors ${
+              activeNav === "companies" ? "text-white border-sky-400" : "text-slate-400 border-transparent"
             }`}
           >
             Companies
@@ -215,17 +215,17 @@ const handleDelete = async (company_id, companyName) => {
 
         {activeNav === "home" && (
           <div
-            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447]"
-            style={{ boxShadow: "6px 6px 0px #0B2447" }}
+            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447] flex flex-col"
+            style={{ boxShadow: "6px 6px 0px #0B2447", height: "calc(100vh - 104px)", overflow: "hidden" }}
           >
             <div
-              className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg w-[200px] h-[50px] flex items-center justify-center mb-6"
+              className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg w-[200px] h-[50px] flex items-center justify-center mb-6 shrink-0"
               style={{ boxShadow: "3px 3px 0px #0B2447" }}
             >
               Dashboard
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-6 max-[900px]:grid-cols-2">
+            <div className="grid grid-cols-4 gap-4 mb-6 max-[900px]:grid-cols-2 shrink-0">
               {[
                 { label: "Total Companies",    value: totalCompaniesCount,          sub: "approved",      color: "text-teal-500" },
                 { label: "Pending Approval",   value: pending.length,               sub: "Needs Review",  color: "text-orange-500" },
@@ -244,9 +244,9 @@ const handleDelete = async (company_id, companyName) => {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
-              <div className="border-2 border-slate-200 rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-4">
+            <div className="grid grid-cols-2 grid-rows-1 gap-6 max-[900px]:grid-cols-1 flex-1 min-h-0">
+              <div className="border-2 border-slate-200 rounded-2xl p-5 flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-4 shrink-0">
                   <h2 className="font-extrabold text-[#0B2447] text-base">Pending Companies Approval</h2>
                   {pending.length > 0 && (
                     <span className="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full">
@@ -257,7 +257,7 @@ const handleDelete = async (company_id, companyName) => {
                 {pending.length === 0 ? (
                   <p className="text-slate-400 text-sm">No pending companies.</p>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 overflow-y-auto flex-1 min-h-0 pr-1">
                     {pending.map((p) => (
                       <div key={p.ap_id} className="bg-slate-50 rounded-xl p-3">
                         <div className="flex items-center gap-3">
@@ -279,7 +279,7 @@ const handleDelete = async (company_id, companyName) => {
                               onClick={() => handleApproveReject(p.ap_id, "approved")}
                               className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
                             >
-                              Approved
+                              Approve
                             </button>
                             <button
                               onClick={() => handleApproveReject(p.ap_id, "rejected")}
@@ -310,10 +310,12 @@ const handleDelete = async (company_id, companyName) => {
                 )}
               </div>
 
-              <div className="border-2 border-slate-200 rounded-2xl p-5">
-                <h2 className="font-extrabold text-[#0B2447] text-base mb-4">Subscription Status</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {approvedCompanies.slice(0, 4).map((c) => (
+              <div className="border-2 border-slate-200 rounded-2xl p-5 flex flex-col min-h-0">
+                <h2 className="font-extrabold text-[#0B2447] text-base mb-4 shrink-0">Subscription Status</h2>
+                <div className="grid grid-cols-2 gap-3 overflow-y-auto flex-1 min-h-0 pr-1 content-start">
+                  {[...approvedCompanies]
+                    .sort((a, b) => new Date(a.subscription_expiry || 0) - new Date(b.subscription_expiry || 0))
+                    .map((c) => (
                     <div key={c.id} className="bg-slate-50 rounded-xl p-3 flex items-center gap-2">
                       <div className="w-9 h-9 rounded-lg bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                         {c.company_logo ? (
@@ -328,7 +330,7 @@ const handleDelete = async (company_id, companyName) => {
                         <p className="text-[0.7rem] text-slate-400">Expires {c.subscription_expiry}</p>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
-                        <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full ${getSubStatusColor(c.subscription_status)}`}>
+                        <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full capitalize ${getSubStatusColor(c.subscription_status)}`}>
                           {c.subscription_status}
                         </span>
                         <button
@@ -392,7 +394,7 @@ const handleDelete = async (company_id, companyName) => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-bold text-[#0B2447] text-sm truncate">{c.company_name}</p>
-                        <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full shrink-0 ${getSubStatusColor(c.subscription_status)}`}>
+                        <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full shrink-0 capitalize ${getSubStatusColor(c.subscription_status)}`}>
                           {c.subscription_status}
                         </span>
                       </div>

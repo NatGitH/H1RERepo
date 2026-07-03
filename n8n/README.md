@@ -17,6 +17,7 @@ checklist that keeps them working after the move to Render.
 | **H!RE - Company Approval Email** | Webhook `/company-approval` | ✅ | NEW — emails owner on admin approve/reject (fired by `admin_approve_reject_company`) |
 | **H!RE - Password Reset Code** | Webhook `/password-reset-code` | ✅ | NEW — emails the 6-digit code for the in-profile Change Password flow (fired by `send_reset_code`) |
 | **H!RE - Employer Deleted Email** | Webhook `/employer-deleted` | ✅ | NEW — emails a removed employee (fired by `delete_employer`) |
+| **H!RE - Admin New Company Email** | Webhook `/admin-new-company` | ✅ | NEW — emails all admins when a company signs up (fired by `register_company`) |
 | _Employer account-request email_ | Webhook | ⬜ Low priority | Managers already get in-app notifications |
 | _Fairness monitor_ | Schedule | ❌ Not feasible | Needs protected-attribute data the frozen schema doesn't have — document as thesis future work |
 

@@ -120,6 +120,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-N8N_BASE_URL = os.environ.get("N8N_BASE_URL", "http://localhost:5678").rstrip("/")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 N8N_EVALUATE_WEBHOOK_URL = os.environ.get("N8N_EVALUATE_WEBHOOK_URL", "http://localhost:5678/webhook/evaluate-resume")
+
+# The evaluate webhook is the one proven to reach the live n8n instance in prod,
+# so derive the base host from it. This keeps EVERY other n8n webhook (emails,
+# reminders, approvals) pointing at the SAME instance even when N8N_BASE_URL was
+# never set separately on the host — which is exactly the "only evaluate-resume
+# works" symptom. An explicit N8N_BASE_URL env var still wins if provided.
+_evaluate_base = N8N_EVALUATE_WEBHOOK_URL.split("/webhook/")[0] if "/webhook/" in N8N_EVALUATE_WEBHOOK_URL else ""
+N8N_BASE_URL = (os.environ.get("N8N_BASE_URL") or _evaluate_base or "http://localhost:5678").rstrip("/")

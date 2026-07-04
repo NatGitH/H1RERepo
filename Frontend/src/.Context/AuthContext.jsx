@@ -15,6 +15,7 @@ const defaultAuth = {
   profile_picture: null,
   firstname: null,
   lastname: null,
+  subscription_plan: null,
 };
 
 const loadAuth = () => {

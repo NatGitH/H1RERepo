@@ -19,6 +19,7 @@ export default function Navbar() {
 
   const { auth, logout } = useAuth();
   const role = auth.role;
+  const isEnterprise = (auth.subscription_plan || "").toLowerCase() === "enterprise"; // audit trail is Enterprise-only
 
   const unreadCount = notifList.filter((n) => n.unread).length;
 
@@ -87,10 +88,10 @@ export default function Navbar() {
   useEffect(() => {
     if (!auth.token) return;
     fetchNotifications();
-    fetchAuditLogs();
+    if (isEnterprise) fetchAuditLogs();
     const interval = setInterval(() => {
       fetchNotifications();
-      fetchAuditLogs();
+      if (isEnterprise) fetchAuditLogs();
     }, 15000);
     return () => clearInterval(interval);
   }, [auth.token]);
@@ -283,13 +284,15 @@ export default function Navbar() {
                 >
                   Notifications
                 </button>
-                <button
-                  onClick={() => setPanelTab("activity")}
-                  className="text-[1.1rem] font-extrabold m-0 p-0 bg-transparent border-none cursor-pointer transition-colors"
-                  style={{ color: panelTab === "activity" ? "#0f172a" : "#94a3b8" }}
-                >
-                  Activity
-                </button>
+                {isEnterprise && (
+                  <button
+                    onClick={() => setPanelTab("activity")}
+                    className="text-[1.1rem] font-extrabold m-0 p-0 bg-transparent border-none cursor-pointer transition-colors"
+                    style={{ color: panelTab === "activity" ? "#0f172a" : "#94a3b8" }}
+                  >
+                    Activity
+                  </button>
+                )}
                 {panelTab === "notifs" && (
                   <button
                     onClick={markAllRead}

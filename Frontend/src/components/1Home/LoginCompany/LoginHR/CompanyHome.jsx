@@ -26,7 +26,7 @@ export default function CompanyHome() {
         <div className="relative flex items-center justify-center mb-0">
 
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="absolute left-0 w-8 h-8 flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />

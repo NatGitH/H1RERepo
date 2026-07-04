@@ -38,14 +38,15 @@ export default function LoginHRAccount() {
       }
 
       login({
-        token:           data.token,
-        role:            data.role,
-        companyId:       data.company_id,
-        user_id:         data.user_id,   // needed for per-user interview visibility
-        email:           form.email,
-        profile_picture: profileData.profile_picture || null,
-        firstname:       profileData.firstname || null,
-        lastname:        profileData.lastname || null,
+        token:             data.token,
+        role:              data.role,
+        companyId:         data.company_id,
+        user_id:           data.user_id,   // needed for per-user interview visibility
+        email:             form.email,
+        profile_picture:   profileData.profile_picture || null,
+        firstname:         profileData.firstname || null,
+        lastname:          profileData.lastname || null,
+        subscription_plan: data.subscription_plan || "free",
       });
 
       navigate("/Applicants");
@@ -69,7 +70,7 @@ export default function LoginHRAccount() {
       >
         <div className="flex items-center gap-3 mb-6">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/Company-Home")}
             className="w-8 h-8 aspect-square flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />

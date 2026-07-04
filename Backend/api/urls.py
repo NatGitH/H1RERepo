@@ -51,6 +51,7 @@ urlpatterns = [
     path("evaluate/", views.evaluate_resume),
     path("evaluations/", views.get_evaluations),
     path("evaluations/<uuid:evaluation_id>/status/", views.update_evaluation_status),
+    path("evaluations/<uuid:evaluation_id>/remove/", views.remove_evaluation),
 
     path("notifications/",           views.get_notifications),
     path("notifications/mark-read/", views.mark_notifications_read),

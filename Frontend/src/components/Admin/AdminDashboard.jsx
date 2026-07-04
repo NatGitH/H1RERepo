@@ -74,7 +74,9 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleApproveReject = async (ap_id, status) => {
+  const handleApproveReject = async (ap_id, status, companyName = "this company") => {
+    if (status === "rejected" &&
+        !window.confirm(`Reject and permanently remove "${companyName}"? This cannot be undone.`)) return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/companies/approve-reject/`, {
         method: "POST",
@@ -343,7 +345,7 @@ const handleDelete = async (company_id, companyName) => {
                               Approve
                             </button>
                             <button
-                              onClick={() => handleApproveReject(p.ap_id, "rejected")}
+                              onClick={() => handleApproveReject(p.ap_id, "rejected", p.company_name)}
                               className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
                             >
                               Reject

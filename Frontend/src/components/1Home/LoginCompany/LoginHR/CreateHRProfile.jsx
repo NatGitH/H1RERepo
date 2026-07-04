@@ -12,7 +12,7 @@ export default function CreateHRProfile() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [showVerification, setShowVerification] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const { loginData, clearCompany } = useLogin();
+  const { loginData } = useLogin();
   const { registrationData, updateData } = useHRRegistration();
 
   const [form, setForm] = useState({
@@ -106,8 +106,12 @@ export default function CreateHRProfile() {
   };
 
   const handleBackToLogin = () => {
-    clearCompany();
-    navigate("/company-home");
+    // Keep the company context (companyId) so the user can log straight into the
+    // account they just created — clearing it made the HR login post
+    // company_id: null, which crashed with "'NoneType' object has no attribute
+    // 'strip'". `replace` drops this Create-Profile page from history so the
+    // login page's back button doesn't return here.
+    navigate("/Login-HR-Account", { replace: true });
   };
 
   return (
@@ -123,7 +127,7 @@ export default function CreateHRProfile() {
       >
         <div className="flex items-center gap-3 mb-4">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />

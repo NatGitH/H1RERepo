@@ -140,7 +140,7 @@ export default function SubscriptionPlan() {
         style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
       >
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/")}
           className="absolute top-7 left-8 w-9 h-9 flex items-center justify-center rounded-full border-2 border-black hover:bg-slate-100 transition cursor-pointer"
         >
           <ArrowBackIosNewIcon style={{ fontSize: 15 }} />

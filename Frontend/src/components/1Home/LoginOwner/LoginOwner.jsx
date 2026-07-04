@@ -27,12 +27,13 @@ export default function LoginOwner() {
       });
 
       login({
-        token:           data.token,
-        role:            data.role,
-        companyId:       data.company_id,
-        email:           form.email,
-        companyName:     data.company_name || null,
-        profile_picture: data.company_logo || null,
+        token:             data.token,
+        role:              data.role,
+        companyId:         data.company_id,
+        email:             form.email,
+        companyName:       data.company_name || null,
+        profile_picture:   data.company_logo || null,
+        subscription_plan: data.subscription_plan || "free",
       });
       navigate("/Applicants");
     } catch (err) {
@@ -55,7 +56,7 @@ export default function LoginOwner() {
       >
         <div className="flex items-center gap-3 mb-6">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />

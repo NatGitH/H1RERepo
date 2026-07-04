@@ -38,6 +38,22 @@ def log_audit(applicant_id, performed_by_user_id, action_type, action_details=No
     except Exception as audit_err:
         print("audit log error:", audit_err)
 
+# ---- Subscription plan feature matrix --------------------------------------
+# None = unlimited. These gate limits + features across the app.
+PLAN_FEATURES = {
+    "free":       {"job_posts": 2,    "resumes": 30,   "interview": False, "reject": False, "pros_cons": False, "audit": False},
+    "standard":   {"job_posts": 6,    "resumes": 300,  "interview": True,  "reject": True,  "pros_cons": True,  "audit": False},
+    "enterprise": {"job_posts": None, "resumes": None, "interview": True,  "reject": True,  "pros_cons": True,  "audit": True},
+}
+
+def plan_features(plan):
+    return PLAN_FEATURES.get((plan or "free").lower(), PLAN_FEATURES["free"])
+
+def get_company_plan(company_id):
+    c = Company.objects.filter(company_id=company_id).first()
+    return (c.subscription_plan or "free").lower() if c and c.subscription_plan else "free"
+
+
 def make_token(payload: dict) -> str:
     payload["exp"] = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
     return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -88,6 +104,7 @@ def login_owner(request):
             "company_id":   str(company.company_id),
             "company_name": company.company_name,
             "company_logo": company.company_logo or None,
+            "subscription_plan": (company.subscription_plan or "free").lower(),
         })
 
     except Company.DoesNotExist:
@@ -453,12 +470,15 @@ def create_hr_account(request):
 def login_hr(request):
     try:
         data       = json.loads(request.body)
-        email      = data.get("email", "").strip()
-        password   = data.get("password", "").strip()
-        company_id = data.get("company_id", "").strip()
+        # Use `or ""` (not a get-default) so an explicit null value in the JSON
+        # body doesn't blow up on .strip() — that produced the confusing
+        # "'NoneType' object has no attribute 'strip'" login error.
+        email      = (data.get("email") or "").strip()
+        password   = (data.get("password") or "").strip()
+        company_id = (data.get("company_id") or "").strip()
 
         if not company_id:
-            return JsonResponse({"error": "Missing company ID"}, status=400)
+            return JsonResponse({"error": "Please select your company before logging in."}, status=400)
 
         # Check if company has been revoked/rejected
         try:
@@ -496,6 +516,7 @@ def login_hr(request):
             "role":       role,
             "user_id":    str(user.user_id),
             "company_id": str(company_id),
+            "subscription_plan": get_company_plan(company_id),
         })
 
     except HRUser.DoesNotExist:
@@ -716,6 +737,25 @@ def evaluate_resume(request):
             is_deleted=False
         )
 
+        # Plan limit: monthly-style cap on how many resumes this company can evaluate.
+        feats = plan_features(get_company_plan(company_id))
+        if feats["resumes"] is not None:
+            from supabase import create_client
+            sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+            req_ids = [str(r) for r in JobRequirement.objects.filter(
+                company_id=company_id).values_list("requirement_id", flat=True)]
+            used = 0
+            if req_ids:
+                rows = sb.table("Evaluations").select("evaluation_id, application_status").in_(
+                    "requirement_id", req_ids).execute().data
+                used = sum(1 for r in rows if r.get("application_status") != "removed")
+            if used >= feats["resumes"]:
+                return JsonResponse(
+                    {"error": f"You've reached your plan's limit of {feats['resumes']} resume "
+                              f"evaluations. Upgrade your plan to evaluate more."},
+                    status=403,
+                )
+
         # Forward the resume + job context to the n8n evaluation webhook
         n8n_url = getattr(settings, "N8N_EVALUATE_WEBHOOK_URL", "http://localhost:5678/webhook/evaluate-resume")
 
@@ -863,6 +903,14 @@ def update_evaluation_status(request, evaluation_id):
         if status not in ["pending", "shortlisted", "rejected", "interview_sent"]:
             return JsonResponse({"error": "Invalid status"}, status=400)
 
+        # Plan gating: the free tier can't schedule interviews or reject-with-email
+        # (it uses "Remove Resume" instead — see remove_evaluation).
+        feats = plan_features(get_company_plan(payload.get("company_id")))
+        if status == "interview_sent" and not feats["interview"]:
+            return JsonResponse({"error": "Interview scheduling isn't available on your plan. Please upgrade."}, status=403)
+        if status == "rejected" and not feats["reject"]:
+            return JsonResponse({"error": "Rejecting with email isn't available on your plan. Use Remove Resume instead."}, status=403)
+
         from supabase import create_client
         from django.conf import settings
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
@@ -992,6 +1040,66 @@ def update_evaluation_status(request, evaluation_id):
         )
 
         return JsonResponse({"message": "Status updated", "status": status})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def remove_evaluation(request, evaluation_id):
+    """Permanently remove one applicant's evaluation. This is the free tier's
+    'Remove Resume' action (it has no reject-with-email), but any plan may use it.
+    Deletes the Evaluation, its Pros/Cons, the Resume row + storage file, and the
+    Applicant row."""
+    try:
+        payload    = decode_token(request)
+        company_id = payload.get("company_id")
+
+        from supabase import create_client
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+        ev = sb.table("Evaluations").select("resume_id, requirement_id").eq(
+            "evaluation_id", str(evaluation_id)).execute().data
+        if not ev:
+            return JsonResponse({"error": "Not found"}, status=404)
+
+        # Security: the evaluation must belong to the caller's company.
+        req_id = ev[0].get("requirement_id")
+        if not JobRequirement.objects.filter(requirement_id=req_id, company_id=company_id).exists():
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        resume_id    = ev[0].get("resume_id")
+        applicant_id = None
+        file_path    = None
+        if resume_id:
+            res = sb.table("Resumes").select("applicant_id, file_path").eq(
+                "resume_id", resume_id).execute().data
+            if res:
+                applicant_id = res[0].get("applicant_id")
+                file_path    = res[0].get("file_path")
+
+        # Delete children first, then parents.
+        sb.table("Evaluation_Pros").delete().eq("evaluation_id", str(evaluation_id)).execute()
+        sb.table("Evaluation_Cons").delete().eq("evaluation_id", str(evaluation_id)).execute()
+        sb.table("Evaluations").delete().eq("evaluation_id", str(evaluation_id)).execute()
+        if resume_id:
+            sb.table("Resumes").delete().eq("resume_id", resume_id).execute()
+        if applicant_id:
+            sb.table("Applicants").delete().eq("applicant_id", applicant_id).execute()
+
+        # Best-effort storage cleanup (file_path is "<bucket>/<path>").
+        if file_path:
+            try:
+                bucket, _, path = file_path.partition("/")
+                if bucket and path:
+                    sb.storage.from_(bucket).remove([path])
+            except Exception as storage_err:
+                print("resume storage cleanup error:", storage_err)
+
+        return JsonResponse({"message": "Applicant removed"})
 
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
@@ -1205,6 +1313,17 @@ def requirements_list(request):
 
             if not all([job_title, description, qualifications]):
                 return JsonResponse({"error": "All fields are required"}, status=400)
+
+            # Plan limit: active (non-deleted) job posts.
+            feats = plan_features(get_company_plan(company_id))
+            if feats["job_posts"] is not None:
+                active_posts = JobRequirement.objects.filter(company_id=company_id, is_deleted=False).count()
+                if active_posts >= feats["job_posts"]:
+                    return JsonResponse(
+                        {"error": f"Your plan allows up to {feats['job_posts']} active job posts. "
+                                  f"Delete one or upgrade your plan to add more."},
+                        status=403,
+                    )
 
             req = JobRequirement.objects.create(
             requirement_id     = uuid.uuid4(),
@@ -2058,6 +2177,30 @@ def admin_get_pending_companies(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+def _purge_company(company_id):
+    """Hard-delete a company and everything attached to it (Storage files + all
+    related rows). Used by both an admin *reject* (declining a pending
+    registration) and an admin *delete*. Storage cleanup is best-effort."""
+    try:
+        from supabase import create_client
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+        folder = str(company_id)  # register_company uploads under "<company_id>/..."
+        files  = sb.storage.from_("company-documents").list(folder)
+        if files:
+            paths = [f"{folder}/{f['name']}" for f in files]
+            sb.storage.from_("company-documents").remove(paths)
+    except Exception as storage_err:
+        print("Storage cleanup error:", storage_err)
+
+    Document.objects.filter(company_id=company_id).delete()
+    Notification.objects.filter(recipient_company_id=company_id).delete()
+    HRUser.objects.filter(company_id=company_id).delete()
+    ApprovalCompany.objects.filter(subscribing_company_id=company_id).delete()
+    EmployerAccountRequest.objects.filter(company_id=company_id).delete()
+    JobRequirement.objects.filter(company_id=company_id).delete()
+    Company.objects.filter(company_id=company_id).delete()
+
+
 @csrf_exempt
 @require_POST
 def admin_approve_reject_company(request):
@@ -2076,28 +2219,37 @@ def admin_approve_reject_company(request):
         if new_status not in ["approved", "rejected"]:
             return JsonResponse({"error": "Invalid status"}, status=400)
 
-        approval = ApprovalCompany.objects.get(ap_companies_id=ap_id)
-        approval.action_status        = new_status
-        approval.reviewed_by_admin_id = admin_id
-        approval.time_of_action       = datetime.datetime.utcnow()
-        approval.save()
+        approval   = ApprovalCompany.objects.get(ap_companies_id=ap_id)
+        company_id = approval.subscribing_company_id
+        company    = Company.objects.filter(company_id=company_id).first()
 
-        # Notify the company owner of the decision (fully guarded: never 500s)
+        # Email the owner of the decision BEFORE any deletion (guarded: never 500s).
         try:
-            company = Company.objects.get(company_id=approval.subscribing_company_id)
-            requests.post(
-                f"{settings.N8N_BASE_URL}/webhook/company-approval",
-                json={
-                    "email":        company.owner_email,
-                    "company_name": company.company_name,
-                    "status":       new_status,
-                },
-                timeout=5,
-            )
+            if company:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/company-approval",
+                    json={
+                        "email":        company.owner_email,
+                        "company_name": company.company_name,
+                        "status":       new_status,
+                    },
+                    timeout=5,
+                )
         except Exception as n8n_err:
             print("company approval email error:", n8n_err)
 
-        return JsonResponse({"message": f"Company {new_status}", "status": new_status})
+        if new_status == "rejected":
+            # A rejected registration is removed entirely — it does NOT linger as a
+            # "revoked" account. (Revoking an already-approved company is a separate
+            # action that keeps the row so it can be restored.)
+            _purge_company(company_id)
+            return JsonResponse({"message": "Company rejected and removed", "status": "rejected"})
+
+        approval.action_status        = "approved"
+        approval.reviewed_by_admin_id = admin_id
+        approval.time_of_action       = datetime.datetime.utcnow()
+        approval.save()
+        return JsonResponse({"message": "Company approved", "status": "approved"})
 
     except ApprovalCompany.DoesNotExist:
         return JsonResponse({"error": "Not found"}, status=404)
@@ -2119,23 +2271,23 @@ def admin_revoke_company(request):
             return JsonResponse({"error": "Forbidden"}, status=403)
 
         data       = json.loads(request.body)
-        company_id = data.get("company_id", "").strip()
+        company_id = (data.get("company_id") or "").strip()
 
-        approval = ApprovalCompany.objects.get(subscribing_company_id=company_id)
-        approval.action_status        = "rejected"
-        approval.reviewed_by_admin_id = admin_id
-        approval.time_of_action       = datetime.datetime.utcnow()
-        approval.save()
+        # "Revoke" no longer blocks the company — it downgrades them to the free
+        # tier. They keep their access; they just lose paid-plan features/limits.
+        company = Company.objects.get(company_id=company_id)
+        company.subscription_plan = "free"
+        company.save()
 
-        return JsonResponse({"message": "Company revoked"})
+        return JsonResponse({"message": "Company downgraded to free tier", "subscription_plan": "free"})
 
-    except ApprovalCompany.DoesNotExist:
+    except Company.DoesNotExist:
         return JsonResponse({"error": "Not found"}, status=404)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
 @csrf_exempt
 def get_company_documents(request, company_id):
     try:
@@ -2203,38 +2355,14 @@ def admin_delete_company(request):
             return JsonResponse({"error": "Forbidden"}, status=403)
 
         data       = json.loads(request.body)
-        company_id = data.get("company_id", "").strip()
+        company_id = (data.get("company_id") or "").strip()
 
-        company = Company.objects.get(company_id=company_id)
+        if not Company.objects.filter(company_id=company_id).exists():
+            return JsonResponse({"error": "Company not found"}, status=404)
 
-        # Delete uploaded documents from Storage + DB
-        try:
-            from supabase import create_client
-            from django.conf import settings
-            sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
-
-            folder = company.storage_folder or str(company.company_id)
-            files  = sb.storage.from_("company-documents").list(folder)
-            if files:
-                paths = [f"{folder}/{f['name']}" for f in files]
-                sb.storage.from_("company-documents").remove(paths)
-        except Exception as storage_err:
-            print("Storage cleanup error:", storage_err)
-
-        Document.objects.filter(company_id=company_id).delete()
-        Notification.objects.filter(recipient_company_id=company_id).delete()
-
-        HRUser.objects.filter(company_id=company_id).delete()
-        ApprovalCompany.objects.filter(subscribing_company_id=company_id).delete()
-        EmployerAccountRequest.objects.filter(company_id=company_id).delete()
-        JobRequirement.objects.filter(company_id=company_id).delete()
-
-        company.delete()
+        _purge_company(company_id)
 
         return JsonResponse({"message": "Company permanently deleted"})
-
-    except Company.DoesNotExist:
-        return JsonResponse({"error": "Company not found"}, status=404)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:

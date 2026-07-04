@@ -26,6 +26,16 @@ export default function Applicants() {
   const [interviewMessage, setInterviewMessage] = useState("");
   const [sortBy, setSortBy] = useState("status"); // status | name_asc | name_desc | score_desc | score_asc
 
+  // Plan-based feature flags (free tier: no pros/cons, no interview/reject).
+  const feats = (() => {
+    const M = {
+      free:       { interview: false, reject: false, pros_cons: false },
+      standard:   { interview: true,  reject: true,  pros_cons: true },
+      enterprise: { interview: true,  reject: true,  pros_cons: true },
+    };
+    return M[(auth.subscription_plan || "free").toLowerCase()] || M.free;
+  })();
+
   // Fetch evaluations
   const fetchEvaluations = async () => {
     setLoading(true);
@@ -116,6 +126,19 @@ export default function Applicants() {
     }
   };
 
+  // Free tier "Remove Resume" — permanently deletes the applicant (it has no
+  // reject-with-email). Available to any plan.
+  const handleRemove = async (evaluationId) => {
+    if (!window.confirm("Remove this applicant permanently? This cannot be undone.")) return;
+    try {
+      await apiFetch(`/api/evaluations/${evaluationId}/remove/`, { method: "POST", token: auth.token });
+      setApplicants((prev) => prev.filter((a) => a.evaluation_id !== evaluationId));
+      setSelected(null);
+    } catch (err) {
+      alert(getErrorMessage(err, "Failed to remove applicant"));
+    }
+  };
+
   const handleSendInterview = () => {
     if (!interviewDate) return alert("Please choose an interview date and time.");
     if (!meetingLink.trim())
@@ -131,10 +154,13 @@ export default function Applicants() {
     setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Zoom Meeting");
   };
 
-  // Search by applicant NAME (and still allow job title)
+  // Search by applicant NAME (and still allow job title). Interview-sent
+  // applicants leave this list once the invite is sent (they live in the
+  // Profile "For Interview" panel) — same idea as rejected ones disappearing.
   const filtered = applicants.filter((a) =>
-    (a.applicant_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (a.job_title || "").toLowerCase().includes(search.toLowerCase())
+    a.status !== "interview_sent" &&
+    ((a.applicant_name || "").toLowerCase().includes(search.toLowerCase()) ||
+     (a.job_title || "").toLowerCase().includes(search.toLowerCase()))
   );
 
   // status priority: blue (interview_sent), green (shortlisted), black (pending), red (rejected)
@@ -417,24 +443,26 @@ export default function Applicants() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4">
-                  <p className="text-teal-600 font-bold text-sm mb-2">✓ Pros</p>
-                  <ul className="list-none m-0 p-0">
-                    {selected.pros.map((p, i) => (
-                      <li key={i} className="text-slate-600 text-xs leading-relaxed">• {p}</li>
-                    ))}
-                  </ul>
+              {feats.pros_cons && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4">
+                    <p className="text-teal-600 font-bold text-sm mb-2">✓ Pros</p>
+                    <ul className="list-none m-0 p-0">
+                      {selected.pros.map((p, i) => (
+                        <li key={i} className="text-slate-600 text-xs leading-relaxed">• {p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                    <p className="text-red-500 font-bold text-sm mb-2">✗ Cons</p>
+                    <ul className="list-none m-0 p-0">
+                      {selected.cons.map((c, i) => (
+                        <li key={i} className="text-slate-600 text-xs leading-relaxed">• {c}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-                  <p className="text-red-500 font-bold text-sm mb-2">✗ Cons</p>
-                  <ul className="list-none m-0 p-0">
-                    {selected.cons.map((c, i) => (
-                      <li key={i} className="text-slate-600 text-xs leading-relaxed">• {c}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              )}
 
               <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4">
                 <p className="text-teal-600 font-bold text-sm mb-2">✦ AI Summary</p>
@@ -446,9 +474,14 @@ export default function Applicants() {
             <div className="border-t border-slate-200 p-4">
               {(() => {
                 const s = selected.status;
+                const removeBtn = (
+                  <button onClick={() => handleRemove(selected.evaluation_id)} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">🗑 Remove Resume</button>
+                );
                 if (s === "shortlisted") return (
                   <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => setShowInterviewModal(true)} className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">📅 Send Interview</button>
+                    {feats.interview ? (
+                      <button onClick={() => setShowInterviewModal(true)} className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">📅 Send Interview</button>
+                    ) : removeBtn}
                     <button onClick={() => handleStatusUpdate(selected.evaluation_id, "pending")} className="bg-slate-200 hover:bg-slate-300 text-[#0B2447] font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">Cancel Shortlist</button>
                   </div>
                 );
@@ -467,7 +500,9 @@ export default function Applicants() {
                 return (
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => handleStatusUpdate(selected.evaluation_id, "shortlisted")} className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✓ Shortlist</button>
-                    <button onClick={() => handleStatusUpdate(selected.evaluation_id, "rejected")} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✗ Reject</button>
+                    {feats.reject ? (
+                      <button onClick={() => handleStatusUpdate(selected.evaluation_id, "rejected")} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer transition-colors">✗ Reject</button>
+                    ) : removeBtn}
                   </div>
                 );
               })()}

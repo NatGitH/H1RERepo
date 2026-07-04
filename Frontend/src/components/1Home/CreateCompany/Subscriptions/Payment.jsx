@@ -44,7 +44,7 @@ export default function Payment() {
    
         <div className="flex items-center gap-3 mb-1">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-black hover:bg-slate-100 transition cursor-pointer shrink-0"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />
@@ -186,7 +186,7 @@ export default function Payment() {
                   </button>
 
                   <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => navigate("/")}
                     className="w-full border border-slate-300 text-slate-600 font-semibold py-3 rounded-lg hover:bg-slate-50 transition duration-200 text-sm"
                   >
                     Go Back

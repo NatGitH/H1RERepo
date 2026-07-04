@@ -86,6 +86,7 @@ export default function Applicants() {
     setUploadProgress({ done: 0, total: pendingFiles.length });
 
     let failures = 0;
+    let lastError = "";
     for (let i = 0; i < pendingFiles.length; i++) {
       const formData = new FormData();
       formData.append("resume", pendingFiles[i]);
@@ -96,8 +97,9 @@ export default function Applicants() {
           token: auth.token,
           body: formData,
         });
-      } catch {
+      } catch (err) {
         failures++;
+        lastError = getErrorMessage(err, "");
       }
       setUploadProgress({ done: i + 1, total: pendingFiles.length });
     }
@@ -107,7 +109,9 @@ export default function Applicants() {
     setSelectedReqId("");
     setUploadProgress({ done: 0, total: 0 });
     fetchEvaluations();
-    if (failures > 0) alert(`${failures} of ${pendingFiles.length} resume(s) failed to evaluate.`);
+    // Surface the reason (e.g. a plan resume-limit message) rather than a bare count.
+    if (failures > 0)
+      alert(`${failures} of ${pendingFiles.length} resume(s) failed to evaluate.` + (lastError ? `\n\n${lastError}` : ""));
   };
 
   const handleStatusUpdate = async (evaluationId, status, extra = {}) => {

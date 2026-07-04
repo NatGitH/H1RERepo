@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [expandedDocs, setExpandedDocs]   = useState(null);
   const [previewDoc, setPreviewDoc]       = useState(null);
   const [showNotifs, setShowNotifs]       = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // { type: "revoke"|"restore"|"delete", id, name }
 
   useEffect(() => {
     fetchAll();
@@ -74,9 +75,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleApproveReject = async (ap_id, status, companyName = "this company") => {
-    if (status === "rejected" &&
-        !window.confirm(`Reject and permanently remove "${companyName}"? This cannot be undone.`)) return;
+  const handleApproveReject = async (ap_id, status) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/companies/approve-reject/`, {
         method: "POST",
@@ -116,8 +115,7 @@ const handleRestore = async (company_id) => {
   } catch (err) { alert(err.message); }
 };
 
-const handleDelete = async (company_id, companyName) => {
-  if (!window.confirm(`Permanently delete "${companyName}"? This cannot be undone.`)) return;
+const handleDelete = async (company_id) => {
   try {
     const res = await fetch(`${API_BASE_URL}/api/admin/companies/delete/`, {
       method: "POST",
@@ -129,6 +127,16 @@ const handleDelete = async (company_id, companyName) => {
     fetchAll();
   } catch (err) { alert(err.message); }
 };
+
+  const runConfirm = () => {
+    if (!confirmAction) return;
+    const { type, id, apId } = confirmAction;
+    if (type === "revoke") handleRevoke(id);
+    else if (type === "restore") handleRestore(id);
+    else if (type === "delete") handleDelete(id);
+    else if (type === "reject") handleApproveReject(apId, "rejected");
+    setConfirmAction(null);
+  };
 
   const filteredCompanies = companies.filter((c) =>
     c.company_name.toLowerCase().includes(search.toLowerCase())
@@ -345,7 +353,7 @@ const handleDelete = async (company_id, companyName) => {
                               Approve
                             </button>
                             <button
-                              onClick={() => handleApproveReject(p.ap_id, "rejected", p.company_name)}
+                              onClick={() => setConfirmAction({ type: "reject", apId: p.ap_id, name: p.company_name })}
                               className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
                             >
                               Reject
@@ -397,7 +405,7 @@ const handleDelete = async (company_id, companyName) => {
                           {c.subscription_status}
                         </span>
                         <button
-                          onClick={() => handleRevoke(c.id)}
+                          onClick={() => setConfirmAction({ type: "revoke", id: c.id, name: c.company_name })}
                           className="text-[0.65rem] font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-2 py-0.5 border-none cursor-pointer"
                         >
                           Revoke
@@ -468,7 +476,7 @@ const handleDelete = async (company_id, companyName) => {
                     </div>
                     <div className="flex flex-col gap-1">
                       <button
-                        onClick={() => handleRevoke(c.id)}
+                        onClick={() => setConfirmAction({ type: "revoke", id: c.id, name: c.company_name })}
                         className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 border-none cursor-pointer"
                       >
                         Revoke
@@ -526,13 +534,13 @@ const handleDelete = async (company_id, companyName) => {
                     </div>
                     <div className="flex flex-col gap-1">
                       <button
-                        onClick={() => handleRestore(c.id)}
+                        onClick={() => setConfirmAction({ type: "restore", id: c.id, name: c.company_name })}
                         className="text-xs font-bold text-white bg-[#0B2447] hover:bg-[#162553] rounded-full px-3 py-1 border-none cursor-pointer"
                       >
                         Restore
                       </button>
                       <button
-                        onClick={() => handleDelete(c.id, c.company_name)}
+                        onClick={() => setConfirmAction({ type: "delete", id: c.id, name: c.company_name })}
                         className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 border-none cursor-pointer"
                       >
                         Delete
@@ -616,6 +624,46 @@ const handleDelete = async (company_id, companyName) => {
           </div>
         </div>
       )}
+
+      {/* Confirmation modal — Revoke / Restore / Delete */}
+      {confirmAction && (() => {
+        const cfg = {
+          revoke:  { title: "Revoke Company",  msg: `Revoke "${confirmAction.name}"? They'll be moved to Revoked and dropped to the free tier.`, label: "Revoke",  color: "bg-red-500 hover:bg-red-600" },
+          restore: { title: "Restore Company", msg: `Restore "${confirmAction.name}" back to active?`,                                          label: "Restore", color: "bg-[#0B2447] hover:bg-[#162553]" },
+          delete:  { title: "Delete Company",  msg: `Permanently delete "${confirmAction.name}"? This cannot be undone.`,                       label: "Delete",  color: "bg-red-500 hover:bg-red-600" },
+          reject:  { title: "Reject Company",  msg: `Reject and permanently remove "${confirmAction.name}"? This cannot be undone.`,             label: "Reject",  color: "bg-red-500 hover:bg-red-600" },
+        }[confirmAction.type];
+        return (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+            style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+            onClick={() => setConfirmAction(null)}
+          >
+            <div
+              className="bg-white rounded-2xl w-full max-w-sm p-6"
+              style={{ border: "2px solid #1a1a2e", boxShadow: "8px 8px 0px #000000" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-[#0B2447] mb-2">{cfg.title}</h3>
+              <p className="text-sm text-slate-500 mb-6">{cfg.msg}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={runConfirm}
+                  className={`flex-1 text-white font-bold py-2.5 rounded-lg transition border-none cursor-pointer ${cfg.color}`}
+                >
+                  {cfg.label}
+                </button>
+                <button
+                  onClick={() => setConfirmAction(null)}
+                  className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition bg-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

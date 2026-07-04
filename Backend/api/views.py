@@ -2273,15 +2273,21 @@ def admin_revoke_company(request):
         data       = json.loads(request.body)
         company_id = (data.get("company_id") or "").strip()
 
-        # "Revoke" no longer blocks the company — it downgrades them to the free
-        # tier. They keep their access; they just lose paid-plan features/limits.
+        # Revoke = move the company to the "Revoked" list AND drop them to the
+        # free tier (so if they're later restored, they come back on free).
         company = Company.objects.get(company_id=company_id)
         company.subscription_plan = "free"
         company.save()
 
-        return JsonResponse({"message": "Company downgraded to free tier", "subscription_plan": "free"})
+        approval = ApprovalCompany.objects.get(subscribing_company_id=company_id)
+        approval.action_status        = "rejected"
+        approval.reviewed_by_admin_id = admin_id
+        approval.time_of_action       = datetime.datetime.utcnow()
+        approval.save()
 
-    except Company.DoesNotExist:
+        return JsonResponse({"message": "Company revoked and downgraded to free tier", "subscription_plan": "free"})
+
+    except (Company.DoesNotExist, ApprovalCompany.DoesNotExist):
         return JsonResponse({"error": "Not found"}, status=404)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)

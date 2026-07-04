@@ -70,7 +70,7 @@ export default function LoginHRAccount() {
       >
         <div className="flex items-center gap-3 mb-6">
           <button
-            onClick={() => navigate("/Company-Home")}
+            onClick={() => navigate("/")}
             className="w-8 h-8 aspect-square flex items-center justify-center rounded-full border-2 border-black text-black hover:bg-slate-100 transition"
           >
             <ArrowBackIosNewIcon style={{ fontSize: 14 }} />

@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [docsByCompany, setDocsByCompany] = useState({});
   const [expandedDocs, setExpandedDocs]   = useState(null);
   const [previewDoc, setPreviewDoc]       = useState(null);
+  const [showNotifs, setShowNotifs]       = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -131,6 +132,15 @@ const handleDelete = async (company_id, companyName) => {
     c.company_name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // "Open in new tab" must VIEW the file, not download it. Images open directly;
+  // everything else (PDFs, docs) goes through the Google Docs viewer so the
+  // browser renders it in-tab instead of downloading the raw Supabase object.
+  const docOpenUrl = (doc) => {
+    const url = doc?.document_url || "";
+    const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
+    return isImage ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}`;
+  };
+
   const getSubStatusColor = (status) => {
     if (status === "active") return "bg-green-500";
     if (status === "expiring") return "bg-orange-400";
@@ -176,13 +186,64 @@ const handleDelete = async (company_id, companyName) => {
   return (
     <div className="min-h-screen bg-[#0B2447]">
       <nav className="bg-[#0B2447] text-white px-6 h-14 flex items-center justify-between border-b border-white/10">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
           <span className="font-extrabold text-3xl tracking-tight">
             H<span className="text-sky-400">!</span>RE
           </span>
-          <button className="relative w-10 h-10 rounded-full bg-teal-400 flex items-center justify-center ml-2">
+          <button
+            onClick={() => setShowNotifs((v) => !v)}
+            className="relative w-10 h-10 rounded-full bg-teal-400 flex items-center justify-center ml-2 border-none cursor-pointer hover:bg-teal-300 transition-colors"
+          >
             <NotificationsNoneIcon style={{ fontSize: 20 }} />
+            {pending.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-400 text-white text-[0.6rem] font-black flex items-center justify-center">
+                {pending.length}
+              </span>
+            )}
           </button>
+
+          {showNotifs && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />
+              <div className="absolute left-12 top-12 z-50 w-[320px] bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                  <h3 className="text-[1.1rem] font-extrabold text-[#0f172a] m-0">Notifications</h3>
+                  {pending.length > 0 && (
+                    <span className="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full">
+                      {pending.length} Pending
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
+                  {pending.length === 0 ? (
+                    <p className="text-center text-slate-400 text-sm py-8">No notifications yet.</p>
+                  ) : (
+                    pending.map((p) => (
+                      <button
+                        key={p.ap_id}
+                        onClick={() => { setActiveNav("home"); setShowNotifs(false); }}
+                        className="flex items-start gap-3 px-5 py-4 bg-slate-50 hover:bg-slate-100 text-left border-none cursor-pointer w-full"
+                      >
+                        <div className="w-10 h-10 min-w-[2.5rem] rounded-xl flex items-center justify-center text-lg bg-teal-100">
+                          🏢
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-[0.88rem] font-bold text-[#0f172a]">New Company Registration</span>
+                            {p.date_created && <span className="text-[0.75rem] text-slate-400">{p.date_created}</span>}
+                          </div>
+                          <p className="text-[0.78rem] text-slate-500">
+                            <span className="font-semibold">{p.company_name}</span> is awaiting your approval.
+                          </p>
+                        </div>
+                        <div className="w-2 h-2 rounded-full bg-orange-400 mt-1.5" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-6">
           <button
@@ -519,7 +580,7 @@ const handleDelete = async (company_id, companyName) => {
               </h3>
               <div className="flex items-center gap-3">
                 <a
-                  href={previewDoc.document_url}
+                  href={docOpenUrl(previewDoc)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs font-bold text-teal-600 hover:text-teal-700 no-underline"

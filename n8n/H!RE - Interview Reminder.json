@@ -14,7 +14,10 @@
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [-360, 0],
+      "position": [
+        -360,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000001",
       "name": "Daily"
     },
@@ -46,11 +49,17 @@
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-160, 0],
+      "position": [
+        -160,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000002",
       "name": "Interviews ~1 day out",
       "credentials": {
-        "supabaseApi": { "id": "iuTadMY5adk9SnoG", "name": "Supabase account" }
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
       }
     },
     {
@@ -59,7 +68,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [40, 0],
+      "position": [
+        40,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000003",
       "name": "Code in JavaScript"
     },
@@ -79,12 +91,18 @@
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [240, 0],
+      "position": [
+        240,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000004",
       "name": "Get Evaluation",
       "onError": "continueRegularOutput",
       "credentials": {
-        "supabaseApi": { "id": "iuTadMY5adk9SnoG", "name": "Supabase account" }
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
       }
     },
     {
@@ -103,12 +121,18 @@
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [440, 0],
+      "position": [
+        440,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000005",
       "name": "Get Resume",
       "onError": "continueRegularOutput",
       "credentials": {
-        "supabaseApi": { "id": "iuTadMY5adk9SnoG", "name": "Supabase account" }
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
       }
     },
     {
@@ -127,12 +151,18 @@
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [640, 0],
+      "position": [
+        640,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000006",
       "name": "Get Applicant",
       "onError": "continueRegularOutput",
       "credentials": {
-        "supabaseApi": { "id": "iuTadMY5adk9SnoG", "name": "Supabase account" }
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
       }
     },
     {
@@ -151,12 +181,18 @@
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [840, 0],
+      "position": [
+        840,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000007",
       "name": "Get Requirement",
       "onError": "continueRegularOutput",
       "credentials": {
-        "supabaseApi": { "id": "iuTadMY5adk9SnoG", "name": "Supabase account" }
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
       }
     },
     {
@@ -165,20 +201,31 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1040, 0],
+      "position": [
+        1040,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000008",
       "name": "Email Content"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "loose", "version": 2 },
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
           "conditions": [
             {
               "id": "c1000000-0000-4000-8000-000000000001",
               "leftValue": "={{ $json.has_valid_email }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -187,7 +234,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1240, 0],
+      "position": [
+        1240,
+        0
+      ],
       "id": "b2000000-0000-4000-8000-000000000009",
       "name": "Valid email?"
     },
@@ -200,30 +250,136 @@
       },
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
-      "position": [1440, -80],
+      "position": [
+        1440,
+        -80
+      ],
       "id": "b2000000-0000-4000-8000-00000000000a",
       "name": "Send reminder",
       "webhookId": "hire-interview-reminder",
       "onError": "continueRegularOutput",
       "credentials": {
-        "gmailOAuth2": { "id": "I3kOQilN2qpfYa7Q", "name": "Gmail account" }
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
       }
     }
   ],
   "pinData": {},
   "connections": {
-    "Daily": { "main": [[{ "node": "Interviews ~1 day out", "type": "main", "index": 0 }]] },
-    "Interviews ~1 day out": { "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]] },
-    "Code in JavaScript": { "main": [[{ "node": "Get Evaluation", "type": "main", "index": 0 }]] },
-    "Get Evaluation": { "main": [[{ "node": "Get Resume", "type": "main", "index": 0 }]] },
-    "Get Resume": { "main": [[{ "node": "Get Applicant", "type": "main", "index": 0 }]] },
-    "Get Applicant": { "main": [[{ "node": "Get Requirement", "type": "main", "index": 0 }]] },
-    "Get Requirement": { "main": [[{ "node": "Email Content", "type": "main", "index": 0 }]] },
-    "Email Content": { "main": [[{ "node": "Valid email?", "type": "main", "index": 0 }]] },
-    "Valid email?": { "main": [[{ "node": "Send reminder", "type": "main", "index": 0 }], []] }
+    "Daily": {
+      "main": [
+        [
+          {
+            "node": "Interviews ~1 day out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interviews ~1 day out": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Get Evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Get Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Resume": {
+      "main": [
+        [
+          {
+            "node": "Get Applicant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Applicant": {
+      "main": [
+        [
+          {
+            "node": "Get Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Requirement": {
+      "main": [
+        [
+          {
+            "node": "Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Content": {
+      "main": [
+        [
+          {
+            "node": "Valid email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid email?": {
+      "main": [
+        [
+          {
+            "node": "Send reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
   },
-  "active": false,
-  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
-  "meta": { "templateCredsSetupCompleted": true },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "tags": []
 }

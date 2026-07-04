@@ -9,7 +9,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-320, 0],
+      "position": [
+        -320,
+        0
+      ],
       "id": "d4000000-0000-4000-8000-000000000001",
       "name": "Webhook",
       "webhookId": "hire-company-approval"
@@ -20,7 +23,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-100, 0],
+      "position": [
+        -100,
+        0
+      ],
       "id": "d4000000-0000-4000-8000-000000000002",
       "name": "Email Content"
     },
@@ -33,23 +39,58 @@
       },
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
-      "position": [120, 0],
+      "position": [
+        120,
+        0
+      ],
       "id": "d4000000-0000-4000-8000-000000000003",
       "name": "Send a message",
       "webhookId": "hire-company-approval-send",
       "onError": "continueRegularOutput",
       "credentials": {
-        "gmailOAuth2": { "id": "I3kOQilN2qpfYa7Q", "name": "Gmail account" }
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
       }
     }
   ],
   "pinData": {},
   "connections": {
-    "Webhook": { "main": [[{ "node": "Email Content", "type": "main", "index": 0 }]] },
-    "Email Content": { "main": [[{ "node": "Send a message", "type": "main", "index": 0 }]] }
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Content": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "active": false,
-  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
-  "meta": { "templateCredsSetupCompleted": true },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "tags": []
 }

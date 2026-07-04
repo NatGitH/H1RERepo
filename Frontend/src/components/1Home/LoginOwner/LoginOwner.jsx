@@ -88,6 +88,15 @@ export default function LoginOwner() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               placeholder="••••••••"
             />
+            <div className="text-right mt-1">
+              <button
+                type="button"
+                onClick={() => navigate("/HR-Forgot-Password")}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-transparent border-none cursor-pointer p-0"
+              >
+                Forgot Password?
+              </button>
+            </div>
           </div>
 
           {/* Error message */}

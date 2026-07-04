@@ -10,9 +10,33 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog
 
 ph = PasswordHasher()
+
+def log_audit(applicant_id, performed_by_user_id, action_type, action_details=None, requirement_id=None):
+    """Write a row to Audit_Logs for a human hiring decision.
+
+    Fully guarded — an audit-write failure must NEVER break the action that
+    triggered it (same contract as the interview-email / notification writes).
+    Uses the Django ORM so it bypasses the Audit_Logs row-level-security policy,
+    the way Interview/Notification writes do. performed_by_user_id may be None
+    for Company Owners (they have no Users row); that requires the DB column to
+    allow NULL — if it doesn't yet, the except below simply skips the log.
+    """
+    if not applicant_id:
+        return
+    try:
+        AuditLog.objects.create(
+            audit_log_id=uuid.uuid4(),
+            applicant_id=applicant_id,
+            performed_by_user_id=(performed_by_user_id or None),
+            requirement_id=(requirement_id or None),
+            action_type=action_type,
+            action_details=action_details,
+        )
+    except Exception as audit_err:
+        print("audit log error:", audit_err)
 
 def make_token(payload: dict) -> str:
     payload["exp"] = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
@@ -152,8 +176,9 @@ def register_company(request):
             print("Document upload error:", doc_err)
 
         # Notify n8n to send welcome email
+        print(f"[n8n] N8N_BASE_URL = {settings.N8N_BASE_URL}")
         try:
-            requests.post(
+            resp = requests.post(
                 f"{settings.N8N_BASE_URL}/webhook/register-confirmation",
                 json={
                     "email":      email,
@@ -162,15 +187,16 @@ def register_company(request):
                 },
                 timeout=5,
             )
+            print(f"[n8n] register-confirmation -> HTTP {resp.status_code}")
         except Exception as n8n_err:
-            print("n8n error:", n8n_err)
+            print("[n8n] register-confirmation error:", n8n_err)
 
         # Notify all platform admins by email that a company is awaiting approval
         try:
             from .models import Admin
             admin_emails = [a.admin_email for a in Admin.objects.all() if a.admin_email]
             if admin_emails:
-                requests.post(
+                resp = requests.post(
                     f"{settings.N8N_BASE_URL}/webhook/admin-new-company",
                     json={
                         "admin_emails": ",".join(admin_emails),
@@ -179,8 +205,11 @@ def register_company(request):
                     },
                     timeout=5,
                 )
+                print(f"[n8n] admin-new-company -> HTTP {resp.status_code} (recipients: {admin_emails})")
+            else:
+                print("[n8n] admin-new-company SKIPPED: no admin_email found in the Admin table")
         except Exception as n8n_err:
-            print("admin new-company email error:", n8n_err)
+            print("[n8n] admin-new-company error:", n8n_err)
 
         return JsonResponse({"message": "Company registered successfully", "company_id": str(company.company_id)})
 
@@ -838,6 +867,25 @@ def update_evaluation_status(request, evaluation_id):
         from django.conf import settings
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
+        # Resolve the applicant + requirement behind this evaluation up front so
+        # the status change can be written to the audit trail below. Guarded —
+        # a lookup failure must not block the status update itself.
+        audit_applicant_id   = None
+        audit_requirement_id = None
+        try:
+            _ev = sb.table("Evaluations").select("resume_id, requirement_id").eq(
+                "evaluation_id", str(evaluation_id)
+            ).execute().data
+            if _ev:
+                audit_requirement_id = _ev[0].get("requirement_id")
+                _res = sb.table("Resumes").select("applicant_id").eq(
+                    "resume_id", _ev[0].get("resume_id")
+                ).execute().data if _ev[0].get("resume_id") else []
+                if _res:
+                    audit_applicant_id = _res[0].get("applicant_id")
+        except Exception as lookup_err:
+            print("audit lookup error:", lookup_err)
+
         update_data = {"application_status": status}
 
         if status == "rejected":
@@ -921,6 +969,27 @@ def update_evaluation_status(request, evaluation_id):
                 print("interview email error:", n8n_err)
 
         sb.table("Evaluations").update(update_data).eq("evaluation_id", str(evaluation_id)).execute()
+
+        # Audit trail — record who made this human hiring decision. Guarded so a
+        # logging failure never affects the status update the user just made.
+        actor = get_user_fullname(user_id)
+        action_map = {
+            "shortlisted":    "APPLICANT_SHORTLISTED",
+            "rejected":       "APPLICANT_REJECTED",
+            "pending":        "APPLICANT_PENDING",
+            "interview_sent": "INTERVIEW_SCHEDULED",
+        }
+        if status == "interview_sent":
+            details = f"Interview scheduled by {actor} for {data.get('interview_date')}"
+        else:
+            details = f"Status changed to '{status}' by {actor}"
+        log_audit(
+            applicant_id=audit_applicant_id,
+            performed_by_user_id=user_id,
+            action_type=action_map.get(status, "APPLICANT_STATUS_CHANGE"),
+            action_details=details,
+            requirement_id=audit_requirement_id,
+        )
 
         return JsonResponse({"message": "Status updated", "status": status})
 
@@ -1770,7 +1839,68 @@ def mark_notifications_read(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+
+@csrf_exempt
+def get_audit_logs(request):
+    """Company-scoped audit trail for the navbar 'Activity' tab.
+
+    Scoped the same way as get_evaluations: only rows whose requirement belongs
+    to the caller's company. Read-only; there is no unread/mark-read concept.
+    """
+    try:
+        payload    = decode_token(request)
+        company_id = payload.get("company_id")
+        if not company_id:
+            return JsonResponse([], safe=False)
+
+        # This company's requirement ids (audit rows are tied to a requirement).
+        req_ids = [
+            str(r) for r in JobRequirement.objects.filter(
+                company_id=company_id
+            ).values_list("requirement_id", flat=True)
+        ]
+        if not req_ids:
+            return JsonResponse([], safe=False)
+
+        logs = AuditLog.objects.filter(
+            requirement_id__in=req_ids
+        ).order_by("-created_at")[:30]
+
+        # Batch-resolve applicant names in a single Supabase read (Applicants is
+        # readable by the anon client, same as in get_evaluations).
+        appl_ids = list({str(lg.applicant_id) for lg in logs if lg.applicant_id})
+        name_map = {}
+        if appl_ids:
+            try:
+                from supabase import create_client
+                sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+                rows = sb.table("Applicants").select(
+                    "applicant_id, full_name"
+                ).in_("applicant_id", appl_ids).execute().data
+                name_map = {r["applicant_id"]: r.get("full_name") for r in rows}
+            except Exception as name_err:
+                print("audit applicant lookup error:", name_err)
+
+        data = [
+            {
+                "id":             str(lg.audit_log_id),
+                "action_type":    lg.action_type,
+                "details":        lg.action_details or "",
+                "applicant_name": name_map.get(str(lg.applicant_id)) or "Applicant",
+                "performed_by":   get_user_fullname(lg.performed_by_user_id),
+                "created_at":     lg.created_at.strftime("%m/%d/%Y %I:%M %p"),
+            }
+            for lg in logs
+        ]
+        return JsonResponse(data, safe=False)
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 #Admin
 #--------------------------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------------------
@@ -1875,8 +2005,8 @@ def admin_get_companies(request):
                 "company_name":       c.company_name or "",
                 "owner_email":        c.owner_email or "",
                 "subscription_plan":  c.subscription_plan or "",
-                "subscription_start": c.subscription_start.strftime("%b %Y") if c.subscription_start else "",
-                "subscription_expiry": c.subscription_expiry.strftime("%b %Y") if c.subscription_expiry else "",
+                "subscription_start": c.subscription_start.strftime("%b %d, %Y") if c.subscription_start else "",
+                "subscription_expiry": c.subscription_expiry.strftime("%b %d, %Y") if c.subscription_expiry else "",
                 "company_logo":       c.company_logo or "",
                 "approval_status":    approval_status,
                 "subscription_status": sub_status,

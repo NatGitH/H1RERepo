@@ -125,6 +125,9 @@ def register_company(request):
         if not all([company_name, email, password]):
             return JsonResponse({"error": "Missing required fields"}, status=400)
 
+        if len(password) < 8:
+            return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
+
         if Company.objects.filter(owner_email=email).exists():
             return JsonResponse({"error": "Email already registered"}, status=400)
 
@@ -386,6 +389,9 @@ def create_hr_account(request):
 
         if not all([username, email, password, company_id, firstname, lastname]):
             return JsonResponse({"error": "Missing required fields"}, status=400)
+
+        if len(password) < 8:
+            return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
 
         if HRUser.objects.filter(email=email, company_id=company_id).exists():
             return JsonResponse({"error": "Email already registered"}, status=400)
@@ -665,6 +671,8 @@ def reset_password(request):
 
         if not new_pass:
             return JsonResponse({"error": "New password is required"}, status=400)
+        if len(new_pass) < 8:
+            return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
 
         if token:
             # Link-based flow (JWT from forgot_password) — HR users only.
@@ -951,6 +959,16 @@ def update_evaluation_status(request, evaluation_id):
             meeting_link   = data.get("meeting_link", "")
             if not interview_date:
                 return JsonResponse({"error": "interview_date is required"}, status=400)
+
+            # Reject interview dates in the past
+            try:
+                dt = datetime.datetime.fromisoformat(interview_date.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=datetime.timezone.utc)
+                if dt <= datetime.datetime.now(datetime.timezone.utc):
+                    return JsonResponse({"error": "Interview date must be in the future"}, status=400)
+            except (ValueError, AttributeError):
+                pass
 
             # Record who moved this applicant to interview — used for the per-user
             # visibility filter in the Profile "For Interview Applicants" panel.
@@ -1842,6 +1860,160 @@ def renew_subscription(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
+@require_POST
+def request_plan_change(request):
+    """Owner REQUESTS a plan change; an admin approves/rejects it (owner can't change directly).
+    Stored as a Notification row (type 'plan_change_request') since the schema is frozen."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+
+        if role != "owner":
+            return JsonResponse({"error": "Only owners can request a plan change"}, status=403)
+
+        data     = json.loads(request.body)
+        new_plan = data.get("plan", "").strip().lower()
+        if new_plan not in ["free", "standard", "enterprise"]:
+            return JsonResponse({"error": "Invalid plan"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+
+        # Only one pending request per company at a time.
+        Notification.objects.filter(
+            recipient_company_id=company_id,
+            notification_type="plan_change_request",
+        ).delete()
+
+        Notification.objects.create(
+            notification_id=uuid.uuid4(),
+            recipient_company_id=company_id,
+            notification_type="plan_change_request",
+            title="Plan Change Request",
+            message=new_plan,          # the requested plan lives here
+            is_read=False,
+        )
+
+        # Email all admins (guarded, like company registration)
+        try:
+            from .models import Admin
+            admin_emails = [a.admin_email for a in Admin.objects.all() if a.admin_email]
+            if admin_emails:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/admin-plan-change",
+                    json={
+                        "admin_emails":   ",".join(admin_emails),
+                        "company_name":   company.company_name,
+                        "current_plan":   company.subscription_plan or "free",
+                        "requested_plan": new_plan,
+                    },
+                    timeout=5,
+                )
+        except Exception as n8n_err:
+            print("admin plan-change email error:", n8n_err)
+
+        return JsonResponse({"message": "Plan change requested", "requested_plan": new_plan})
+
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def admin_get_pending_plans(request):
+    """Pending plan-change requests for the admin dashboard."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        reqs = Notification.objects.filter(
+            notification_type="plan_change_request"
+        ).order_by("-created_at")
+
+        data = []
+        for n in reqs:
+            company = Company.objects.filter(company_id=n.recipient_company_id).first()
+            if not company:
+                continue
+            data.append({
+                "id":             str(n.notification_id),
+                "company_id":     str(n.recipient_company_id),
+                "company_name":   company.company_name or "",
+                "company_logo":   company.company_logo or "",
+                "current_plan":   company.subscription_plan or "free",
+                "requested_plan": n.message or "",
+                "requested_at":   n.created_at.strftime("%m/%d/%Y"),
+            })
+        return JsonResponse(data, safe=False)
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def admin_approve_reject_plan(request):
+    """Admin approves or rejects a plan-change request (the approval IS the change)."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        data       = json.loads(request.body)
+        notif_id   = data.get("id", "").strip()
+        new_status = data.get("status", "").strip()
+        if new_status not in ["approved", "rejected"]:
+            return JsonResponse({"error": "Invalid status"}, status=400)
+
+        req = Notification.objects.get(notification_id=notif_id, notification_type="plan_change_request")
+        company_id     = req.recipient_company_id
+        requested_plan = (req.message or "").strip().lower()
+        company        = Company.objects.get(company_id=company_id)
+
+        if new_status == "approved" and requested_plan in ["free", "standard", "enterprise"]:
+            now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+            company.subscription_plan   = requested_plan
+            company.subscription_expiry = now + datetime.timedelta(days=30)
+            company.save()
+            title = "Plan Change Approved"
+            msg   = f"Your subscription plan change to '{requested_plan}' has been approved."
+        else:
+            title = "Plan Change Declined"
+            msg   = f"Your subscription plan change to '{requested_plan}' was declined by the admin."
+
+        # Notify the owner in-app
+        try:
+            Notification.objects.create(
+                notification_id=uuid.uuid4(),
+                recipient_company_id=company_id,
+                notification_type="plan_change_result",
+                title=title,
+                message=msg,
+                is_read=False,
+            )
+        except Exception as notif_err:
+            print("plan change result notification error:", notif_err)
+
+        req.delete()  # clear the pending request
+        return JsonResponse({"message": f"Plan change {new_status}", "status": new_status})
+
+    except Notification.DoesNotExist:
+        return JsonResponse({"error": "Request not found"}, status=404)
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
 def delete_company(request):
     try:
         payload    = decode_token(request)
@@ -1905,6 +2077,8 @@ def get_notifications(request):
         if role == "owner":
             notifs = Notification.objects.filter(
                 recipient_company_id=company_id
+            ).exclude(
+                notification_type="plan_change_request"  # admin-only queue, not owner-facing
             ).order_by("-created_at")[:20]
         else:
             if not user_id:

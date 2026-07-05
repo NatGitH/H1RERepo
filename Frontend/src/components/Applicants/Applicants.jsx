@@ -78,15 +78,14 @@ export default function Applicants() {
   // Upload every selected file one-by-one against the chosen requirement
   const handleUpload = async () => {
     if (pendingFiles.length === 0 || !selectedReqId) {
-      alert("Please select a job requirement.");
+      window.showAlert("Please select a job requirement.");
       return;
     }
     setUploading(true);
     setShowReqPicker(false);
     setUploadProgress({ done: 0, total: pendingFiles.length });
 
-    let failures = 0;
-    let lastError = "";
+    const failed = [];
     for (let i = 0; i < pendingFiles.length; i++) {
       const formData = new FormData();
       formData.append("resume", pendingFiles[i]);
@@ -98,8 +97,7 @@ export default function Applicants() {
           body: formData,
         });
       } catch (err) {
-        failures++;
-        lastError = getErrorMessage(err, "");
+        failed.push({ name: pendingFiles[i].name, reason: getErrorMessage(err, "") });
       }
       setUploadProgress({ done: i + 1, total: pendingFiles.length });
     }
@@ -109,9 +107,11 @@ export default function Applicants() {
     setSelectedReqId("");
     setUploadProgress({ done: 0, total: 0 });
     fetchEvaluations();
-    // Surface the reason (e.g. a plan resume-limit message) rather than a bare count.
-    if (failures > 0)
-      alert(`${failures} of ${pendingFiles.length} resume(s) failed to evaluate.` + (lastError ? `\n\n${lastError}` : ""));
+    // List every file that failed — e.g. "not a resume", or a plan resume-limit message.
+    if (failed.length > 0) {
+      const lines = failed.map((f) => `• ${f.name}${f.reason ? ` — ${f.reason}` : ""}`).join("\n");
+      window.showAlert(`${failed.length} of ${pendingFiles.length} file(s) could not be evaluated:\n\n${lines}`);
+    }
   };
 
   const handleStatusUpdate = async (evaluationId, status, extra = {}) => {
@@ -126,27 +126,29 @@ export default function Applicants() {
       );
       setSelected(null);
     } catch (err) {
-      alert(getErrorMessage(err, "Failed to update status"));
+      window.showAlert(getErrorMessage(err, "Failed to update status"));
     }
   };
 
   // Free tier "Remove Resume" — permanently deletes the applicant (it has no
   // reject-with-email). Available to any plan.
   const handleRemove = async (evaluationId) => {
-    if (!window.confirm("Remove this applicant permanently? This cannot be undone.")) return;
+    if (!(await window.showConfirm("Remove this applicant permanently? This cannot be undone.", { danger: true, confirmText: "Remove" }))) return;
     try {
       await apiFetch(`/api/evaluations/${evaluationId}/remove/`, { method: "POST", token: auth.token });
       setApplicants((prev) => prev.filter((a) => a.evaluation_id !== evaluationId));
       setSelected(null);
     } catch (err) {
-      alert(getErrorMessage(err, "Failed to remove applicant"));
+      window.showAlert(getErrorMessage(err, "Failed to remove applicant"));
     }
   };
 
   const handleSendInterview = () => {
-    if (!interviewDate) return alert("Please choose an interview date and time.");
+    if (!interviewDate) return window.showAlert("Please choose an interview date and time.");
+    if (new Date(interviewDate) <= new Date())
+      return window.showAlert("The interview date must be in the future.");
     if (!meetingLink.trim())
-      return alert(meetingType === "Zoom Meeting" ? "Please paste the Zoom link." : "Please enter the location.");
+      return window.showAlert(meetingType === "Zoom Meeting" ? "Please paste the Zoom link." : "Please enter the location.");
     handleStatusUpdate(selected.evaluation_id, "interview_sent", {
       interview_date: new Date(interviewDate).toISOString(),
       meeting_type: meetingType,
@@ -547,7 +549,7 @@ export default function Applicants() {
             </p>
 
             <label className="block text-xs font-bold text-[#0B2447] mb-1">Interview Date & Time</label>
-            <input type="datetime-local" value={interviewDate} onChange={(e) => setInterviewDate(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
+            <input type="datetime-local" value={interviewDate} min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} onChange={(e) => setInterviewDate(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
 
             <label className="block text-xs font-bold text-[#0B2447] mb-1">Meeting Type</label>
             <div className="grid grid-cols-2 gap-2 mb-4">

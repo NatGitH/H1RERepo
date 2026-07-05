@@ -24,17 +24,17 @@ export default function CreateHRAccount() {
 
   const handleSubmit = () => {
     if (!form.username || !form.email || !form.password) {
-      alert("Please fill in all fields.");
+      window.showAlert("Please fill in all fields.");
       return;
     }
     if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match.");
+      window.showAlert("Passwords do not match.");
       return;
     }
 
     const company_id = loginData.companyId || auth.companyId;
     if (!company_id) {
-      alert("Missing company information. Please restart registration.");
+      window.showAlert("Missing company information. Please restart registration.");
       return;
     }
 

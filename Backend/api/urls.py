@@ -27,6 +27,9 @@ urlpatterns = [
     path("profile/delete-company/",             views.delete_company),
     path("auth/save-document/", views.save_document),
     path("profile/renew-subscription/", views.renew_subscription, name="renew_subscription"),
+    path("profile/request-plan-change/", views.request_plan_change),
+    path("admin/plans/pending/",         views.admin_get_pending_plans),
+    path("admin/plans/approve-reject/",  views.admin_approve_reject_plan),
     
     path("auth/forgot-password/",   views.forgot_password),
     path("auth/send-reset-code/",   views.send_reset_code),

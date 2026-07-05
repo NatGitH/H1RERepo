@@ -24,7 +24,7 @@ export default function LoginCompany() {
       setCompany({ companyId: data.company_id, companyName: data.company_name });
       navigate("/Company-Home");
     } catch (err) {
-      alert(getErrorMessage(err, "Company not found"));
+      window.showAlert(getErrorMessage(err, "Company not found"));
     }
   };
 

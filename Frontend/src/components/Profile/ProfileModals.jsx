@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { apiFetch, getErrorMessage } from "../../api";
+import qrCode from "../../assets/qr code.svg";
 
 // ─────────────────────────────────────────────
 // Change Profile Picture Modal (HR roles)
@@ -273,8 +274,8 @@ export function ChangeCompanyPasswordModal({ token, onClose }) {
     if (newPassword !== confirmPassword) {
       setError("New passwords do not match."); return;
     }
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters."); return;
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters."); return;
     }
     setError("");
     setConfirmed(true);
@@ -537,6 +538,7 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState("");
   const [confirmed, setConfirmed]       = useState(false);
+  const [requested, setRequested]       = useState(false);
 
   const handleSelect = (planType) => {
     setSelectedPlan(planType);
@@ -552,12 +554,12 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
     try {
       setLoading(true);
       setError("");
-      const data = await apiFetch("/api/profile/renew-subscription/", {
+      await apiFetch("/api/profile/request-plan-change/", {
         method: "POST",
         token,
         body: { plan: selectedPlan },
       });
-      onSuccess(data.subscription_plan, data.subscription_expiry, data.was_renewal);
+      setRequested(true);   // show QR + "awaiting admin approval"
     } catch (err) {
       setError(getErrorMessage(err));
       setConfirmed(false);
@@ -636,15 +638,27 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
               </button>
             </div>
           </>
+        ) : requested ? (
+          <div className="flex flex-col gap-4 max-w-md mx-auto text-center">
+            <h2 className="text-xl font-extrabold text-[#0B2447]">Plan Change Requested</h2>
+            <p className="text-slate-600 text-sm">
+              Scan the QR code below to complete your payment. An admin will review and approve your
+              switch to the <span className="font-bold capitalize">{selectedPlan}</span> plan shortly.
+            </p>
+            <img src={qrCode} alt="Payment QR Code" className="w-48 h-48 mx-auto" />
+            <button onClick={onClose} className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold rounded-full py-2.5 border-none cursor-pointer">
+              Done
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col gap-6 max-w-md mx-auto">
             <h2 className="text-xl font-extrabold text-[#0B2447] text-center">
-              {isRenewal ? "Confirm Renewal" : "Confirm Plan Change"}
+              {isRenewal ? "Confirm Renewal Request" : "Confirm Plan Change Request"}
             </h2>
             <p className="text-center text-[#0B2447] font-semibold text-base">
               {isRenewal
-                ? <>Renew your <span className="font-extrabold">{selectedPlanData?.name}</span> plan? Your subscription will be extended by 30 days from your current expiry.</>
-                : <>Switch to the <span className="font-extrabold">{selectedPlanData?.name}</span> plan? This will reset your billing cycle, starting a fresh 30-day period from today.</>
+                ? <>Request to renew your <span className="font-extrabold">{selectedPlanData?.name}</span> plan? An admin will review and approve it.</>
+                : <>Request to switch to the <span className="font-extrabold">{selectedPlanData?.name}</span> plan? An admin will review and approve it.</>
               }
             </p>
             {error && <p className="text-red-500 text-xs text-center">{error}</p>}
@@ -657,7 +671,7 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
                 disabled={loading}
                 className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 border-none cursor-pointer disabled:opacity-50"
               >
-                {loading ? "Saving..." : "Confirm"}
+                {loading ? "Sending..." : "Send Request"}
               </button>
             </div>
           </div>
@@ -721,7 +735,7 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
   const handleNewPassword = () => {
     if (!newPassword || !confirmPassword) { setError("Please fill in both fields."); return; }
     if (newPassword !== confirmPassword)  { setError("Passwords do not match.");      return; }
-    if (newPassword.length < 6)           { setError("Password must be at least 6 characters."); return; }
+    if (newPassword.length < 8)           { setError("Password must be at least 8 characters."); return; }
     setError("");
     setStep(STEP_CONFIRM);
   };

@@ -136,7 +136,7 @@ export default function Profile() {
       });
       setProfile((prev) => ({ ...prev, account_status: newStatus }));
       setShowStatusMenu(false);
-    } catch (err) { alert(getErrorMessage(err)); }
+    } catch (err) { window.showAlert(getErrorMessage(err)); }
   };
 
   const handlePicFileChange = (e) => {
@@ -188,7 +188,7 @@ export default function Profile() {
       setNewPicFile(null);
       setNewPicPreview(null);
     } catch (err) {
-      alert(err.message);
+      window.showAlert(err.message);
     } finally {
       setUploadingPic(false);
     }
@@ -250,7 +250,7 @@ export default function Profile() {
       setNewLogoFile(null);
       setNewLogoPreview(null);
     } catch (err) {
-      alert(err.message);
+      window.showAlert(err.message);
     } finally {
       setUploadingLogo(false);
     }

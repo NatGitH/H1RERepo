@@ -228,7 +228,7 @@ export default function Requirements() {
   useEffect(() => { fetchRequirements(); }, []);
 
   const handleCreate = async () => {
-    if (!newReq.job_title || !newReq.description || !newReq.qualifications) { alert("Please fill in all fields."); return; }
+    if (!newReq.job_title || !newReq.description || !newReq.qualifications) { window.showAlert("Please fill in all fields."); return; }
     try {
       const created = await apiFetch("/api/requirements/", {
         method: "POST",
@@ -247,11 +247,11 @@ export default function Requirements() {
       setRequirements((prev) => [...prev, created]);
       setNewReq({ job_title: "", description: "", qualifications: "" });
       setShowForm(false);
-    } catch (err) { alert(getErrorMessage(err, "Failed to create")); }
+    } catch (err) { window.showAlert(getErrorMessage(err, "Failed to create")); }
   };
 
   const handleEditSave = async () => {
-    if (!editReq.job_title || !editReq.description || !editReq.qualifications) { alert("Please fill in all fields."); return; }
+    if (!editReq.job_title || !editReq.description || !editReq.qualifications) { window.showAlert("Please fill in all fields."); return; }
     try {
       const updated = await apiFetch(`/api/requirements/${editReq.id}/`, {
         method: "PUT",
@@ -260,20 +260,20 @@ export default function Requirements() {
       });
       setRequirements((prev) => prev.map((r) => r.id === editReq.id ? { ...r, ...updated } : r));
       setEditReq(null);
-      if (role === "HRStaff") alert("Your changes have been submitted for manager review.");
-    } catch (err) { alert(getErrorMessage(err, "Failed to update")); }
+      if (role === "HRStaff") window.showAlert("Your changes have been submitted for manager review.");
+    } catch (err) { window.showAlert(getErrorMessage(err, "Failed to update")); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this requirement?")) return;
+    if (!(await window.showConfirm("Delete this requirement?", { danger: true, confirmText: "Delete" }))) return;
     try {
       await apiFetch(`/api/requirements/${id}/`, { method: "DELETE", token: auth.token });
       setRequirements((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) { alert(getErrorMessage(err, "Failed to delete")); }
+    } catch (err) { window.showAlert(getErrorMessage(err, "Failed to delete")); }
   };
 
   const handleProposeDelete = async (id) => {
-    if (!confirm("Propose deletion? A manager will need to approve.")) return;
+    if (!(await window.showConfirm("Propose deletion? A manager will need to approve.", { confirmText: "Propose" }))) return;
     try {
       await apiFetch(`/api/requirements/${id}/`, {
         method: "PATCH",
@@ -281,7 +281,7 @@ export default function Requirements() {
         body: { status: "deletion_pending" },
       });
       setRequirements((prev) => prev.map((r) => r.id === id ? { ...r, status: "deletion_pending" } : r));
-    } catch (err) { alert(getErrorMessage(err, "Failed")); }
+    } catch (err) { window.showAlert(getErrorMessage(err, "Failed")); }
   };
 
   const handleStatus = async (id, status) => {
@@ -292,7 +292,7 @@ export default function Requirements() {
         body: { status },
       });
       setRequirements((prev) => prev.map((r) => r.id === updated.id ? { ...r, status: updated.status, pending_changes: null } : r));
-    } catch (err) { alert(getErrorMessage(err, "Failed to update status")); }
+    } catch (err) { window.showAlert(getErrorMessage(err, "Failed to update status")); }
   };
 
   const handleApprove = async (id) => {

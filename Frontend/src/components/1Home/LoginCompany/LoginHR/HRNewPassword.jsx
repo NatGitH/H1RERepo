@@ -24,7 +24,7 @@ export default function HRNewPassword() {
     if (!email || !code) { navigate("/HR-Forgot-Password"); return; }
     if (!form.newPassword || !form.confirmPassword) { setError("Please fill in both fields."); return; }
     if (form.newPassword !== form.confirmPassword) { setError("Passwords do not match."); return; }
-    if (form.newPassword.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (form.newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
     try {
       setLoading(true);
       setError("");

@@ -15,6 +15,7 @@ export default function AdminDashboard() {
 
   const [stats, setStats]           = useState(null);
   const [pending, setPending]       = useState([]);
+  const [pendingPlans, setPendingPlans] = useState([]);
   const [companies, setCompanies]   = useState([]);
   const [search, setSearch]         = useState("");
   const [loading, setLoading]       = useState(true);
@@ -33,19 +34,22 @@ export default function AdminDashboard() {
     try {
       const headers = { Authorization: `Bearer ${auth.token}` };
 
-      const [statsRes, pendingRes, companiesRes] = await Promise.all([
+      const [statsRes, pendingRes, companiesRes, plansRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/admin/dashboard/`, { headers }),
         fetch(`${API_BASE_URL}/api/admin/companies/pending/`, { headers }),
         fetch(`${API_BASE_URL}/api/admin/companies/`, { headers }),
+        fetch(`${API_BASE_URL}/api/admin/plans/pending/`, { headers }),
       ]);
 
       const statsData     = await statsRes.json();
       const pendingData   = await pendingRes.json();
       const companiesData = await companiesRes.json();
+      const plansData     = await plansRes.json();
 
       setStats(statsData);
       setPending(Array.isArray(pendingData) ? pendingData : []);
       setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setPendingPlans(Array.isArray(plansData) ? plansData : []);
       setLoading(false);
     } catch (err) {
       console.error(err);
@@ -75,6 +79,20 @@ export default function AdminDashboard() {
     }
   };
 
+  const handlePlanDecision = async (id, status) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/plans/approve-reject/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ id, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPendingPlans((prev) => prev.filter((p) => p.id !== id));
+      fetchAll();
+    } catch (err) { window.showAlert(err.message); }
+  };
+
   const handleApproveReject = async (ap_id, status) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/companies/approve-reject/`, {
@@ -86,7 +104,7 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error(data.error);
       setPending((prev) => prev.filter((p) => p.ap_id !== ap_id));
       fetchAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { window.showAlert(err.message); }
   };
 
   const handleRevoke = async (company_id) => {
@@ -99,7 +117,7 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       fetchAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { window.showAlert(err.message); }
   };
 
 const handleRestore = async (company_id) => {
@@ -112,7 +130,7 @@ const handleRestore = async (company_id) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     fetchAll();
-  } catch (err) { alert(err.message); }
+  } catch (err) { window.showAlert(err.message); }
 };
 
 const handleDelete = async (company_id) => {
@@ -125,8 +143,50 @@ const handleDelete = async (company_id) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     fetchAll();
-  } catch (err) { alert(err.message); }
+  } catch (err) { window.showAlert(err.message); }
 };
+
+  // Guess a MIME type from the file extension so "Open in new tab" always renders
+  // inline (regardless of how Supabase stored the Content-Disposition/content-type).
+  const guessMime = (url = "") => {
+    const u = url.toLowerCase();
+    if (/\.(jpg|jpeg)(\?|$)/.test(u)) return "image/jpeg";
+    if (/\.png(\?|$)/.test(u)) return "image/png";
+    if (/\.gif(\?|$)/.test(u)) return "image/gif";
+    if (/\.webp(\?|$)/.test(u)) return "image/webp";
+    if (/\.pdf(\?|$)/.test(u)) return "application/pdf";
+    return "application/octet-stream";
+  };
+
+  const openDocInNewTab = async (doc) => {
+    try {
+      const res = await fetch(doc.document_url);
+      const buf = await res.arrayBuffer();
+      const blob = new Blob([buf], { type: guessMime(doc.document_url) });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      window.open(doc.document_url, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const downloadDoc = async (doc) => {
+    try {
+      const res = await fetch(doc.document_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.document_name || doc.document_type || "document";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(doc.document_url, "_blank", "noopener,noreferrer");
+    }
+  };
 
   const runConfirm = () => {
     if (!confirmAction) return;
@@ -317,7 +377,9 @@ const handleDelete = async (company_id) => {
 
             <div className="grid grid-cols-2 grid-rows-1 gap-6 max-[900px]:grid-cols-1 flex-1 min-h-0">
               <div className="border-2 border-slate-200 rounded-2xl p-5 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-4 shrink-0">
+                <div className="overflow-y-auto flex-1 min-h-0 pr-1 flex flex-col gap-6">
+                <div>
+                <div className="flex items-center justify-between mb-3">
                   <h2 className="font-extrabold text-[#0B2447] text-base">Pending Companies Approval</h2>
                   {pending.length > 0 && (
                     <span className="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full">
@@ -328,7 +390,7 @@ const handleDelete = async (company_id) => {
                 {pending.length === 0 ? (
                   <p className="text-slate-400 text-sm">No pending companies.</p>
                 ) : (
-                  <div className="flex flex-col gap-3 overflow-y-auto flex-1 min-h-0 pr-1">
+                  <div className="flex flex-col gap-3">
                     {pending.map((p) => (
                       <div key={p.ap_id} className="bg-slate-50 rounded-xl p-3">
                         <div className="flex items-center gap-3">
@@ -379,6 +441,58 @@ const handleDelete = async (company_id) => {
                     ))}
                   </div>
                 )}
+                </div>
+
+                {/* Pending Change Plans */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-extrabold text-[#0B2447] text-base">Pending Change Plans</h2>
+                    {pendingPlans.length > 0 && (
+                      <span className="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full">
+                        {pendingPlans.length} Pending
+                      </span>
+                    )}
+                  </div>
+                  {pendingPlans.length === 0 ? (
+                    <p className="text-slate-400 text-sm">No pending plan changes.</p>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {pendingPlans.map((p) => (
+                        <div key={p.id} className="bg-slate-50 rounded-xl p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                              {p.company_logo ? (
+                                <img src={p.company_logo} alt={p.company_name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-slate-400 font-bold text-sm">{p.company_name?.charAt(0)}</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-[#0B2447] text-sm truncate">{p.company_name}</p>
+                              <p className="text-xs text-slate-400 capitalize">{p.current_plan} → {p.requested_plan}</p>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => handlePlanDecision(p.id, "approved")}
+                                className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handlePlanDecision(p.id, "rejected")}
+                                className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                </div>
               </div>
 
               <div className="border-2 border-slate-200 rounded-2xl p-5 flex flex-col min-h-0">
@@ -589,14 +703,18 @@ const handleDelete = async (company_id) => {
                 {previewDoc.document_name || previewDoc.document_type}
               </h3>
               <div className="flex items-center gap-3">
-                <a
-                  href={docOpenUrl(previewDoc)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-bold text-teal-600 hover:text-teal-700 no-underline"
+                <button
+                  onClick={() => openDocInNewTab(previewDoc)}
+                  className="text-xs font-bold text-teal-600 hover:text-teal-700 bg-transparent border-none cursor-pointer"
                 >
-                  Open in new tab
-                </a>
+                  Open in New Tab
+                </button>
+                <button
+                  onClick={() => downloadDoc(previewDoc)}
+                  className="text-xs font-bold text-[#0B2447] hover:text-teal-600 bg-transparent border-none cursor-pointer"
+                >
+                  Download
+                </button>
                 <button
                   onClick={() => setPreviewDoc(null)}
                   className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-slate-100 transition bg-transparent cursor-pointer"

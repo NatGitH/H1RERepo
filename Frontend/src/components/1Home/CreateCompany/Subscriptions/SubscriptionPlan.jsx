@@ -124,7 +124,7 @@ export default function SubscriptionPlan() {
 
       navigate(plan.planType === "free" ? "/Account-Verification" : "/Receipt");
     } catch (err) {
-      alert(getErrorMessage(err, "Registration failed. Please try again."));
+      window.showAlert(getErrorMessage(err, "Registration failed. Please try again."));
     }
   };
 

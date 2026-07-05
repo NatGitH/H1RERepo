@@ -37,12 +37,12 @@ export default function CreateHRProfile() {
 
   const handleSubmit = async () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
-      alert("First name and last name are required.");
+      window.showAlert("First name and last name are required.");
       return;
     }
 
     if (!registrationData.username || !registrationData.email || !registrationData.password) {
-      alert("Registration session expired. Please start over.");
+      window.showAlert("Registration session expired. Please start over.");
       navigate("/Create-HR-Account");
       return;
     }
@@ -99,7 +99,7 @@ export default function CreateHRProfile() {
       setShowVerification(true);
 
     } catch (err) {
-      alert(getErrorMessage(err, "Failed to create account"));
+      window.showAlert(getErrorMessage(err, "Failed to create account"));
     } finally {
       setUploading(false);
     }

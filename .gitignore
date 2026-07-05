@@ -1,0 +1,33 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local SQLite dev DB (real DB is Supabase Postgres)
+*.sqlite3
+Backend/db.sqlite3
+
+# Django
+staticfiles/
+*.log
+
+# ── Environments / secrets ──────────────────────────────
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+
+# ── Node / Vite frontend ────────────────────────────────
+node_modules/
+Frontend/node_modules/
+dist/
+Frontend/dist/
+.vite/
+
+# ── OS / editors ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

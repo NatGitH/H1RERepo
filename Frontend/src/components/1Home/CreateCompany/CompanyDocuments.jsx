@@ -21,7 +21,7 @@ export default function CompanyDocuments() {
 
   const handleSubmit = () => {
     if (!files.businessPermit || !files.dtiSec || !files.bir) {
-      alert("Please upload all required documents.");
+      window.showAlert("Please upload all required documents.");
       return;
     }
     updateData({

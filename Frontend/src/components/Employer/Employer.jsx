@@ -60,7 +60,7 @@ export default function Employer() {
       } else {
         setMembers((prev) => prev.map((m) => m.id === userId ? { ...m, account_status: status } : m));
       }
-    } catch (err) { alert(getErrorMessage(err)); }
+    } catch (err) { window.showAlert(getErrorMessage(err)); }
   };
 
   const handleChangeRole = async () => {
@@ -74,7 +74,7 @@ export default function Employer() {
       setSelectedMember((prev) => ({ ...prev, role_name: selectedRole }));
       setShowConfirmRole(false);
       setShowRoleModal(false);
-    } catch (err) { alert(getErrorMessage(err)); }
+    } catch (err) { window.showAlert(getErrorMessage(err)); }
   };
 
   const handleDelete = async () => {
@@ -87,7 +87,7 @@ export default function Employer() {
       setMembers((prev) => prev.filter((m) => m.id !== selectedMember.id));
       setShowDeleteConfirm(false);
       setSelectedMember(null);
-    } catch (err) { alert(getErrorMessage(err)); }
+    } catch (err) { window.showAlert(getErrorMessage(err)); }
   };
 
   const filtered = members.filter((m) =>

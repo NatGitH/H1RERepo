@@ -128,6 +128,9 @@ def register_company(request):
         if len(password) < 8:
             return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
 
+        if staff_password and len(staff_password) < 8:
+            return JsonResponse({"error": "Staff password must be at least 8 characters"}, status=400)
+
         if Company.objects.filter(owner_email=email).exists():
             return JsonResponse({"error": "Email already registered"}, status=400)
 
@@ -1763,6 +1766,9 @@ def update_company_password(request):
 
         if not current_password or not new_password:
             return JsonResponse({"error": "Both current and new passwords are required"}, status=400)
+
+        if len(new_password) < 8:
+            return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
 
         company = Company.objects.get(company_id=company_id)
 

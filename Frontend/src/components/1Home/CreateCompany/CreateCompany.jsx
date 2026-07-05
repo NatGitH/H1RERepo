@@ -46,8 +46,18 @@ export default function CreateCompany() {
       return;
     }
 
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     if (form.staffPassword !== form.confirmStaffPassword) {
       setError("Staff passwords do not match.");
+      return;
+    }
+
+    if (form.staffPassword && form.staffPassword.length < 8) {
+      setError("Staff password must be at least 8 characters.");
       return;
     }
 

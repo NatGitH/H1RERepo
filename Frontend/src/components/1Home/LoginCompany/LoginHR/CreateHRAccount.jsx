@@ -31,6 +31,10 @@ export default function CreateHRAccount() {
       window.showAlert("Passwords do not match.");
       return;
     }
+    if (form.password.length < 8) {
+      window.showAlert("Password must be at least 8 characters.");
+      return;
+    }
 
     const company_id = loginData.companyId || auth.companyId;
     if (!company_id) {

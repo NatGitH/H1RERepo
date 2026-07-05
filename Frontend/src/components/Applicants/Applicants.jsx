@@ -160,6 +160,13 @@ export default function Applicants() {
     setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Zoom Meeting");
   };
 
+  // Generate an instant, no-login video meeting room (Jitsi Meet).
+  const createMeetLink = () => {
+    const rand = Math.random().toString(36).slice(2, 8);
+    const slug = (selected?.applicant_name || "interview").replace(/[^a-zA-Z0-9]/g, "").slice(0, 14) || "interview";
+    setMeetingLink(`https://meet.jit.si/HIRE-${slug}-${rand}`);
+  };
+
   // Search by applicant NAME (and still allow job title). Interview-sent
   // applicants leave this list once the invite is sent (they live in the
   // Profile "For Interview" panel) — same idea as rejected ones disappearing.
@@ -558,8 +565,15 @@ export default function Applicants() {
               ))}
             </div>
 
-            <label className="block text-xs font-bold text-[#0B2447] mb-1">{meetingType === "Zoom Meeting" ? "Zoom Link" : "Location / Address"}</label>
-            <input type="text" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder={meetingType === "Zoom Meeting" ? "https://zoom.us/j/..." : "Office address"} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">{meetingType === "Zoom Meeting" ? "Meeting Link" : "Location / Address"}</label>
+            <div className="flex gap-2 mb-4">
+              <input type="text" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder={meetingType === "Zoom Meeting" ? "Paste a link, or click Create Link" : "Office address"} className="flex-1 border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400" />
+              {meetingType === "Zoom Meeting" && (
+                <button type="button" onClick={createMeetLink} className="shrink-0 bg-teal-400 hover:bg-teal-500 text-white font-bold rounded-lg px-3 text-xs border-none cursor-pointer whitespace-nowrap">
+                  Create Link
+                </button>
+              )}
+            </div>
 
             <label className="block text-xs font-bold text-[#0B2447] mb-1">Message (optional)</label>
             <textarea value={interviewMessage} onChange={(e) => setInterviewMessage(e.target.value)} rows={3} placeholder="We look forward to meeting you..." className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400 resize-none" />

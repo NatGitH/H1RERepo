@@ -3,6 +3,7 @@ import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useAuth } from "../../.Context/AuthContext";
 import { apiFetch, getErrorMessage } from "../../api";
 
@@ -66,13 +67,30 @@ export default function Applicants() {
     fetchRequirements();
   }, []);
 
-  // Accept multiple files at once
+  // Accept multiple files at once. Resumes are capped at 20 MB each — anything
+  // larger is almost certainly not a resume, and it protects the AI pipeline.
+  const MAX_FILE_MB = 20;
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    setPendingFiles(files);
-    setShowReqPicker(true);
     e.target.value = ""; // allow re-selecting the same files later
+    if (files.length === 0) return;
+
+    const limit  = MAX_FILE_MB * 1024 * 1024;
+    const tooBig = files.filter((f) => f.size > limit);
+    const valid  = files.filter((f) => f.size <= limit);
+
+    if (tooBig.length > 0) {
+      const lines = tooBig
+        .map((f) => `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(1)} MB)`)
+        .join("\n");
+      window.showAlert(
+        `These file(s) exceed the ${MAX_FILE_MB} MB limit and were skipped:\n\n${lines}`
+      );
+    }
+    if (valid.length === 0) return;
+
+    setPendingFiles(valid);
+    setShowReqPicker(true);
   };
 
   // Upload every selected file one-by-one against the chosen requirement
@@ -215,8 +233,13 @@ export default function Applicants() {
     setSelected(sortedApplicants[newIdx]);
   };
 
+  // H!RE Score bands: ≥85 Strong (green) · ≥65 Good (yellow-green) ·
+  // ≥50 Moderate (yellow) · else Weak (red).
   const scoreColor = (score) =>
-    score >= 80 ? "text-emerald-600" : score >= 60 ? "text-orange-500" : "text-red-500";
+    score >= 85 ? "text-green-500"
+    : score >= 65 ? "text-lime-500"
+    : score >= 50 ? "text-yellow-500"
+    : "text-red-500";
 
   return (
     <section className="px-4 pt-1 bg-[#0B2447] h-[calc(100vh-56px)] overflow-hidden flex flex-col">
@@ -226,11 +249,51 @@ export default function Applicants() {
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
-          <div
-            className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
-            style={{ boxShadow: "3px 3px 0px #0B2447" }}
-          >
-            Evaluated Applicants
+          <div className="flex items-center gap-2">
+            <div
+              className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
+              style={{ boxShadow: "3px 3px 0px #0B2447" }}
+            >
+              Evaluated Applicants
+            </div>
+
+            {/* H!RE Score explainer tooltip (hover / focus) */}
+            <div className="relative group">
+              <button
+                type="button"
+                aria-label="How the H!RE Score works"
+                className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-[#0B2447] text-[#0B2447] bg-white cursor-help p-0"
+                style={{ boxShadow: "2px 2px 0px #0B2447" }}
+              >
+                <InfoOutlinedIcon style={{ fontSize: 18 }} />
+              </button>
+              <div
+                className="absolute left-0 top-10 z-40 w-[330px] bg-white rounded-xl p-4 text-left opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-opacity"
+                style={{ border: "2px solid #0B2447", boxShadow: "4px 4px 0px #0B2447" }}
+              >
+                <p className="font-extrabold text-[#0B2447] text-sm m-0 mb-1.5">How the H!RE Score works</p>
+                <p className="text-xs text-slate-600 leading-relaxed m-0 mb-2">
+                  It's a <span className="font-semibold">semantic match</span> (Sentence-BERT), not keyword counting.
+                  The job is split into its individual requirements, and for each one we find the
+                  best-matching part of the resume. Those coverage scores are averaged and scaled to a
+                  0–100% fit — so it reflects how much of what the job asks for the resume actually covers.
+                </p>
+                <div className="flex flex-col gap-1">
+                  <span className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> <b>85–100</b> — Strong fit
+                  </span>
+                  <span className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-lime-500 inline-block" /> <b>65–84</b> — Good fit, minor gaps
+                  </span>
+                  <span className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block" /> <b>50–64</b> — Moderate, notable gaps
+                  </span>
+                  <span className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> <b>0–49</b> — Weak fit
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">

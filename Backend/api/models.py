@@ -165,19 +165,6 @@ class Interview(models.Model):
         db_table = '"Interviews"'
         managed  = False
 
-class AuditLog(models.Model):
-    audit_log_id         = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    applicant_id         = models.UUIDField()
-    # Nullable in the model because Company Owners have no Users row, so an
-    # owner-initiated action is logged with performed_by_user_id = NULL. This
-    # requires the DB column to allow NULL (see nullable ALTER note); the audit
-    # write is guarded so it never breaks the underlying action if it doesn't.
-    performed_by_user_id = models.UUIDField(null=True, blank=True)
-    requirement_id       = models.UUIDField(null=True, blank=True)
-    action_type          = models.CharField(max_length=255)
-    action_details       = models.TextField(null=True, blank=True)
-    created_at           = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = '"Audit_Logs"'
-        managed  = False
+# NOTE: The Audit_Logs table has been retired — the activity/audit trail now
+# lives in the Notifications table (see log_activity in views.py). Do not
+# re-add an AuditLog model; write activity rows as company-scoped Notifications.

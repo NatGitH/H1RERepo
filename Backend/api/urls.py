@@ -58,6 +58,4 @@ urlpatterns = [
 
     path("notifications/",           views.get_notifications),
     path("notifications/mark-read/", views.mark_notifications_read),
-
-    path("audit-logs/", views.get_audit_logs),
 ]

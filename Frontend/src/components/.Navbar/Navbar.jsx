@@ -12,38 +12,52 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifList, setNotifList] = useState([]);
-  const [auditList, setAuditList] = useState([]);
-  const [panelTab, setPanelTab] = useState("notifs"); // "notifs" | "activity"
   const [showProfile, setShowProfile] = useState(false);
   const dropdownRef = useRef(null);
+  const toastedRef = useRef(new Set()); // notif ids already toasted (avoid re-toasting each poll)
 
   const { auth, logout } = useAuth();
   const role = auth.role;
-  const isEnterprise = (auth.subscription_plan || "").toLowerCase() === "enterprise"; // audit trail is Enterprise-only
 
   const unreadCount = notifList.filter((n) => n.unread).length;
 
+  // The activity/audit trail (shortlist / reject / interview actions) now flows
+  // through the Notifications table too, so its types get their own icons here.
   const ICON_MAP = {
   welcome:              "🎉",
   requirement_approval: "📋",
   new_requirement:      "📝",
   changes_pending:      "✏️",
   new_account_request:  "👤",
+  plan_change_result:   "💳",
+  applicant_shortlisted: "⭐",
+  applicant_rejected:    "🚫",
+  applicant_pending:     "↩️",
+  interview_scheduled:   "📅",
+  activity:              "🗒️",
 };
-
-  // Audit-trail action types → icon + friendly title for the Activity tab.
-  const AUDIT_META = {
-    APPLICANT_SHORTLISTED: { icon: "⭐", title: "Applicant Shortlisted" },
-    APPLICANT_REJECTED:    { icon: "🚫", title: "Applicant Rejected" },
-    APPLICANT_PENDING:     { icon: "↩️", title: "Moved to Pending" },
-    INTERVIEW_SCHEDULED:   { icon: "📅", title: "Interview Scheduled" },
-  };
 
   const fetchNotifications = async () => {
     if (!auth.token) return;
     try {
       const data = await apiFetch("/api/notifications/", { token: auth.token });
       if (Array.isArray(data)) {
+        // One-time nudge when an admin approves a plan change — the backend already
+        // enforces the new plan; a refresh just updates which UI features show.
+        data.forEach((n) => {
+          if (
+            n.type === "plan_change_result" &&
+            !n.is_read &&
+            /approved/i.test(n.title || "") &&
+            !toastedRef.current.has(n.id)
+          ) {
+            toastedRef.current.add(n.id);
+            window.showAlert(
+              "Your subscription plan was updated. Refresh the page to unlock your new plan's features.",
+              { title: "Plan Updated", type: "success" }
+            );
+          }
+        });
         setNotifList(
           data.map((n) => ({
             id:      n.id,
@@ -60,39 +74,10 @@ export default function Navbar() {
     }
   };
 
-  const fetchAuditLogs = async () => {
-    if (!auth.token) return;
-    try {
-      const data = await apiFetch("/api/audit-logs/", { token: auth.token });
-      if (Array.isArray(data)) {
-        setAuditList(
-          data.map((a) => {
-            const meta = AUDIT_META[a.action_type] || { icon: "🗒️", title: "Activity" };
-            return {
-              id:      a.id,
-              title:   meta.title,
-              message: `${a.applicant_name} — ${a.details}`,
-              byline:  `by ${a.performed_by} • ${a.created_at}`,
-              time:    null, // "when" is shown in the byline for activity rows
-              unread:  false,
-              icon:    meta.icon,
-            };
-          })
-        );
-      }
-    } catch (err) {
-      console.error("Audit logs error:", err);
-    }
-  };
-
   useEffect(() => {
     if (!auth.token) return;
     fetchNotifications();
-    if (isEnterprise) fetchAuditLogs();
-    const interval = setInterval(() => {
-      fetchNotifications();
-      if (isEnterprise) fetchAuditLogs();
-    }, 15000);
+    const interval = setInterval(fetchNotifications, 15000);
     return () => clearInterval(interval);
   }, [auth.token]);
 
@@ -277,38 +262,23 @@ export default function Navbar() {
             <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />
             <div className="absolute left-4 top-14 z-50 w-[320px] bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] overflow-hidden">
               <div className="flex items-center gap-4 px-5 py-4 border-b border-slate-100">
-                <button
-                  onClick={() => setPanelTab("notifs")}
-                  className="text-[1.1rem] font-extrabold m-0 p-0 bg-transparent border-none cursor-pointer transition-colors"
-                  style={{ color: panelTab === "notifs" ? "#0f172a" : "#94a3b8" }}
-                >
+                <span className="text-[1.1rem] font-extrabold m-0 p-0 text-[#0f172a]">
                   Notifications
+                </span>
+                <button
+                  onClick={markAllRead}
+                  className="ml-auto text-teal-500 text-sm font-semibold bg-transparent border-none cursor-pointer hover:text-teal-600"
+                >
+                  Mark all as read
                 </button>
-                {isEnterprise && (
-                  <button
-                    onClick={() => setPanelTab("activity")}
-                    className="text-[1.1rem] font-extrabold m-0 p-0 bg-transparent border-none cursor-pointer transition-colors"
-                    style={{ color: panelTab === "activity" ? "#0f172a" : "#94a3b8" }}
-                  >
-                    Activity
-                  </button>
-                )}
-                {panelTab === "notifs" && (
-                  <button
-                    onClick={markAllRead}
-                    className="ml-auto text-teal-500 text-sm font-semibold bg-transparent border-none cursor-pointer hover:text-teal-600"
-                  >
-                    Mark all as read
-                  </button>
-                )}
               </div>
               <div className="flex flex-col divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-                {(panelTab === "notifs" ? notifList : auditList).length === 0 ? (
+                {notifList.length === 0 ? (
                   <p className="text-center text-slate-400 text-sm py-8">
-                    {panelTab === "notifs" ? "No notifications yet." : "No activity yet."}
+                    No notifications yet.
                   </p>
                 ) : (
-                  (panelTab === "notifs" ? notifList : auditList).map((notif) => (
+                  notifList.map((notif) => (
                     <div
                       key={notif.id}
                       className={`flex items-start gap-3 px-5 py-4 ${notif.unread ? "bg-slate-50" : "bg-white"}`}
@@ -322,9 +292,6 @@ export default function Navbar() {
                           {notif.time && <span className="text-[0.75rem] text-slate-400">{notif.time}</span>}
                         </div>
                         <p className="text-[0.78rem] text-slate-500">{notif.message}</p>
-                        {notif.byline && (
-                          <p className="text-[0.7rem] text-slate-400 mt-0.5 font-semibold">{notif.byline}</p>
-                        )}
                       </div>
                       {notif.unread && <div className="w-2 h-2 rounded-full bg-orange-400 mt-1.5" />}
                     </div>

@@ -25,6 +25,14 @@ const CompanyIcon = () => (
   </svg>
 );
 
+// H!RE Score bands: ≥85 Strong (green) · ≥65 Good (yellow-green) ·
+// ≥50 Moderate (yellow) · else Weak (red). Kept in sync with Applicants.jsx.
+const scoreColor = (score) =>
+  score >= 85 ? "text-green-500"
+  : score >= 65 ? "text-lime-500"
+  : score >= 50 ? "text-yellow-500"
+  : "text-red-500";
+
 const STATUS_OPTIONS = [
   { value: "active",   label: "Active",   dot: "bg-green-400",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" },
   { value: "on_break", label: "On Break", dot: "bg-orange-400", bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
@@ -302,12 +310,12 @@ export default function Profile() {
           overflow: "hidden",
         }}
       >
-        {/* ── Scrollable inner area ── */}
-        <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto" }}>
-          <div className="grid grid-cols-[1fr_380px] gap-6 items-start max-[900px]:grid-cols-1">
+        {/* ── Inner area: left panel is locked, only the right list scrolls ── */}
+        <div className="max-[900px]:overflow-y-auto" style={{ flex: "1 1 0", minHeight: 0 }}>
+          <div className="grid grid-cols-[1fr_380px] gap-6 items-stretch h-full max-[900px]:grid-cols-1 max-[900px]:h-auto" style={{ minHeight: 0 }}>
 
-            {/* ── LEFT PANEL ── */}
-            <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-[500px] border border-slate-200/20 flex flex-col gap-6">
+            {/* ── LEFT PANEL (fixed / non-scrolling) ── */}
+            <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-0 border border-slate-200/20 flex flex-col gap-6 overflow-y-auto">
 
               {/* ── HR Staff / Manager ── */}
               {(role === "HRStaff" || role === "HRManager") && (
@@ -507,15 +515,16 @@ export default function Profile() {
               )}
             </div>
 
-            {/* ── RIGHT PANEL ── */}
-            <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-[500px] border border-slate-200/20 flex flex-col">
+            {/* ── RIGHT PANEL (header fixed, list scrolls) ── */}
+            <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-0 border border-slate-200/20 flex flex-col">
               <div
-                className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-base tracking-wide self-start mb-6"
+                className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-base tracking-wide self-start mb-6 shrink-0"
                 style={{ boxShadow: "3px 3px 0px #0B2447" }}
               >
                 For Interview Applicants
               </div>
 
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
               {loadingApplicants ? (
                 <p className="text-slate-400 text-sm">Loading applicants...</p>
               ) : applicantsError ? (
@@ -534,16 +543,13 @@ export default function Profile() {
                         className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer text-left transition-colors hover:bg-slate-50"
                         style={{ border: "1px solid #e2e8f0" }}
                       >
-                        <div className="w-[60px] min-w-[60px] h-[60px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
-                          <UserIcon />
-                        </div>
                         <div className="flex flex-col gap-2 flex-1 min-w-0">
                           <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
                             {applicant.applicant_name}
                           </span>
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
-                              H!RE Score: <span className="text-green-500 font-bold">{applicant.hire_score}%</span>
+                              H!RE Score: <span className={`font-bold ${scoreColor(applicant.hire_score)}`}>{applicant.hire_score}%</span>
                             </span>
                             <span className="rounded-full px-3 py-1 text-[0.72rem] font-bold bg-blue-50 text-blue-600 border border-blue-200">
                               Interview Scheduled
@@ -558,6 +564,7 @@ export default function Profile() {
               ) : (
                 <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>
               )}
+              </div>
             </div>
 
           </div>
@@ -615,7 +622,7 @@ export default function Profile() {
 
               <p className="text-slate-600 m-0">
                 <span className="font-semibold text-[#0B2447]">H!RE Score:</span>{" "}
-                <span className="text-green-500 font-bold">{selectedInterview.hire_score}%</span>
+                <span className={`font-bold ${scoreColor(selectedInterview.hire_score)}`}>{selectedInterview.hire_score}%</span>
               </p>
               {selectedInterview.applicant_email && (
                 <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Email:</span> {selectedInterview.applicant_email}</p>

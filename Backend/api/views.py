@@ -10,33 +10,60 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview
 
 ph = PasswordHasher()
 
-def log_audit(applicant_id, performed_by_user_id, action_type, action_details=None, requirement_id=None):
-    """Write a row to Audit_Logs for a human hiring decision.
+# Human hiring decisions used to be written to a dedicated Audit_Logs table; that
+# table has been retired, so the activity trail now lives in the Notifications
+# table (one feed, one place to read from). These map an action to the
+# notification_type + friendly title shown in the navbar bell.
+ACTIVITY_TITLES = {
+    "APPLICANT_SHORTLISTED": ("applicant_shortlisted", "Applicant Shortlisted"),
+    "APPLICANT_REJECTED":    ("applicant_rejected",    "Applicant Rejected"),
+    "APPLICANT_PENDING":     ("applicant_pending",     "Moved to Pending"),
+    "INTERVIEW_SCHEDULED":   ("interview_scheduled",   "Interview Scheduled"),
+}
 
-    Fully guarded — an audit-write failure must NEVER break the action that
-    triggered it (same contract as the interview-email / notification writes).
-    Uses the Django ORM so it bypasses the Audit_Logs row-level-security policy,
-    the way Interview/Notification writes do. performed_by_user_id may be None
-    for Company Owners (they have no Users row); that requires the DB column to
-    allow NULL — if it doesn't yet, the except below simply skips the log.
+def log_activity(company_id, applicant_id, action_type, action_details=None):
+    """Record a human hiring decision in the company's Notifications feed.
+
+    Replaces the former Audit_Logs write — the activity trail is now just a
+    company-scoped notification so there is a single feed. Fully guarded: a
+    logging failure must NEVER break the action that triggered it (same
+    contract as the interview-email write). Company-scoped (recipient_company_id)
+    so the owner sees who did what across the company.
     """
-    if not applicant_id:
+    if not company_id:
         return
+    ntype, title = ACTIVITY_TITLES.get(action_type, ("activity", "Activity"))
+
+    # Resolve the applicant name for the message (Applicants is readable by the
+    # anon Supabase client, same as elsewhere). Falls back to "Applicant".
+    name = "Applicant"
+    if applicant_id:
+        try:
+            from supabase import create_client
+            sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+            rows = sb.table("Applicants").select("full_name").eq(
+                "applicant_id", str(applicant_id)
+            ).execute().data
+            if rows and rows[0].get("full_name"):
+                name = rows[0]["full_name"]
+        except Exception as name_err:
+            print("activity name lookup error:", name_err)
+
+    message = f"{name} — {action_details}" if action_details else name
     try:
-        AuditLog.objects.create(
-            audit_log_id=uuid.uuid4(),
-            applicant_id=applicant_id,
-            performed_by_user_id=(performed_by_user_id or None),
-            requirement_id=(requirement_id or None),
-            action_type=action_type,
-            action_details=action_details,
+        Notification.objects.create(
+            notification_id=uuid.uuid4(),
+            recipient_company_id=company_id,
+            notification_type=ntype,
+            title=title,
+            message=message,
         )
-    except Exception as audit_err:
-        print("audit log error:", audit_err)
+    except Exception as act_err:
+        print("activity log error:", act_err)
 
 # ---- Subscription plan feature matrix --------------------------------------
 # None = unlimited. These gate limits + features across the app.
@@ -1039,26 +1066,27 @@ def update_evaluation_status(request, evaluation_id):
 
         sb.table("Evaluations").update(update_data).eq("evaluation_id", str(evaluation_id)).execute()
 
-        # Audit trail — record who made this human hiring decision. Guarded so a
-        # logging failure never affects the status update the user just made.
-        actor = get_user_fullname(user_id)
-        action_map = {
-            "shortlisted":    "APPLICANT_SHORTLISTED",
-            "rejected":       "APPLICANT_REJECTED",
-            "pending":        "APPLICANT_PENDING",
-            "interview_sent": "INTERVIEW_SCHEDULED",
-        }
-        if status == "interview_sent":
-            details = f"Interview scheduled by {actor} for {data.get('interview_date')}"
-        else:
-            details = f"Status changed to '{status}' by {actor}"
-        log_audit(
-            applicant_id=audit_applicant_id,
-            performed_by_user_id=user_id,
-            action_type=action_map.get(status, "APPLICANT_STATUS_CHANGE"),
-            action_details=details,
-            requirement_id=audit_requirement_id,
-        )
+        # Activity trail — record who made this human hiring decision in the
+        # Notifications feed (Enterprise-only, matching the plan's "audit" feature).
+        # Guarded so a logging failure never affects the status update just made.
+        if feats["audit"]:
+            actor = get_user_fullname(user_id)
+            action_map = {
+                "shortlisted":    "APPLICANT_SHORTLISTED",
+                "rejected":       "APPLICANT_REJECTED",
+                "pending":        "APPLICANT_PENDING",
+                "interview_sent": "INTERVIEW_SCHEDULED",
+            }
+            if status == "interview_sent":
+                details = f"Interview scheduled by {actor} for {data.get('interview_date')}"
+            else:
+                details = f"Status changed to '{status}' by {actor}"
+            log_activity(
+                company_id=payload.get("company_id"),
+                applicant_id=audit_applicant_id,
+                action_type=action_map.get(status, "APPLICANT_STATUS_CHANGE"),
+                action_details=details,
+            )
 
         return JsonResponse({"message": "Status updated", "status": status})
 
@@ -2133,66 +2161,6 @@ def mark_notifications_read(request):
             ).update(is_read=True)
 
         return JsonResponse({"message": "Notifications marked as read"})
-
-    except jwt.ExpiredSignatureError:
-        return JsonResponse({"error": "Token expired"}, status=401)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-@csrf_exempt
-def get_audit_logs(request):
-    """Company-scoped audit trail for the navbar 'Activity' tab.
-
-    Scoped the same way as get_evaluations: only rows whose requirement belongs
-    to the caller's company. Read-only; there is no unread/mark-read concept.
-    """
-    try:
-        payload    = decode_token(request)
-        company_id = payload.get("company_id")
-        if not company_id:
-            return JsonResponse([], safe=False)
-
-        # This company's requirement ids (audit rows are tied to a requirement).
-        req_ids = [
-            str(r) for r in JobRequirement.objects.filter(
-                company_id=company_id
-            ).values_list("requirement_id", flat=True)
-        ]
-        if not req_ids:
-            return JsonResponse([], safe=False)
-
-        logs = AuditLog.objects.filter(
-            requirement_id__in=req_ids
-        ).order_by("-created_at")[:30]
-
-        # Batch-resolve applicant names in a single Supabase read (Applicants is
-        # readable by the anon client, same as in get_evaluations).
-        appl_ids = list({str(lg.applicant_id) for lg in logs if lg.applicant_id})
-        name_map = {}
-        if appl_ids:
-            try:
-                from supabase import create_client
-                sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
-                rows = sb.table("Applicants").select(
-                    "applicant_id, full_name"
-                ).in_("applicant_id", appl_ids).execute().data
-                name_map = {r["applicant_id"]: r.get("full_name") for r in rows}
-            except Exception as name_err:
-                print("audit applicant lookup error:", name_err)
-
-        data = [
-            {
-                "id":             str(lg.audit_log_id),
-                "action_type":    lg.action_type,
-                "details":        lg.action_details or "",
-                "applicant_name": name_map.get(str(lg.applicant_id)) or "Applicant",
-                "performed_by":   get_user_fullname(lg.performed_by_user_id),
-                "created_at":     lg.created_at.strftime("%m/%d/%Y %I:%M %p"),
-            }
-            for lg in logs
-        ]
-        return JsonResponse(data, safe=False)
 
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)

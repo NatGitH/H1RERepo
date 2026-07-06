@@ -1827,6 +1827,10 @@ def requirement_detail(request, req_id):
             if action_status in ["approved", "rejected"] and role not in ["HRManager", "owner"]:
                 return JsonResponse({"error": "Forbidden"}, status=403)
 
+            # Was this an approval/rejection of a proposed EDIT (pending changes),
+            # rather than of a brand-new requirement? Capture before we clear it.
+            was_modification = bool(req.pending_changes)
+
             # If approving and there are pending_changes, apply them
             if action_status == "approved" and req.pending_changes:
                 req.job_title      = req.pending_changes.get("job_title", req.job_title)
@@ -1853,8 +1857,12 @@ def requirement_detail(request, req_id):
                         notification_id=uuid.uuid4(),
                         recipient_user_id=req.created_by_user_id,
                         notification_type="requirement_approval",
-                        title=f"Job Requirement {action_status.capitalize()}",
-                        message=f"Your requirement for '{req.job_title}' has been {action_status}.",
+                        title=(f"Requirement Modification {action_status.capitalize()}"
+                               if was_modification else
+                               f"Job Requirement {action_status.capitalize()}"),
+                        message=(f"Your modification to '{req.job_title}' has been {action_status}."
+                                 if was_modification else
+                                 f"Your requirement for '{req.job_title}' has been {action_status}."),
                         is_read=False,
                     )
                     ApprovalNotification.objects.create(
@@ -1866,10 +1874,17 @@ def requirement_detail(request, req_id):
             except Exception as notif_err:
                 print("Notification error:", notif_err)
 
-            # AUDIT (permanent): who approved/rejected which requirement.
+            # AUDIT (permanent): who approved/rejected which requirement. Approving an
+            # edit is worded as a "modification" approval so it's distinct in Activity.
+            if was_modification:
+                audit_action  = f"REQUIREMENT_MODIFICATION_{action_status.upper()}"
+                audit_message = f"{get_user_fullname(user_id)} {action_status} the modification of requirement '{req.job_title}'"
+            else:
+                audit_action  = f"REQUIREMENT_{action_status.upper()}"
+                audit_message = f"{get_user_fullname(user_id)} {action_status} the requirement '{req.job_title}'"
             log_audit(company_id=company_id_from_token,
-                      action_type=f"REQUIREMENT_{action_status.upper()}",
-                      message=f"{get_user_fullname(user_id)} {action_status} the requirement '{req.job_title}'",
+                      action_type=audit_action,
+                      message=audit_message,
                       performed_by_user_id=user_id,
                       requirement_id=req.requirement_id)
 
@@ -1963,34 +1978,13 @@ def requirement_detail(request, req_id):
             AuditLog.objects.filter(requirement_id=req.requirement_id).update(requirement_id=None)
             req.delete()
 
-            # Notify the company (owner) + managers that a requirement was deleted,
-            # and by whom. Guarded so a notification failure never blocks the delete.
-            try:
-                Notification.objects.create(
-                    notification_id=uuid.uuid4(),
-                    recipient_company_id=company_id_from_token,
-                    notification_type="requirement_deleted",
-                    title="Requirement Deleted",
-                    message=f"'{deleted_title}' was deleted by {actor}.",
-                    is_read=False,
-                )
-                managers = HRUser.objects.filter(
-                    company_id=company_id_from_token,
-                    role_id__in=Roles.objects.filter(role_name="HRManager").values_list("role_id", flat=True)
-                )
-                for mgr in managers:
-                    if str(mgr.user_id) == str(user_id):
-                        continue  # don't notify the manager who did the deleting
-                    Notification.objects.create(
-                        notification_id=uuid.uuid4(),
-                        recipient_user_id=mgr.user_id,
-                        notification_type="requirement_deleted",
-                        title="Requirement Deleted",
-                        message=f"'{deleted_title}' was deleted by {actor}.",
-                        is_read=False,
-                    )
-            except Exception as notif_err:
-                print("requirement deleted notification error:", notif_err)
+            # AUDIT (permanent): a requirement deletion belongs in the Activity trail,
+            # not the clearable notifications feed. requirement_id is left null — the
+            # row no longer exists (passing it would violate the FK).
+            log_audit(company_id=company_id_from_token,
+                      action_type="REQUIREMENT_DELETED",
+                      message=f"{actor} deleted the requirement '{deleted_title}'",
+                      performed_by_user_id=user_id)
 
             return JsonResponse({"message": "Deleted"})
 
@@ -2487,14 +2481,27 @@ def admin_set_subscription(request):
         data       = json.loads(request.body)
         company_id = (data.get("company_id") or "").strip()
         new_plan   = (data.get("plan") or "").strip().lower()
+        expiry_str = (data.get("expiry") or "").strip()
         if new_plan not in ["free", "standard", "enterprise"]:
             return JsonResponse({"error": "Invalid plan"}, status=400)
 
         company = Company.objects.get(company_id=company_id)
         now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+
+        # Admin may pick a custom expiry date (YYYY-MM-DD); otherwise default to a 1-month term.
+        if expiry_str:
+            try:
+                exp_date = datetime.datetime.strptime(expiry_str, "%Y-%m-%d")
+                new_expiry = exp_date.replace(hour=23, minute=59, second=59,
+                                              tzinfo=datetime.timezone.utc)
+            except ValueError:
+                return JsonResponse({"error": "Invalid expiry date"}, status=400)
+        else:
+            new_expiry = now + datetime.timedelta(days=30)
+
         company.subscription_plan   = new_plan
         company.subscription_start  = now
-        company.subscription_expiry = now + datetime.timedelta(days=30)
+        company.subscription_expiry = new_expiry
         company.save()
 
         # Let the owner know in-app that the admin changed their plan.

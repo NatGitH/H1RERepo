@@ -129,8 +129,8 @@ export function ProfileOverlay({
             )}
           </div>
 
-          {/* Bio — fixed height, wraps long unbroken text, scrolls if long */}
-          <div className="border-2 border-slate-200 rounded-[20px] p-6 h-[300px] overflow-y-auto shrink-0">
+          {/* Bio — grows to fill the card (min 300px), wraps long unbroken text, scrolls if long */}
+          <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[300px] overflow-y-auto">
             <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
               {member.bio || "No bio available."}
             </p>
@@ -138,7 +138,7 @@ export function ProfileOverlay({
 
           <button
             onClick={onClose}
-            className="self-start shrink-0 text-sm text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer font-medium"
+            className="self-start shrink-0 text-sm text-[#0B2447] hover:text-[#162553] border-none bg-transparent cursor-pointer font-semibold"
           >
             ← Back to Employers
           </button>

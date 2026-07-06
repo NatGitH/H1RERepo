@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const [previewDoc, setPreviewDoc]       = useState(null);
   const [showNotifs, setShowNotifs]       = useState(false);
   const [confirmAction, setConfirmAction] = useState(null); // { type: "revoke"|"restore"|"delete", id, name }
+  const [planModal, setPlanModal]         = useState(null); // { id, name, plan, expiry }
 
   useEffect(() => {
     fetchAll();
@@ -96,12 +97,12 @@ export default function AdminDashboard() {
   };
 
   // Admin directly sets a company's plan (start resets, term is always 1 month).
-  const handleSetPlan = async (company_id, plan) => {
+  const handleSetPlan = async (company_id, plan, expiry) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/plans/set/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ company_id, plan }),
+        body: JSON.stringify({ company_id, plan, expiry }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -213,6 +214,20 @@ const handleDelete = async (company_id) => {
     else if (type === "delete") handleDelete(id);
     else if (type === "reject") handleApproveReject(apId, "rejected");
     setConfirmAction(null);
+  };
+
+  // Seed the date picker: parse the company's current expiry (e.g. "Aug 05, 2026")
+  // into YYYY-MM-DD using local parts (avoids a UTC off-by-one). Falls back to +30 days.
+  const toDateInput = (val) => {
+    let d = val ? new Date(val) : null;
+    if (!d || isNaN(d.getTime())) {
+      d = new Date();
+      d.setDate(d.getDate() + 30);
+    }
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   };
 
   const filteredCompanies = companies.filter((c) =>
@@ -635,17 +650,18 @@ const handleDelete = async (company_id) => {
                       >
                         Revoke
                       </button>
-                      {/* Admin sets the plan directly (resets to a fresh 1-month term). */}
-                      <select
-                        value=""
-                        onChange={(e) => { if (e.target.value) handleSetPlan(c.id, e.target.value); e.target.value = ""; }}
-                        className="text-[0.7rem] font-semibold text-[#0B2447] border border-slate-300 rounded-md px-1.5 py-1 bg-white cursor-pointer outline-none"
+                      {/* Admin changes the plan + expiry via a modal. */}
+                      <button
+                        onClick={() => setPlanModal({
+                          id: c.id,
+                          name: c.company_name,
+                          plan: (c.subscription_plan || "free").toLowerCase(),
+                          expiry: toDateInput(c.subscription_expiry),
+                        })}
+                        className="text-[0.7rem] font-semibold text-[#0B2447] border border-slate-300 rounded-md px-2 py-1 bg-white hover:bg-slate-50 cursor-pointer outline-none"
                       >
-                        <option value="">Set plan…</option>
-                        <option value="free">Free</option>
-                        <option value="standard">Standard</option>
-                        <option value="enterprise">Enterprise</option>
-                      </select>
+                        Change Plan
+                      </button>
                     </div>
                   </div>
 
@@ -833,6 +849,71 @@ const handleDelete = async (company_id) => {
           </div>
         );
       })()}
+
+      {/* Change Plan modal — pick plan + expiry date */}
+      {planModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          onClick={() => setPlanModal(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm p-6"
+            style={{ border: "2px solid #1a1a2e", boxShadow: "8px 8px 0px #000000" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-[#0B2447] mb-1">Change Plan</h3>
+            <p className="text-sm text-slate-500 mb-4 truncate">{planModal.name}</p>
+
+            {/* Plan options */}
+            <label className="block text-xs font-bold text-[#0B2447] mb-2">Plan</label>
+            <div className="grid grid-cols-3 gap-2 mb-5">
+              {["free", "standard", "enterprise"].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPlanModal((m) => ({ ...m, plan: p }))}
+                  className={`capitalize text-xs font-bold py-2 rounded-lg border-2 transition cursor-pointer ${
+                    planModal.plan === p
+                      ? "bg-[#0B2447] text-white border-[#0B2447]"
+                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            {/* Expiry date */}
+            <label className="block text-xs font-bold text-[#0B2447] mb-2">Expires On</label>
+            <input
+              type="date"
+              value={planModal.expiry}
+              min={toDateInput(new Date())}
+              onChange={(e) => setPlanModal((m) => ({ ...m, expiry: e.target.value }))}
+              className="w-full border-2 border-slate-300 rounded-lg px-3 py-2 text-sm text-[#0B2447] outline-none focus:border-[#0B2447] mb-6"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPlanModal(null)}
+                className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition bg-white cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!planModal.expiry) { window.showAlert("Please pick an expiry date."); return; }
+                  handleSetPlan(planModal.id, planModal.plan, planModal.expiry);
+                  setPlanModal(null);
+                }}
+                className="flex-1 text-white font-bold py-2.5 rounded-lg transition border-none cursor-pointer bg-[#0B2447] hover:bg-[#162553]"
+              >
+                Change Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

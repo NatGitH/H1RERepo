@@ -19,11 +19,16 @@ export default function Navbar() {
   // Notif ids already toasted — persisted so the "Plan Updated" nudge shows only
   // once ever (not again after a refresh, re-login, or app restart).
   const toastedRef = useRef(new Set(JSON.parse(localStorage.getItem("hire_toasted_notifs") || "[]")));
+  // Audit_Logs has no is_read column (frozen schema), so Activity "read" state is
+  // tracked client-side: any audit id NOT in this set is shown as new (orange dot).
+  const readAuditsRef = useRef(new Set(JSON.parse(localStorage.getItem("hire_read_audits") || "[]")));
 
   const { auth, logout } = useAuth();
   const role = auth.role;
 
-  const unreadCount = notifList.filter((n) => n.unread).length;
+  // Bell badge counts unread notifications + unread (new) Activity items.
+  const unreadCount =
+    notifList.filter((n) => n.unread).length + auditList.filter((a) => a.unread).length;
 
   // Clearable notification types → icon.
   const ICON_MAP = {
@@ -45,6 +50,9 @@ export default function Navbar() {
     REQUIREMENT_APPROVED: "Requirement Approved",
     REQUIREMENT_REJECTED: "Requirement Rejected",
     REQUIREMENT_MODIFIED: "Requirement Modified",
+    REQUIREMENT_DELETED:  "Requirement Deleted",
+    REQUIREMENT_MODIFICATION_APPROVED: "Modification Approved",
+    REQUIREMENT_MODIFICATION_REJECTED: "Modification Rejected",
     INTERVIEW_REMOVED:    "Interview Removed",
     INTERVIEW_SENT:       "Interview Sent",
     ROLE_CHANGED:         "Role Changed",
@@ -109,13 +117,18 @@ export default function Navbar() {
     try {
       const data = await apiFetch("/api/audit-logs/", { token: auth.token });
       if (Array.isArray(data)) {
+        // Keep the persisted read-set to only ids the server still returns so it
+        // can't grow without bound (the endpoint returns the latest 50).
+        const ids = new Set(data.map((a) => a.id));
+        readAuditsRef.current = new Set([...readAuditsRef.current].filter((id) => ids.has(id)));
+        localStorage.setItem("hire_read_audits", JSON.stringify([...readAuditsRef.current]));
         setAuditList(
           data.map((a) => ({
             id:      a.id,
             title:   AUDIT_TITLE[a.action_type] || a.action_type,
             message: a.details,
             time:    a.created_at,
-            unread:  false,
+            unread:  !readAuditsRef.current.has(a.id),
             icon:    auditIcon(a.action_type),
           }))
         );
@@ -141,6 +154,14 @@ export default function Navbar() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // Mark all Activity items as read (client-side only — Audit_Logs is permanent).
+  // Removes the orange dots without deleting any audit entry.
+  const markAllActivityRead = () => {
+    auditList.forEach((a) => readAuditsRef.current.add(a.id));
+    localStorage.setItem("hire_read_audits", JSON.stringify([...readAuditsRef.current]));
+    setAuditList((prev) => prev.map((a) => ({ ...a, unread: false })));
   };
 
   useEffect(() => {
@@ -336,6 +357,14 @@ export default function Navbar() {
                     className="ml-auto text-teal-500 text-sm font-semibold bg-transparent border-none cursor-pointer hover:text-teal-600"
                   >
                     Clear
+                  </button>
+                )}
+                {panelTab === "activity" && auditList.some((a) => a.unread) && (
+                  <button
+                    onClick={markAllActivityRead}
+                    className="ml-auto text-teal-500 text-sm font-semibold bg-transparent border-none cursor-pointer hover:text-teal-600"
+                  >
+                    Read All
                   </button>
                 )}
               </div>

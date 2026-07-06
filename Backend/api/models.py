@@ -165,6 +165,18 @@ class Interview(models.Model):
         db_table = '"Interviews"'
         managed  = False
 
-# NOTE: The Audit_Logs table has been retired — the activity/audit trail now
-# lives in the Notifications table (see log_activity in views.py). Do not
-# re-add an AuditLog model; write activity rows as company-scoped Notifications.
+class AuditLog(models.Model):
+    audit_log_id         = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    # Nullable so non-applicant audits (role change, company/plan approvals, etc.)
+    # can be recorded. Company scoping is carried in action_details ([c:<uuid>])
+    # because the table has no company_id column (schema is frozen).
+    applicant_id         = models.UUIDField(null=True, blank=True)
+    performed_by_user_id = models.UUIDField(null=True, blank=True)
+    requirement_id       = models.UUIDField(null=True, blank=True)
+    action_type          = models.CharField(max_length=255)
+    action_details       = models.TextField(null=True, blank=True)
+    created_at           = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Audit_Logs"'
+        managed  = False

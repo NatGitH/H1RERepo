@@ -10,50 +10,22 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog
 
 ph = PasswordHasher()
 
-# Human hiring decisions used to be written to a dedicated Audit_Logs table; that
-# table has been retired, so the activity trail now lives in the Notifications
-# table (one feed, one place to read from). These map an action to the
-# notification_type + friendly title shown in the navbar bell.
-ACTIVITY_TITLES = {
-    "APPLICANT_SHORTLISTED": ("applicant_shortlisted", "Applicant Shortlisted"),
-    "APPLICANT_REJECTED":    ("applicant_rejected",    "Applicant Rejected"),
-    "APPLICANT_PENDING":     ("applicant_pending",     "Moved to Pending"),
-    "INTERVIEW_SCHEDULED":   ("interview_scheduled",   "Interview Scheduled"),
-}
+# ── Two separate trails ─────────────────────────────────────────────────────
+# NOTIFICATIONS (Notifications table) are transient — the user can Clear them.
+# AUDIT LOGS (Audit_Logs table) are PERMANENT (panel-mandated) — no clear button.
+# The Audit_Logs table has no company_id column (frozen schema), so we carry the
+# owning company inside action_details as a "[c:<company_id>] " prefix and scope
+# the Activity tab by that marker. Both writes are fully guarded so a logging
+# failure can never break the action that triggered it.
 
-def log_activity(company_id, applicant_id, action_type, action_details=None):
-    """Record a human hiring decision in the company's Notifications feed.
-
-    Replaces the former Audit_Logs write — the activity trail is now just a
-    company-scoped notification so there is a single feed. Fully guarded: a
-    logging failure must NEVER break the action that triggered it (same
-    contract as the interview-email write). Company-scoped (recipient_company_id)
-    so the owner sees who did what across the company.
-    """
+def notify_company(company_id, ntype, title, message):
+    """Create a company-scoped (owner-facing) notification. Clearable."""
     if not company_id:
         return
-    ntype, title = ACTIVITY_TITLES.get(action_type, ("activity", "Activity"))
-
-    # Resolve the applicant name for the message (Applicants is readable by the
-    # anon Supabase client, same as elsewhere). Falls back to "Applicant".
-    name = "Applicant"
-    if applicant_id:
-        try:
-            from supabase import create_client
-            sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
-            rows = sb.table("Applicants").select("full_name").eq(
-                "applicant_id", str(applicant_id)
-            ).execute().data
-            if rows and rows[0].get("full_name"):
-                name = rows[0]["full_name"]
-        except Exception as name_err:
-            print("activity name lookup error:", name_err)
-
-    message = f"{name} — {action_details}" if action_details else name
     try:
         Notification.objects.create(
             notification_id=uuid.uuid4(),
@@ -61,9 +33,46 @@ def log_activity(company_id, applicant_id, action_type, action_details=None):
             notification_type=ntype,
             title=title,
             message=message,
+            is_read=False,
         )
-    except Exception as act_err:
-        print("activity log error:", act_err)
+    except Exception as e:
+        print("notify_company error:", e)
+
+
+def notify_user(user_id, ntype, title, message):
+    """Create a per-user notification. Clearable."""
+    if not user_id:
+        return
+    try:
+        Notification.objects.create(
+            notification_id=uuid.uuid4(),
+            recipient_user_id=user_id,
+            notification_type=ntype,
+            title=title,
+            message=message,
+            is_read=False,
+        )
+    except Exception as e:
+        print("notify_user error:", e)
+
+
+def log_audit(company_id, action_type, message, performed_by_user_id=None,
+              applicant_id=None, requirement_id=None):
+    """Write a PERMANENT audit row to Audit_Logs. Company scope is stored as a
+    '[c:<company_id>] ' prefix in action_details (no company_id column exists)."""
+    if not company_id:
+        return
+    try:
+        AuditLog.objects.create(
+            audit_log_id=uuid.uuid4(),
+            applicant_id=(applicant_id or None),
+            performed_by_user_id=(performed_by_user_id or None),
+            requirement_id=(requirement_id or None),
+            action_type=action_type,
+            action_details=f"[c:{company_id}] {message}",
+        )
+    except Exception as e:
+        print("audit log error:", e)
 
 # ---- Subscription plan feature matrix --------------------------------------
 # None = unlimited. These gate limits + features across the app.
@@ -185,6 +194,10 @@ def register_company(request):
             subscribing_company_id=company.company_id,
             action_status="pending",
         )
+
+        # AUDIT (permanent): record when the company account was created.
+        log_audit(company_id=company.company_id, action_type="COMPANY_CREATED",
+                  message=f"Company account '{company_name}' was created.")
 
         # Upload documents to Supabase Storage
         try:
@@ -1228,27 +1241,40 @@ def update_evaluation_status(request, evaluation_id):
 
         sb.table("Evaluations").update(update_data).eq("evaluation_id", str(evaluation_id)).execute()
 
-        # Activity trail — record who made this human hiring decision in the
-        # Notifications feed (Enterprise-only, matching the plan's "audit" feature).
-        # Guarded so a logging failure never affects the status update just made.
-        if feats["audit"]:
-            actor = get_user_fullname(user_id)
-            action_map = {
-                "shortlisted":    "APPLICANT_SHORTLISTED",
-                "rejected":       "APPLICANT_REJECTED",
-                "pending":        "APPLICANT_PENDING",
-                "interview_sent": "INTERVIEW_SCHEDULED",
-            }
-            if status == "interview_sent":
-                details = f"Interview scheduled by {actor} for {data.get('interview_date')}"
-            else:
-                details = f"Status changed to '{status}' by {actor}"
-            log_activity(
-                company_id=payload.get("company_id"),
+        # Resolve the applicant's name once for the notification / audit message.
+        appl_name = "Applicant"
+        if audit_applicant_id:
+            try:
+                _an = sb.table("Applicants").select("full_name").eq(
+                    "applicant_id", str(audit_applicant_id)).execute().data
+                if _an and _an[0].get("full_name"):
+                    appl_name = _an[0]["full_name"]
+            except Exception:
+                pass
+
+        actor          = get_user_fullname(user_id)
+        company_id_tok = payload.get("company_id")
+
+        # Shortlist / reject / cancel-rejection are NOTIFICATIONS (clearable).
+        # Sending an interview is an AUDIT LOG entry (permanent).
+        if status == "interview_sent":
+            log_audit(
+                company_id=company_id_tok,
+                action_type="INTERVIEW_SENT",
+                message=f"Interview sent to {appl_name} by {actor} for {data.get('interview_date')}",
+                performed_by_user_id=user_id,
                 applicant_id=audit_applicant_id,
-                action_type=action_map.get(status, "APPLICANT_STATUS_CHANGE"),
-                action_details=details,
+                requirement_id=audit_requirement_id,
             )
+        elif status == "shortlisted":
+            notify_company(company_id_tok, "applicant_shortlisted", "Applicant Shortlisted",
+                           f"{appl_name} was shortlisted by {actor}.")
+        elif status == "rejected":
+            notify_company(company_id_tok, "applicant_rejected", "Applicant Rejected",
+                           f"{appl_name} was rejected by {actor}. Removal in 1 hour unless cancelled.")
+        elif status == "pending":
+            notify_company(company_id_tok, "applicant_pending", "Rejection Cancelled",
+                           f"{appl_name} was moved back to pending by {actor}.")
 
         return JsonResponse({"message": "Status updated", "status": status})
 
@@ -1379,6 +1405,9 @@ def approve_reject_account(request):
             return JsonResponse({"error": "Invalid status"}, status=400)
 
         user = HRUser.objects.get(user_id=user_id)
+        target_company = user.company_id
+        target_name    = f"{user.firstname or ''} {user.lastname or ''}".strip() or user.username or "an employee"
+        actor          = get_user_fullname(reviewer_id)
 
         # Update Employer_Account_Requests
         try:
@@ -1395,10 +1424,19 @@ def approve_reject_account(request):
 
         if new_status == "rejected":
             user.delete()
+            # AUDIT (permanent): employer account rejected.
+            log_audit(company_id=target_company, action_type="EMPLOYER_REJECTED",
+                      message=f"{actor} rejected the employer account for {target_name}",
+                      performed_by_user_id=reviewer_id)
             return JsonResponse({"message": "Account rejected and deleted"})
 
         user.account_status = new_status
         user.save()
+
+        # AUDIT (permanent): employer account approved.
+        log_audit(company_id=target_company, action_type="EMPLOYER_APPROVED",
+                  message=f"{actor} approved the employer account for {target_name}",
+                  performed_by_user_id=reviewer_id)
 
         try:
             Notification.objects.create(
@@ -1444,20 +1482,18 @@ def change_role(request):
         user.role_id  = role_obj.role_id
         user.save()
 
-        # Notify the affected user in-app
-        try:
-            display_role = "HR Manager" if role_name == "HRManager" else "HR Staff"
-            actor        = get_user_fullname(payload.get("user_id"))  # "Owner" when the owner does it
-            Notification.objects.create(
-                notification_id=uuid.uuid4(),
-                recipient_user_id=user.user_id,
-                notification_type="role_change",
-                title="Your Role Was Changed",
-                message=f"Your role was changed to {display_role} by {actor}.",
-                is_read=False,
-            )
-        except Exception as notif_err:
-            print("role change notification error:", notif_err)
+        display_role = "HR Manager" if role_name == "HRManager" else "HR Staff"
+        actor        = get_user_fullname(payload.get("user_id"))  # "Owner" when the owner does it
+        target_name  = f"{user.firstname or ''} {user.lastname or ''}".strip() or user.username or "an employee"
+
+        # NOTIFICATION (clearable) — tell the affected user their role changed.
+        notify_user(user.user_id, "role_change", "Your Role Was Changed",
+                    f"Your role was changed to {display_role} by {actor}.")
+
+        # AUDIT (permanent) — who was changed and who changed them.
+        log_audit(company_id=user.company_id, action_type="ROLE_CHANGED",
+                  message=f"{actor} changed {target_name}'s role to {display_role}",
+                  performed_by_user_id=payload.get("user_id"))
 
         return JsonResponse({"message": f"Role changed to {role_name}"})
 
@@ -1656,6 +1692,13 @@ def requirement_detail(request, req_id):
                     )
             except Exception as notif_err:
                 print("Notification error:", notif_err)
+
+            # AUDIT (permanent): who approved/rejected which requirement.
+            log_audit(company_id=company_id_from_token,
+                      action_type=f"REQUIREMENT_{action_status.upper()}",
+                      message=f"{get_user_fullname(user_id)} {action_status} the requirement '{req.job_title}'",
+                      performed_by_user_id=user_id,
+                      requirement_id=req.requirement_id)
 
             return JsonResponse({
                 "id":     str(req.requirement_id),
@@ -2231,6 +2274,11 @@ def admin_approve_reject_plan(request):
         except Exception as notif_err:
             print("plan change result notification error:", notif_err)
 
+        # AUDIT (permanent): admin's decision on the plan-change request.
+        log_audit(company_id=company_id,
+                  action_type=f"PLAN_{new_status.upper()}",
+                  message=f"The H!RE admin {new_status} the subscription plan change to '{requested_plan}'.")
+
         req.delete()  # clear the pending request
         return JsonResponse({"message": f"Plan change {new_status}", "status": new_status})
 
@@ -2279,6 +2327,10 @@ def admin_set_subscription(request):
             )
         except Exception as notif_err:
             print("admin set subscription notification error:", notif_err)
+
+        # AUDIT (permanent): admin directly set the company's plan.
+        log_audit(company_id=company_id, action_type="PLAN_SET",
+                  message=f"The H!RE admin set the subscription plan to '{new_plan}'.")
 
         return JsonResponse({
             "message":             "Subscription updated",
@@ -2409,6 +2461,70 @@ def mark_notifications_read(request):
             ).update(is_read=True)
 
         return JsonResponse({"message": "Notifications marked as read"})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# Internal Notification rows that back a feature (not real notifications) and must
+# survive the Clear button.
+INTERNAL_NOTIF_TYPES = ["plan_change_request", "auto_reject_threshold"]
+
+
+@csrf_exempt
+@require_POST
+def clear_notifications(request):
+    """Clear (delete) the caller's notifications. Audit logs are NOT touched —
+    they live in a separate, permanent table."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        user_id    = payload.get("user_id")
+        company_id = payload.get("company_id")
+
+        if role == "owner":
+            Notification.objects.filter(recipient_company_id=company_id).exclude(
+                notification_type__in=INTERNAL_NOTIF_TYPES).delete()
+        else:
+            Notification.objects.filter(recipient_user_id=user_id).exclude(
+                notification_type__in=INTERNAL_NOTIF_TYPES).delete()
+
+        return JsonResponse({"message": "Notifications cleared"})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def get_audit_logs(request):
+    """Permanent, company-scoped audit trail for the navbar 'Activity' tab.
+    Scoped by the '[c:<company_id>]' marker stored in action_details."""
+    try:
+        payload    = decode_token(request)
+        company_id = payload.get("company_id")
+        if not company_id:
+            return JsonResponse([], safe=False)
+
+        marker = f"[c:{company_id}]"
+        logs = AuditLog.objects.filter(
+            action_details__startswith=marker
+        ).order_by("-created_at")[:50]
+
+        data = [
+            {
+                "id":           str(lg.audit_log_id),
+                "action_type":  lg.action_type,
+                "details":      (lg.action_details or "").replace(marker, "", 1).strip(),
+                "performed_by": get_user_fullname(lg.performed_by_user_id),
+                "created_at":   lg.created_at.strftime("%m/%d/%Y %I:%M %p"),
+            }
+            for lg in logs
+        ]
+        return JsonResponse(data, safe=False)
 
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
@@ -2645,6 +2761,11 @@ def admin_approve_reject_company(request):
         approval.reviewed_by_admin_id = admin_id
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
+
+        # AUDIT (permanent): admin approved the company registration.
+        log_audit(company_id=company_id, action_type="COMPANY_APPROVED",
+                  message="The H!RE admin approved this company's registration.")
+
         return JsonResponse({"message": "Company approved", "status": "approved"})
 
     except ApprovalCompany.DoesNotExist:

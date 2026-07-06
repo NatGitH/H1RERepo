@@ -257,6 +257,20 @@
       },
       "onError": "continueRegularOutput",
       "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Permanent audit: applicant removed after the 1-hour rejection grace period.\n// Uses the service key directly (Audit_Logs + Job_Requirements are RLS-blocked\n// for the anon key). Fully guarded so it never breaks the cleanup run.\nconst SB = 'https://kzszvpmwvvtfvcgdzgnj.supabase.co';\nconst KEY = $env.SUPABASE_SERVICE_KEY;\nfunction uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);});}\nconst ec = $('Email Content').item.json;\nconst ev = $('Code in JavaScript').item.json;\nconst requirement_id = ev.requirement_id;\nconst applicant_id = ec.applicant_id || null;\nconst name = ec.full_name || 'An applicant';\nlet company_id = null;\ntry {\n  const rq = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SB}/rest/v1/Job_Requirements?select=company_id&requirement_id=eq.${requirement_id}`,\n    headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },\n    json: true,\n  });\n  if (Array.isArray(rq) && rq[0]) company_id = rq[0].company_id;\n} catch (e) {}\nif (company_id) {\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${SB}/rest/v1/Audit_Logs`,\n      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },\n      body: {\n        audit_log_id: uuidv4(),\n        applicant_id: applicant_id,\n        requirement_id: requirement_id || null,\n        action_type: 'APPLICANT_REMOVED',\n        action_details: `[c:${company_id}] ${name} was removed after the 1-hour rejection grace period.`,\n      },\n      json: true,\n    });\n  } catch (e) {}\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1564,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-0000000000aa",
+      "name": "Audit Removal",
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -343,6 +357,17 @@
         [
           {
             "node": "Archive (status=removed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive (status=removed)": {
+      "main": [
+        [
+          {
+            "node": "Audit Removal",
             "type": "main",
             "index": 0
           }

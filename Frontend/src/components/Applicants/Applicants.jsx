@@ -148,6 +148,9 @@ export default function Applicants() {
         failed.push({ name: pendingFiles[i].name, reason: getErrorMessage(err, "") });
       }
       setUploadProgress({ done: i + 1, total: pendingFiles.length });
+      // Small gap between files so the free-tier AI/embedding services aren't
+      // rate-limited on a big batch (a common cause of "not a resume" errors).
+      if (i < pendingFiles.length - 1) await new Promise((r) => setTimeout(r, 1500));
     }
 
     setUploading(false);
@@ -347,10 +350,9 @@ export default function Applicants() {
               >
                 <p className="font-extrabold text-[#0B2447] text-sm m-0 mb-1.5">How the H!RE Score works</p>
                 <p className="text-xs text-slate-600 leading-relaxed m-0 mb-2">
-                  It's a <span className="font-semibold">semantic match</span> (Sentence-BERT), not keyword counting.
-                  The job is split into its individual requirements, and for each one we find the
-                  best-matching part of the resume. Those coverage scores are averaged and scaled to a
-                  0–100% fit — so it reflects how much of what the job asks for the resume actually covers.
+                  H!RE uses a <span className="font-semibold">dual-model</span> approach: <span className="font-semibold">Sentence-BERT</span> measures
+                  the semantic match between the resume and the job, and an <span className="font-semibold">LLM</span> then evaluates the fit against a
+                  weighted rubric (skills &amp; domain match, role relevance, impact) to produce the final 0–100 score.
                 </p>
                 <div className="flex flex-col gap-1">
                   <span className="flex items-center gap-2 text-xs text-slate-600">

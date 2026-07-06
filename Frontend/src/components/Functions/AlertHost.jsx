@@ -76,7 +76,7 @@ export default function AlertHost() {
           <button
             onClick={() => close(true)}
             className="text-white font-bold rounded-full px-5 py-2 text-sm border-none cursor-pointer"
-            style={{ backgroundColor: current.kind === "confirm" ? (current.danger ? "#ef4444" : "#0B2447") : accent }}
+            style={{ backgroundColor: current.kind === "confirm" ? (current.danger ? "#ef4444" : "#2563eb") : "#2563eb" }}
           >
             {current.kind === "confirm" ? current.confirmText : "OK"}
           </button>

@@ -14,7 +14,9 @@ export default function Navbar() {
   const [notifList, setNotifList] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
   const dropdownRef = useRef(null);
-  const toastedRef = useRef(new Set()); // notif ids already toasted (avoid re-toasting each poll)
+  // Notif ids already toasted — persisted so the "Plan Updated" nudge shows only
+  // once ever (not again after a refresh, re-login, or app restart).
+  const toastedRef = useRef(new Set(JSON.parse(localStorage.getItem("hire_toasted_notifs") || "[]")));
 
   const { auth, logout } = useAuth();
   const role = auth.role;
@@ -53,6 +55,7 @@ export default function Navbar() {
             !toastedRef.current.has(n.id)
           ) {
             toastedRef.current.add(n.id);
+            localStorage.setItem("hire_toasted_notifs", JSON.stringify([...toastedRef.current]));
             window.showAlert(
               "Your subscription plan was updated. Refresh the page to unlock your new plan's features.",
               { title: "Plan Updated", type: "success" }

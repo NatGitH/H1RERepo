@@ -1,0 +1,95 @@
+{
+  "name": "H!RE - Create Meet Link",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "create-meet-link",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -360,
+        0
+      ],
+      "id": "d9000000-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "webhookId": "hire-create-meet-link"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ summary: 'Interview - ' + ($json.body.applicant_name || 'Applicant'), description: 'H!RE interview' + ($json.body.job_title ? ' for ' + $json.body.job_title : ''), start: { dateTime: $json.body.interview_date }, end: { dateTime: new Date(new Date($json.body.interview_date).getTime() + 3600000).toISOString() }, conferenceData: { createRequest: { requestId: $json.body.request_id, conferenceSolutionKey: { type: 'hangoutsMeet' } } } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -140,
+        0
+      ],
+      "id": "d9000000-0000-4000-8000-000000000002",
+      "name": "Create Calendar Event",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { meet_link: ($json.hangoutLink || (($json.conferenceData && $json.conferenceData.entryPoints) ? $json.conferenceData.entryPoints[0].uri : '')) } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        80,
+        0
+      ],
+      "id": "d9000000-0000-4000-8000-000000000003",
+      "name": "Respond"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

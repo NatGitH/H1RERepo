@@ -515,6 +515,39 @@
       ],
       "id": "0db8d847-378d-42f8-9690-18566353eaad",
       "name": "SBERT Score"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b1a7c0de-0000-4000-8000-0000000000aa",
+              "leftValue": "={{ ($json.text || '').trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1180,
+        384
+      ],
+      "id": "b1a7c0de-0000-4000-8000-0000000000ab",
+      "name": "PDF has text?"
     }
   ],
   "pinData": {},
@@ -534,7 +567,7 @@
       "main": [
         [
           {
-            "node": "SBERT Score",
+            "node": "PDF has text?",
             "type": "main",
             "index": 0
           }
@@ -739,6 +772,24 @@
         [
           {
             "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF has text?": {
+      "main": [
+        [
+          {
+            "node": "SBERT Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from Images",
             "type": "main",
             "index": 0
           }

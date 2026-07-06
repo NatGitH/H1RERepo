@@ -6,6 +6,7 @@ import {
   ChangeRoleModal,
   ConfirmRoleModal,
   DeleteConfirmModal,
+  getStatusMeta,
 } from "./EmployerModals";
 import { apiFetch, getErrorMessage } from "../../api";
 
@@ -26,6 +27,7 @@ export default function Employer() {
   // Profile overlay
   const [selectedMember, setSelectedMember] = useState(null);
   const [showDotsMenu, setShowDotsMenu]     = useState(false);
+  const [memberInterviews, setMemberInterviews] = useState(null); // null = loading
 
   // Change role modal
   const [showRoleModal, setShowRoleModal]     = useState(false);
@@ -47,6 +49,27 @@ export default function Employer() {
       }
     })();
   }, []);
+
+  // When a member is opened, load the interviews THEY personally scheduled
+  // (so owners/managers can see each recruiter's interview pipeline).
+  useEffect(() => {
+    if (!selectedMember) { setMemberInterviews(null); return; }
+    let cancelled = false;
+    setMemberInterviews(null);
+    (async () => {
+      try {
+        const data = await apiFetch("/api/evaluations/", { token: auth.token });
+        if (cancelled) return;
+        const list = (data || []).filter(
+          (ev) => ev.status === "interview_sent" && ev.action_made_by_user_id === selectedMember.id
+        );
+        setMemberInterviews(list);
+      } catch {
+        if (!cancelled) setMemberInterviews([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedMember, auth.token]);
 
   const handleApproveReject = async (userId, status) => {
     try {
@@ -95,7 +118,7 @@ export default function Employer() {
   );
 
   const pending = filtered.filter((m) => m.account_status === "pending");
-  const active  = filtered.filter((m) => ["active", "on_break", "on_leave"].includes(m.account_status));
+  const active  = filtered.filter((m) => ["active", "on_break", "on_leave", "offline"].includes(m.account_status));
 
   if (loading) {
     return (
@@ -218,9 +241,15 @@ export default function Employer() {
                       </p>
                       <span className="text-xs text-slate-400 font-medium">{member.role_name || "HRStaff"}</span>
                     </div>
-                    <span className="px-3 py-1 rounded-full text-[0.75rem] font-bold border-2 border-[#22a861] bg-[#22a861] text-white whitespace-nowrap">
-                      Active
-                    </span>
+                    {(() => {
+                      const st = getStatusMeta(member.account_status);
+                      return (
+                        <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[0.75rem] font-bold border whitespace-nowrap ${st.bg} ${st.text} ${st.border}`}>
+                          <span className={`w-2 h-2 rounded-full ${st.dot}`} />
+                          {st.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -239,6 +268,7 @@ export default function Employer() {
           onClose={() => { setSelectedMember(null); setShowDotsMenu(false); }}
           onOpenRoleModal={() => { setSelectedRole(selectedMember.role_name || "HRStaff"); setShowRoleModal(true); setShowDotsMenu(false); }}
           onOpenDeleteConfirm={() => { setShowDeleteConfirm(true); setShowDotsMenu(false); }}
+          interviewApplicants={memberInterviews}
         />
       )}
 

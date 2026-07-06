@@ -833,6 +833,45 @@ def auto_reject_threshold(request):
 
 @csrf_exempt
 @require_POST
+def create_meet_link(request):
+    """Ask n8n to create a real Google Meet link (via a Google Calendar event)
+    and return it. Requires a Google Calendar OAuth2 credential configured on the
+    'H!RE - Create Meet Link' workflow in n8n."""
+    try:
+        decode_token(request)  # auth required
+        data = json.loads(request.body)
+        interview_date = data.get("interview_date")
+        if not interview_date:
+            return JsonResponse({"error": "interview_date is required"}, status=400)
+
+        body = {
+            "applicant_name": data.get("applicant_name", "Applicant"),
+            "job_title":      data.get("job_title", ""),
+            "interview_date": interview_date,
+            "request_id":     str(uuid.uuid4()),
+        }
+        resp = requests.post(f"{settings.N8N_BASE_URL}/webhook/create-meet-link", json=body, timeout=20)
+        if not resp.ok:
+            return JsonResponse({"error": "Could not create a meeting link. Paste one manually."}, status=502)
+        try:
+            out = resp.json()
+        except ValueError:
+            out = {}
+        link = out.get("meet_link") or out.get("hangoutLink") or ""
+        if not link:
+            return JsonResponse({"error": "No meeting link was returned. Paste one manually."}, status=502)
+        return JsonResponse({"meet_link": link})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except requests.exceptions.RequestException:
+        return JsonResponse({"error": "Could not reach the meeting service."}, status=502)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
 def evaluate_resume(request):
     try:
         payload    = decode_token(request)
@@ -892,12 +931,21 @@ def evaluate_resume(request):
         n8n_response = requests.post(n8n_url, files=files, data=data, timeout=60)
 
         if not n8n_response.ok:
+            # A reachable n8n returning non-200 almost always means the AI flagged
+            # the upload as not-a-resume (the parse node throws). Genuine
+            # connectivity failures raise RequestException below instead.
             return JsonResponse(
-                {"error": f"Evaluation service error: {n8n_response.text}"},
-                status=502
+                {"error": "This file is not considered a Resume in our system."},
+                status=422
             )
 
-        result = n8n_response.json()
+        try:
+            result = n8n_response.json()
+        except ValueError:
+            return JsonResponse(
+                {"error": "This file is not considered a Resume in our system."},
+                status=422
+            )
 
         # Auto-reject: if the company set a minimum H!RE Score and this resume is
         # below it, mark the evaluation 'rejected' (not removed). The scheduled
@@ -1813,7 +1861,7 @@ def update_hr_status(request):
         data   = json.loads(request.body)
         status = data.get("status", "").strip()
 
-        if status not in ["active", "on_break", "on_leave"]:
+        if status not in ["active", "on_break", "on_leave", "offline"]:
             return JsonResponse({"error": "Invalid status"}, status=400)
 
         user = HRUser.objects.get(user_id=user_id)

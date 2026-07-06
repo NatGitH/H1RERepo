@@ -8,7 +8,11 @@ export const STATUS_OPTIONS = [
   { value: "active",   label: "Active",   dot: "bg-green-400",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" },
   { value: "on_break", label: "On Break", dot: "bg-orange-400", bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
   { value: "on_leave", label: "On Leave", dot: "bg-red-400",    bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200" },
+  { value: "offline",  label: "Offline",  dot: "bg-slate-400",  bg: "bg-slate-100", text: "text-slate-600",  border: "border-slate-300" },
 ];
+
+export const getStatusMeta = (value) =>
+  STATUS_OPTIONS.find((s) => s.value === value) || STATUS_OPTIONS[0];
 
 // ─────────────────────────────────────────────
 // ProfileOverlay — full member profile view
@@ -32,6 +36,7 @@ export function ProfileOverlay({
   onClose,
   onOpenRoleModal,
   onOpenDeleteConfirm,
+  interviewApplicants,
 }) {
   const currentStatus =
     STATUS_OPTIONS.find((s) => s.value === member.account_status) || STATUS_OPTIONS[0];
@@ -114,9 +119,9 @@ export function ProfileOverlay({
             )}
           </div>
 
-          {/* Bio */}
-          <div className="border-2 border-slate-200 rounded-[20px] p-6">
-            <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0">
+          {/* Bio — wraps long unbroken text and scrolls if very long */}
+          <div className="border-2 border-slate-200 rounded-[20px] p-6 max-h-[240px] overflow-y-auto">
+            <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
               {member.bio || "No bio available."}
             </p>
           </div>
@@ -129,18 +134,47 @@ export function ProfileOverlay({
           </button>
         </div>
 
-        {/* Right: Interview Applicants placeholder */}
+        {/* Right: Interviews scheduled by this member */}
         <div
-          className="bg-white rounded-[40px] p-8 flex flex-col"
+          className="bg-white rounded-[40px] p-8 flex flex-col min-h-0 max-h-[80vh]"
           style={{ border: "2px solid #0B2447", boxShadow: "6px 6px 0px #0B2447" }}
         >
           <div
-            className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-base tracking-wide self-start mb-6"
+            className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-base tracking-wide self-start mb-6 shrink-0"
             style={{ boxShadow: "3px 3px 0px #0B2447" }}
           >
             For Interview Applicants
           </div>
-          <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            {!interviewApplicants ? (
+              <p className="text-slate-400 text-sm">Loading applicants...</p>
+            ) : interviewApplicants.length === 0 ? (
+              <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {interviewApplicants.map((a) => (
+                  <div key={a.evaluation_id} className="flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5 text-[0.78rem] font-bold text-[#0B2447]">
+                      <span>💼</span> {a.job_title || "Untitled Requirement"}
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col gap-2">
+                      <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
+                        {a.applicant_name}
+                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
+                          H!RE Score: <span className="font-bold">{a.hire_score}%</span>
+                        </span>
+                        <span className="rounded-full px-3 py-1 text-[0.72rem] font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                          Interview Scheduled
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

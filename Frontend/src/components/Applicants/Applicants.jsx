@@ -207,10 +207,31 @@ export default function Applicants() {
     setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Online Meeting");
   };
 
-  // Generate a Google Meet–style link for the interview.
-  const createMeetLink = () => {
-    const seg = (n) => Math.random().toString(36).replace(/[^a-z]/g, "").padEnd(n, "x").slice(0, n);
-    setMeetingLink(`https://meet.google.com/${seg(3)}-${seg(4)}-${seg(3)}`);
+  // Create a real Google Meet link (n8n → Google Calendar event with a Meet).
+  const [creatingLink, setCreatingLink] = useState(false);
+  const createMeetLink = async () => {
+    if (!interviewDate) {
+      window.showAlert("Please choose the interview date and time first.");
+      return;
+    }
+    setCreatingLink(true);
+    try {
+      const data = await apiFetch("/api/create-meet-link/", {
+        method: "POST",
+        token: auth.token,
+        body: {
+          applicant_name: selected?.applicant_name || "Applicant",
+          job_title: selected?.job_title || "",
+          interview_date: new Date(interviewDate).toISOString(),
+        },
+      });
+      if (data?.meet_link) setMeetingLink(data.meet_link);
+      else throw new Error("No link returned");
+    } catch (err) {
+      window.showAlert(getErrorMessage(err, "Couldn't generate a Google Meet link. Please paste one manually."));
+    } finally {
+      setCreatingLink(false);
+    }
   };
 
   // Search by applicant NAME (and still allow job title). Interview-sent
@@ -690,8 +711,8 @@ export default function Applicants() {
             <div className="flex gap-2 mb-4">
               <input type="text" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder={meetingType === "Online Meeting" ? "Paste a link, or click Create Link" : "Office address"} className="flex-1 border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400" />
               {meetingType === "Online Meeting" && (
-                <button type="button" onClick={createMeetLink} className="shrink-0 bg-teal-400 hover:bg-teal-500 text-white font-bold rounded-lg px-3 text-xs border-none cursor-pointer whitespace-nowrap">
-                  Create Link
+                <button type="button" onClick={createMeetLink} disabled={creatingLink} className="shrink-0 bg-teal-400 hover:bg-teal-500 text-white font-bold rounded-lg px-3 text-xs border-none cursor-pointer whitespace-nowrap disabled:opacity-60">
+                  {creatingLink ? "Creating..." : "Create Link"}
                 </button>
               )}
             </div>

@@ -594,7 +594,7 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
                     key={plan.planType}
                     onClick={() => handleSelect(plan.planType)}
                     className={`text-left rounded-2xl p-5 flex flex-col bg-[#1a2e6b] text-white border-2 cursor-pointer transition-all ${
-                      isSelected ? "border-teal-400 scale-[1.02]" : "border-transparent"
+                      isSelected ? "border-teal-400 scale-[1.02]" : isCurrent ? "border-teal-500/60" : "border-transparent"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">

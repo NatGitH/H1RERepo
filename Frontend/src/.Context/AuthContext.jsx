@@ -1,8 +1,26 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { API_BASE_URL } from "../api";
 
 const AuthContext = createContext(null);
 
 const STORAGE_KEY = "hire_auth";
+
+// Only HR members have a presence status; owners/admins don't.
+const HR_ROLES = ["HRStaff", "HRManager"];
+
+// Fire-and-forget presence update. keepalive lets it complete even as the tab
+// is closing (used for the "offline" write on unload).
+function postStatus(token, role, status) {
+  if (!token || !HR_ROLES.includes(role)) return;
+  try {
+    fetch(`${API_BASE_URL}/api/profile/update-status/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch { /* ignore */ }
+}
 
 const defaultAuth = {
   token: null,
@@ -29,17 +47,35 @@ const loadAuth = () => {
 
 export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(loadAuth);
+  const authRef = useRef(auth);
+  authRef.current = auth;
 
   const login = (data) => {
+    const wasLoggedOut = !authRef.current.token;
     const newAuth = { ...defaultAuth, ...data };
     setAuth(newAuth);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newAuth));
+    // Mark active only on a real sign-in (not on profile-refresh re-calls that
+    // already had a token), so a manual On Break / On Leave isn't wiped out.
+    if (wasLoggedOut) postStatus(newAuth.token, newAuth.role, "active");
   };
 
   const logout = () => {
+    postStatus(authRef.current.token, authRef.current.role, "offline");
     setAuth(defaultAuth);
     localStorage.removeItem(STORAGE_KEY);
   };
+
+  // Presence: mark active when an HR session is (re)opened, and offline when the
+  // tab is closed/refreshed so they don't appear online after leaving.
+  useEffect(() => {
+    if (HR_ROLES.includes(authRef.current.role)) {
+      postStatus(authRef.current.token, authRef.current.role, "active");
+    }
+    const onLeave = () => postStatus(authRef.current.token, authRef.current.role, "offline");
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>

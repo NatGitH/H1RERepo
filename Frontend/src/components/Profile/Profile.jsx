@@ -38,6 +38,7 @@ const STATUS_OPTIONS = [
   { value: "active",   label: "Active",   dot: "bg-green-400",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" },
   { value: "on_break", label: "On Break", dot: "bg-orange-400", bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
   { value: "on_leave", label: "On Leave", dot: "bg-red-400",    bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200" },
+  { value: "offline",  label: "Offline",  dot: "bg-slate-400",  bg: "bg-slate-100", text: "text-slate-600",  border: "border-slate-300" },
 ];
 
 export default function Profile() {
@@ -357,7 +358,7 @@ export default function Profile() {
                         </button>
                         {showStatusMenu && (
                           <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-lg border border-slate-200 z-50 overflow-hidden min-w-[160px]">
-                            {STATUS_OPTIONS.filter((s) => s.value !== profile?.account_status).map((s) => (
+                            {STATUS_OPTIONS.filter((s) => s.value !== profile?.account_status && s.value !== "offline").map((s) => (
                               <button
                                 key={s.value}
                                 onClick={() => handleStatusChange(s.value)}
@@ -404,7 +405,7 @@ export default function Profile() {
                   </div>
 
                   {/* Bio */}
-                  <div className="border-2 border-slate-200 rounded-[20px] p-6">
+                  <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[120px] flex flex-col">
                     <textarea
                       value={profile?.bio || ""}
                       onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
@@ -418,7 +419,7 @@ export default function Profile() {
                         } catch (err) { console.error(err); }
                       }}
                       placeholder="Tell us about yourself..."
-                      className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
+                      className="w-full flex-1 min-h-0 overflow-y-auto text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none"
                     />
                   </div>
                 </>
@@ -495,7 +496,7 @@ export default function Profile() {
                   </div>
 
                   {/* Company description */}
-                  <div className="border-2 border-slate-200 rounded-[20px] p-6">
+                  <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[120px] flex flex-col">
                     <textarea
                       value={profile?.description || ""}
                       onChange={(e) => setProfile((prev) => ({ ...prev, description: e.target.value }))}
@@ -509,7 +510,7 @@ export default function Profile() {
                         } catch (err) { console.error(err); }
                       }}
                       placeholder="Tell applicants about your company..."
-                      className="w-full text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none min-h-[120px]"
+                      className="w-full flex-1 min-h-0 overflow-y-auto text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none"
                     />
                   </div>
                 </>

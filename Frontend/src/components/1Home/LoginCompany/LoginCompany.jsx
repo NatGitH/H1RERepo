@@ -25,6 +25,8 @@ export default function LoginCompany() {
       navigate("/Company-Home");
     } catch (err) {
       window.showAlert(getErrorMessage(err, "Company not found"));
+    } finally {
+      setLoading(false);
     }
   };
 

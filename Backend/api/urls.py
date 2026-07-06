@@ -57,6 +57,7 @@ urlpatterns = [
     path("evaluations/<uuid:evaluation_id>/status/", views.update_evaluation_status),
     path("evaluations/<uuid:evaluation_id>/remove/", views.remove_evaluation),
     path("auto-reject/", views.auto_reject_threshold),
+    path("create-meet-link/", views.create_meet_link),
 
     path("notifications/",           views.get_notifications),
     path("notifications/mark-read/", views.mark_notifications_read),

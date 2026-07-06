@@ -269,6 +269,17 @@ export default function Employer() {
           onOpenRoleModal={() => { setSelectedRole(selectedMember.role_name || "HRStaff"); setShowRoleModal(true); setShowDotsMenu(false); }}
           onOpenDeleteConfirm={() => { setShowDeleteConfirm(true); setShowDotsMenu(false); }}
           interviewApplicants={memberInterviews}
+          onRemoveInterview={async (evaluationId, reason) => {
+            try {
+              await apiFetch(`/api/evaluations/${evaluationId}/remove-interview/`, {
+                method: "POST", token: auth.token, body: { reason },
+              });
+              setMemberInterviews((prev) => (prev || []).filter((a) => a.evaluation_id !== evaluationId));
+              window.showAlert("Interview removed and the applicant was notified.", { type: "success" });
+            } catch (err) {
+              window.showAlert(getErrorMessage(err, "Failed to remove the interview."));
+            }
+          }}
         />
       )}
 

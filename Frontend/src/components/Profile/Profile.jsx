@@ -13,6 +13,7 @@ import {
 } from "./ProfileModals";
 import { apiFetch, getErrorMessage } from "../../api";
 import { checkFileSize } from "../../fileLimit";
+import RemoveInterviewModal from "../Functions/RemoveInterviewModal";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -79,6 +80,7 @@ export default function Profile() {
   const [loadingApplicants, setLoadingApplicants]     = useState(true);
   const [applicantsError, setApplicantsError]         = useState("");
   const [selectedInterview, setSelectedInterview]     = useState(null);
+  const [showRemoveInterview, setShowRemoveInterview] = useState(false);
 
   useEffect(() => {
     const endpoint = role === "owner" ? "/api/profile/owner/" : "/api/profile/hr/";
@@ -286,6 +288,23 @@ export default function Profile() {
 
   const currentStatus = STATUS_OPTIONS.find((s) => s.value === profile?.account_status) || STATUS_OPTIONS[0];
 
+  const handleRemoveInterview = async (reason) => {
+    if (!selectedInterview) return;
+    try {
+      await apiFetch(`/api/evaluations/${selectedInterview.evaluation_id}/remove-interview/`, {
+        method: "POST",
+        token: auth.token,
+        body: { reason },
+      });
+      setInterviewApplicants((prev) => prev.filter((a) => a.evaluation_id !== selectedInterview.evaluation_id));
+      setShowRemoveInterview(false);
+      setSelectedInterview(null);
+      window.showAlert("Interview removed and the applicant was notified.", { type: "success" });
+    } catch (err) {
+      window.showAlert(getErrorMessage(err, "Failed to remove the interview."));
+    }
+  };
+
   if (loading) {
     return (
       <section
@@ -408,7 +427,7 @@ export default function Profile() {
                   </div>
 
                   {/* Bio (max 500 chars) */}
-                  <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[120px] flex flex-col">
+                  <div className="border-2 border-slate-200 rounded-[20px] p-6 h-[300px] flex flex-col">
                     <textarea
                       value={profile?.bio || ""}
                       maxLength={500}
@@ -501,7 +520,7 @@ export default function Profile() {
                   </div>
 
                   {/* Company description (max 1,500 chars) */}
-                  <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[120px] flex flex-col">
+                  <div className="border-2 border-slate-200 rounded-[20px] p-6 h-[300px] flex flex-col">
                     <textarea
                       value={profile?.description || ""}
                       maxLength={1500}
@@ -660,8 +679,25 @@ export default function Profile() {
               )}
               <p className="text-slate-400 text-xs m-0">Handled by: {selectedInterview.action_made_by || "—"}</p>
             </div>
+            {/* Footer — cancel/remove this interview */}
+            <div className="px-6 py-4 border-t border-slate-200 shrink-0">
+              <button
+                onClick={() => setShowRemoveInterview(true)}
+                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer"
+              >
+                🗑 Remove Interview
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {selectedInterview && showRemoveInterview && (
+        <RemoveInterviewModal
+          applicantName={selectedInterview.applicant_name}
+          onCancel={() => setShowRemoveInterview(false)}
+          onConfirm={handleRemoveInterview}
+        />
       )}
 
       {/* ══ HR Modals ══ */}

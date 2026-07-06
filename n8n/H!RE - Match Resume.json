@@ -1,0 +1,286 @@
+{
+  "name": "H!RE - Match Resume",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "match-resume",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1872,
+        400
+      ],
+      "id": "aa000000-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "webhookId": "hire-match-resume"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9e969a98-b335-43f1-b51a-a4964c4266d9",
+              "leftValue": "={{ $binary.resume.mimeType }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        400
+      ],
+      "id": "945016e0-4374-4a78-94af-fe85b912d9ee",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1344,
+        384
+      ],
+      "id": "9b5eae70-1019-492b-bc10-cf8fce93ae7d",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b1a7c0de-0000-4000-8000-0000000000aa",
+              "leftValue": "={{ ($json.text || '').trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1180,
+        384
+      ],
+      "id": "b1a7c0de-0000-4000-8000-0000000000ab",
+      "name": "PDF has text?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.OCR_SPACE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "resume"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1344,
+        576
+      ],
+      "id": "e8156e11-6836-4497-af37-e28afe15435b",
+      "name": "Extract from Images"
+    },
+    {
+      "parameters": {
+        "jsCode": "// OCR.space returns ParsedResults[0].ParsedText; normalize to .text\nconst r = $input.first().json;\nconst text = (r.ParsedResults && r.ParsedResults[0] && r.ParsedResults[0].ParsedText) || r.text || '';\nreturn [{ json: { text }, binary: $input.first().binary }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        576
+      ],
+      "id": "8b5c0695-ad66-49bc-92e5-b9ae2ee0dcde",
+      "name": "Normalize OCR Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Score the resume against EVERY requirement and return the best-matching one.\nconst CAL_LO = 0.30, CAL_HI = 0.65;\nconst MODEL = 'sentence-transformers/all-MiniLM-L6-v2';\nconst MAX_CHUNKS = 40, MAX_LEN = 400, MAX_REQ_UNITS = 12;\nconst resumeText = String($input.first().json.text || '');\nlet reqs = [];\ntry { reqs = JSON.parse($('Webhook').first().json.body.requirements || '[]'); } catch (e) {}\n\nconst clean = (s) => String(s || '').replace(/\\s+/g, ' ').trim();\nconst splitUnits = (t) => String(t || '').split(/[\\r\\n;•·]+|(?<=[.!?])\\s+/).map(clean).filter((u) => u.length >= 8 && u.split(' ').length >= 2).map((u) => u.slice(0, MAX_LEN));\nconst cos = (a, b) => { let d = 0, na = 0, nb = 0; for (let i = 0; i < a.length; i++) { d += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; } return d / (Math.sqrt(na)*Math.sqrt(nb) || 1); };\nconst clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);\n\nlet resumeChunks = [...new Set(splitUnits(resumeText))].slice(0, MAX_CHUNKS);\nif (resumeChunks.length === 0) resumeChunks = [resumeText.slice(0, MAX_LEN) || ' '];\n\nconst reqUnitLists = reqs.map((r) => {\n  let u = [...splitUnits(r.qualifications), ...splitUnits(r.description)];\n  if (r.job_title) u.unshift(clean(r.job_title).slice(0, MAX_LEN));\n  return [...new Set(u)].slice(0, MAX_REQ_UNITS);\n});\nconst flatReqUnits = [];\nconst spans = [];\nreqUnitLists.forEach((list) => { const s = flatReqUnits.length; list.forEach((x) => flatReqUnits.push(x)); spans.push([s, flatReqUnits.length]); });\n\nlet best = { requirement_id: (reqs[0] && reqs[0].requirement_id) || null, score: 0 };\ntry {\n  const resp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `https://router.huggingface.co/hf-inference/models/${MODEL}/pipeline/feature-extraction`,\n    headers: { Authorization: `Bearer ${$env.HF_API_KEY}`, 'Content-Type': 'application/json' },\n    body: { inputs: [...resumeChunks, ...flatReqUnits], options: { wait_for_model: true } },\n    json: true,\n  });\n  const vecs = Array.isArray(resp[0][0]) ? resp.map((s) => { const dim = s[0].length, o = new Array(dim).fill(0); s.forEach((t) => t.forEach((x, i) => o[i] += x)); return o.map((x) => x / s.length); }) : resp;\n  const resVecs = vecs.slice(0, resumeChunks.length);\n  const reqVecsAll = vecs.slice(resumeChunks.length);\n  let bestScore = -1, bestId = best.requirement_id;\n  reqs.forEach((r, ri) => {\n    const [s, e] = spans[ri];\n    const rv = reqVecsAll.slice(s, e);\n    if (rv.length === 0) return;\n    const coverage = rv.map((v) => Math.max(...resVecs.map((cv) => cos(v, cv))));\n    let raw = coverage.reduce((a, b) => a + b, 0) / coverage.length;\n    if (CAL_HI > CAL_LO) raw = clamp((raw - CAL_LO) / (CAL_HI - CAL_LO), 0, 1);\n    const score = Math.round(clamp(raw * 100, 0, 100) * 100) / 100;\n    if (score > bestScore) { bestScore = score; bestId = r.requirement_id; }\n  });\n  best = { requirement_id: bestId, score: bestScore < 0 ? 0 : bestScore };\n} catch (e) {}\n\nreturn [{ json: { best_requirement_id: best.requirement_id, best_score: best.score } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        384
+      ],
+      "id": "aa000000-0000-4000-8000-000000000010",
+      "name": "Match Best Requirement",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { best_requirement_id: $json.best_requirement_id, best_score: $json.best_score } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -500,
+        384
+      ],
+      "id": "aa000000-0000-4000-8000-000000000011",
+      "name": "Respond"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "PDF has text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF has text?": {
+      "main": [
+        [
+          {
+            "node": "Match Best Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from Images": {
+      "main": [
+        [
+          {
+            "node": "Normalize OCR Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize OCR Text": {
+      "main": [
+        [
+          {
+            "node": "Match Best Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Best Requirement": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

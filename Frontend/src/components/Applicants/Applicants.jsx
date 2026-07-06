@@ -235,6 +235,30 @@ export default function Applicants() {
     }
   };
 
+  // View the resume inline (same approach as the admin document viewer): fetch as
+  // a typed blob so the browser opens it in a new tab instead of downloading it.
+  const guessMime = (url = "") => {
+    const u = url.toLowerCase();
+    if (/\.(jpg|jpeg)(\?|$)/.test(u)) return "image/jpeg";
+    if (/\.png(\?|$)/.test(u))  return "image/png";
+    if (/\.webp(\?|$)/.test(u)) return "image/webp";
+    if (/\.pdf(\?|$)/.test(u))  return "application/pdf";
+    return "application/octet-stream";
+  };
+  const viewResume = async (filePath) => {
+    if (!filePath) return;
+    const url = `https://${import.meta.env.VITE_SUPABASE_URL?.replace("https://", "")}/storage/v1/object/public/${filePath}`;
+    try {
+      const res = await fetch(url);
+      const buf = await res.arrayBuffer();
+      const blobUrl = URL.createObjectURL(new Blob([buf], { type: guessMime(filePath) }));
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   // Search by applicant NAME (and still allow job title). Interview-sent
   // applicants leave this list once the invite is sent (they live in the
   // Profile "For Interview" panel) — same idea as rejected ones disappearing.
@@ -363,15 +387,13 @@ export default function Applicants() {
                 >
                   Save
                 </button>
-                {autoReject !== "" && (
-                  <button
-                    onClick={() => saveAutoReject(true)}
-                    title="Turn off auto-reject"
-                    className="text-[0.7rem] font-bold text-slate-500 hover:text-red-500 bg-transparent border-none cursor-pointer px-1"
-                  >
-                    ✕
-                  </button>
-                )}
+                <button
+                  onClick={() => saveAutoReject(autoReject !== "")}
+                  title={autoReject !== "" ? "Auto-reject is on — click to disable" : "Auto-reject is off — click to enable"}
+                  className={`text-[0.7rem] font-bold text-white rounded-full px-2.5 py-0.5 border-none cursor-pointer ${autoReject !== "" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}`}
+                >
+                  {autoReject !== "" ? "Enabled" : "Disabled"}
+                </button>
               </div>
             )}
           </div>
@@ -515,7 +537,26 @@ export default function Applicants() {
                 No approved requirements found. Ask your manager to approve one first.
               </p>
             ) : (
-              <div className="flex flex-col gap-2 mb-4 max-h-[200px] overflow-y-auto">
+              <div className="flex flex-col gap-2 mb-4 max-h-[240px] overflow-y-auto">
+                {/* ✨ Auto Find Best Job Position — scores the resume against every
+                    approved requirement and files it under the best-matching one. */}
+                <label
+                  className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${
+                    selectedReqId === "auto"
+                      ? "border-teal-400 bg-teal-50"
+                      : "border-slate-200 hover:border-teal-200"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="requirement"
+                    value="auto"
+                    checked={selectedReqId === "auto"}
+                    onChange={() => setSelectedReqId("auto")}
+                    className="accent-teal-400"
+                  />
+                  <span className="text-sm font-bold text-[#0B2447]">✨ Auto Find Best Job Position</span>
+                </label>
                 {requirements.map((req) => (
                   <label
                     key={req.id}
@@ -594,14 +635,12 @@ export default function Applicants() {
                   )}
                 </div>
                 <div className="self-start">
-                  <a
-                    href={`https://${import.meta.env.VITE_SUPABASE_URL?.replace("https://", "")}/storage/v1/object/public/${selected.file_path}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 bg-teal-400 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer block text-center"
+                  <button
+                    onClick={() => viewResume(selected.file_path)}
+                    className="mt-2 bg-teal-400 hover:bg-teal-500 text-white text-xs font-bold rounded-full px-3 py-1 border-none cursor-pointer block text-center"
                   >
                     View
-                  </a>
+                  </button>
                 </div>
               </div>
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import RemoveInterviewModal from "../Functions/RemoveInterviewModal";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -43,10 +44,12 @@ export function ProfileOverlay({
   onOpenRoleModal,
   onOpenDeleteConfirm,
   interviewApplicants,
+  onRemoveInterview,
 }) {
   const currentStatus =
     STATUS_OPTIONS.find((s) => s.value === member.account_status) || STATUS_OPTIONS[0];
   const [selectedInterview, setSelectedInterview] = useState(null);
+  const [showRemoveInterview, setShowRemoveInterview] = useState(false);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
@@ -126,8 +129,8 @@ export function ProfileOverlay({
             )}
           </div>
 
-          {/* Bio — fills remaining height, wraps long unbroken text, scrolls if long */}
-          <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-0 overflow-y-auto">
+          {/* Bio — fixed height, wraps long unbroken text, scrolls if long */}
+          <div className="border-2 border-slate-200 rounded-[20px] p-6 h-[300px] overflow-y-auto shrink-0">
             <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
               {member.bio || "No bio available."}
             </p>
@@ -256,8 +259,30 @@ export function ProfileOverlay({
                 </div>
               )}
             </div>
+            {onRemoveInterview && (
+              <div className="px-6 py-4 border-t border-slate-200 shrink-0">
+                <button
+                  onClick={() => setShowRemoveInterview(true)}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer"
+                >
+                  🗑 Remove Interview
+                </button>
+              </div>
+            )}
           </div>
         </div>
+      )}
+
+      {selectedInterview && showRemoveInterview && (
+        <RemoveInterviewModal
+          applicantName={selectedInterview.applicant_name}
+          onCancel={() => setShowRemoveInterview(false)}
+          onConfirm={async (reason) => {
+            await onRemoveInterview(selectedInterview.evaluation_id, reason);
+            setShowRemoveInterview(false);
+            setSelectedInterview(null);
+          }}
+        />
       )}
     </div>
   );

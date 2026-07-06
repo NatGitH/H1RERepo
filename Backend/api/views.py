@@ -99,6 +99,15 @@ def decode_token(request):
     token = auth_header.replace("Bearer ", "").strip()
     return jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
 
+def fmt_ph(dt):
+    """Format a datetime in Philippine time (UTC+8) as MM/DD/YYYY HH:MM AM/PM."""
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    ph = dt.astimezone(datetime.timezone(datetime.timedelta(hours=8)))
+    return ph.strftime("%m/%d/%Y %I:%M %p")
+
 # LOGINS
 # --------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
@@ -900,6 +909,37 @@ def evaluate_resume(request):
         if not requirement_id:
             return JsonResponse({"error": "No requirement selected"}, status=400)
 
+        # Read the bytes once so we can reuse them (auto-match + evaluate).
+        resume_bytes = resume_file.read()
+
+        # ✨ Auto Find Best Job Position: score the resume against every approved
+        # requirement (via the Match Resume workflow) and pick the best fit.
+        if requirement_id == "auto":
+            approved = JobRequirement.objects.filter(
+                company_id=company_id, is_deleted=False, current_status="approved")
+            reqs_payload = [{
+                "requirement_id": str(r.requirement_id),
+                "job_title":      r.job_title,
+                "description":    r.description,
+                "qualifications": r.qualifications,
+            } for r in approved]
+            if not reqs_payload:
+                return JsonResponse({"error": "No approved requirements to match against."}, status=400)
+            try:
+                match_resp = requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/match-resume",
+                    files={"resume": (resume_file.name, resume_bytes, resume_file.content_type)},
+                    data={"requirements": json.dumps(reqs_payload)},
+                    timeout=90,
+                )
+                best_id = match_resp.json().get("best_requirement_id") if match_resp.ok else None
+            except Exception as match_err:
+                print("auto-match error:", match_err)
+                best_id = None
+            if not best_id:
+                return JsonResponse({"error": "Could not auto-match this file to a position. Please pick one manually."}, status=502)
+            requirement_id = best_id
+
         # Get the job requirement from DB
         req = JobRequirement.objects.get(
             requirement_id=requirement_id,
@@ -930,7 +970,7 @@ def evaluate_resume(request):
         n8n_url = getattr(settings, "N8N_EVALUATE_WEBHOOK_URL", "http://localhost:5678/webhook/evaluate-resume")
 
         files = {
-            "resume": (resume_file.name, resume_file.read(), resume_file.content_type),
+            "resume": (resume_file.name, resume_bytes, resume_file.content_type),
         }
         data = {
             "requirement_id":      str(req.requirement_id),
@@ -1350,6 +1390,99 @@ def remove_evaluation(request, evaluation_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+@csrf_exempt
+@require_POST
+def remove_interview(request, evaluation_id):
+    """Cancel a scheduled interview AND remove the applicant. Emails the applicant
+    that their interview was cancelled (with the interviewer's reason) and records
+    a permanent audit entry."""
+    try:
+        payload    = decode_token(request)
+        user_id    = payload.get("user_id")
+        company_id = payload.get("company_id")
+        data       = json.loads(request.body)
+        reason     = (data.get("reason") or "").strip()
+
+        from supabase import create_client
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+        ev = sb.table("Evaluations").select("resume_id, requirement_id").eq(
+            "evaluation_id", str(evaluation_id)).execute().data
+        if not ev:
+            return JsonResponse({"error": "Not found"}, status=404)
+
+        req_id = ev[0].get("requirement_id")
+        # Security: the evaluation must belong to the caller's company.
+        if not JobRequirement.objects.filter(requirement_id=req_id, company_id=company_id).exists():
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        resume_id    = ev[0].get("resume_id")
+        applicant_id = None
+        file_path    = None
+        appl_name, appl_email = "Applicant", ""
+        if resume_id:
+            res = sb.table("Resumes").select("applicant_id, file_path").eq("resume_id", resume_id).execute().data
+            if res:
+                applicant_id = res[0].get("applicant_id")
+                file_path    = res[0].get("file_path")
+                if applicant_id:
+                    appl = sb.table("Applicants").select("full_name, email").eq("applicant_id", applicant_id).execute().data
+                    if appl:
+                        appl_name  = appl[0].get("full_name") or "Applicant"
+                        appl_email = appl[0].get("email") or ""
+
+        req_obj      = JobRequirement.objects.filter(requirement_id=req_id).first() if req_id else None
+        job_title    = req_obj.job_title if req_obj else ""
+        comp_obj     = Company.objects.filter(company_id=req_obj.company_id).first() if req_obj else None
+        company_name = comp_obj.company_name if comp_obj else ""
+
+        # Email the applicant BEFORE deleting the rows (guarded: never 500s).
+        try:
+            if appl_email and "@" in appl_email and "placeholder" not in appl_email:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/interview-cancelled",
+                    json={
+                        "email":        appl_email,
+                        "full_name":    appl_name,
+                        "job_title":    job_title,
+                        "company_name": company_name,
+                        "reason":       reason,
+                    },
+                    timeout=5,
+                )
+        except Exception as n8n_err:
+            print("interview cancelled email error:", n8n_err)
+
+        # Delete interview + evaluation + resume + applicant (full removal).
+        Interview.objects.filter(evaluation_id=evaluation_id).delete()
+        sb.table("Evaluation_Pros").delete().eq("evaluation_id", str(evaluation_id)).execute()
+        sb.table("Evaluation_Cons").delete().eq("evaluation_id", str(evaluation_id)).execute()
+        sb.table("Evaluations").delete().eq("evaluation_id", str(evaluation_id)).execute()
+        if resume_id:
+            sb.table("Resumes").delete().eq("resume_id", resume_id).execute()
+        if applicant_id:
+            sb.table("Applicants").delete().eq("applicant_id", applicant_id).execute()
+        if file_path:
+            try:
+                bucket, _, path = file_path.partition("/")
+                if bucket and path:
+                    sb.storage.from_(bucket).remove([path])
+            except Exception as storage_err:
+                print("resume storage cleanup error:", storage_err)
+
+        # AUDIT (permanent).
+        log_audit(company_id=company_id, action_type="INTERVIEW_REMOVED",
+                  message=f"{get_user_fullname(user_id)} removed the interview for {appl_name}" + (f" — reason: {reason}" if reason else ""),
+                  performed_by_user_id=user_id, applicant_id=applicant_id, requirement_id=req_id)
+
+        return JsonResponse({"message": "Interview removed"})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 # Employer
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -1759,6 +1892,11 @@ def requirement_detail(request, req_id):
                 req.modified_by_user_id = user_id
                 req.pending_changes     = None
                 req.save()
+                # AUDIT (permanent) — a direct edit. No notification for edits.
+                log_audit(company_id=payload.get("company_id"),
+                          action_type="REQUIREMENT_MODIFIED",
+                          message=f"{get_user_fullname(user_id)} modified the requirement '{req.job_title}'",
+                          performed_by_user_id=user_id, requirement_id=req.requirement_id)
                 return JsonResponse({
                     "id":             str(req.requirement_id),
                     "job_title":      req.job_title,
@@ -1819,6 +1957,10 @@ def requirement_detail(request, req_id):
             company_id_from_token = payload.get("company_id")
             actor = get_user_fullname(user_id)
             ApprovalRequirement.objects.filter(requirement_id=req.requirement_id).delete()
+            # Audit rows reference this requirement via FK. Detach them (keep the
+            # audit — its company scope lives in action_details) so the delete
+            # doesn't violate Audit_Logs_requirement_id_fkey.
+            AuditLog.objects.filter(requirement_id=req.requirement_id).update(requirement_id=None)
             req.delete()
 
             # Notify the company (owner) + managers that a requirement was deleted,
@@ -2468,7 +2610,7 @@ def get_notifications(request):
                 "title":    n.title,
                 "message":  n.message,
                 "is_read":  n.is_read,
-                "created_at": n.created_at.strftime("%m/%d/%Y %I:%M %p"),
+                "created_at": fmt_ph(n.created_at),
             }
             for n in notifs
         ]
@@ -2560,7 +2702,7 @@ def get_audit_logs(request):
                 "action_type":  lg.action_type,
                 "details":      (lg.action_details or "").replace(marker, "", 1).strip(),
                 "performed_by": get_user_fullname(lg.performed_by_user_id),
-                "created_at":   lg.created_at.strftime("%m/%d/%Y %I:%M %p"),
+                "created_at":   fmt_ph(lg.created_at),
             }
             for lg in logs
         ]

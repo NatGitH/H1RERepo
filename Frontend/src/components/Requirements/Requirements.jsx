@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import SearchIcon from "@mui/icons-material/Search";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useAuth } from "../../.Context/AuthContext";
 import { apiFetch, getErrorMessage } from "../../api";
 
@@ -212,6 +213,7 @@ export default function Requirements() {
   const [modalReq, setModalReq]         = useState(null);
   const [approvedPage, setApprovedPage] = useState(1);
   const [allPage, setAllPage]           = useState(1);
+  const [reqSort, setReqSort]           = useState("default"); // default | az | za
 
   const autoApprove = role === "owner" || role === "HRManager";
 
@@ -304,6 +306,11 @@ export default function Requirements() {
   const pending   = filtered(requirements.filter((r) => ["pending", "changes_pending", "deletion_pending"].includes(r.status)));
   const approved  = filtered(requirements.filter((r) => r.status === "approved"));
   const all       = filtered(requirements);
+  const sortReqs  = (list) => {
+    if (reqSort === "az") return [...list].sort((a, b) => (a.job_title || "").localeCompare(b.job_title || ""));
+    if (reqSort === "za") return [...list].sort((a, b) => (b.job_title || "").localeCompare(a.job_title || ""));
+    return list;
+  };
   const resetForm = () => { setShowForm(false); setNewReq({ job_title: "", description: "", qualifications: "" }); };
 
   // Paginate helper
@@ -346,11 +353,25 @@ return (
           style={{ boxShadow: "3px 3px 0px #0B2447" }}>
           Requirements
         </div>
-        <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">
-          <input type="search" placeholder="Search" value={search}
-            onChange={(e) => { setSearch(e.target.value); setApprovedPage(1); setAllPage(1); }}
-            className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400" />
-          <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <select
+              value={reqSort}
+              onChange={(e) => setReqSort(e.target.value)}
+              className="appearance-none border-2 border-[#0B2447] rounded-full pl-4 pr-10 py-2 text-sm font-semibold text-[#0B2447] bg-white outline-none cursor-pointer"
+            >
+              <option value="default">Sort: Default</option>
+              <option value="az">Name (A–Z)</option>
+              <option value="za">Name (Z–A)</option>
+            </select>
+            <KeyboardArrowDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#0B2447]" style={{ fontSize: 20 }} />
+          </div>
+          <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">
+            <input type="search" placeholder="Search" value={search}
+              onChange={(e) => { setSearch(e.target.value); setApprovedPage(1); setAllPage(1); }}
+              className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400" />
+            <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+          </div>
         </div>
       </div>
 
@@ -373,7 +394,7 @@ return (
                   {all.length} Requirement(s) · Page {allPage} of {Math.ceil(all.length / ITEMS_PER_PAGE)}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {paginate(all, allPage).map((req) => (
+                  {paginate(sortReqs(all), allPage).map((req) => (
                     <ReqCard key={req.id} req={req} showActions={false} onClick={() => setModalReq(req)} />
                   ))}
                 </div>
@@ -418,7 +439,7 @@ return (
                   Approved ({approved.length}) · Page {approvedPage} of {Math.ceil(approved.length / ITEMS_PER_PAGE)}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {paginate(approved, approvedPage).map((req) => (
+                  {paginate(sortReqs(approved), approvedPage).map((req) => (
                     <ReqCard key={req.id} req={req} showActions={false} onClick={() => setModalReq(req)} />
                   ))}
                 </div>

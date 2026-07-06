@@ -44,6 +44,8 @@ export default function Navbar() {
   const AUDIT_TITLE = {
     REQUIREMENT_APPROVED: "Requirement Approved",
     REQUIREMENT_REJECTED: "Requirement Rejected",
+    REQUIREMENT_MODIFIED: "Requirement Modified",
+    INTERVIEW_REMOVED:    "Interview Removed",
     INTERVIEW_SENT:       "Interview Sent",
     ROLE_CHANGED:         "Role Changed",
     EMPLOYER_APPROVED:    "Employer Approved",
@@ -193,11 +195,12 @@ export default function Navbar() {
 
         {/* Logo + Bell */}
         <div className="flex items-center gap-2 shrink-0 h-full">
-          <div
-            className="text-white no-underline font-extrabold text-3xl tracking-tight flex items-center h-full"
+          <Link
+            to="/"
+            className="text-white no-underline font-extrabold text-3xl tracking-tight flex items-center h-full cursor-pointer"
           >
             H<span className="text-sky-400">!</span>RE
-          </div>
+          </Link>
           <button
             onClick={() => setShowNotifs((v) => !v)}
             className="relative w-11 h-11 rounded-full bg-teal-400 flex items-center justify-center text-white border-none cursor-pointer hover:bg-teal-300 transition-colors"

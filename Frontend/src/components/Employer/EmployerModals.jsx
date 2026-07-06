@@ -9,7 +9,7 @@ const UserIcon = () => (
 
 // H!RE Score bands, kept in sync with Applicants/Profile.
 const scoreColor = (score) =>
-  score >= 85 ? "text-green-500" : score >= 65 ? "text-lime-500" : score >= 50 ? "text-yellow-500" : "text-red-500";
+  score >= 80 ? "text-green-500" : score >= 60 ? "text-lime-500" : score >= 45 ? "text-yellow-500" : "text-red-500";
 
 export const STATUS_OPTIONS = [
   { value: "active",   label: "Active",   dot: "bg-green-400",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" },

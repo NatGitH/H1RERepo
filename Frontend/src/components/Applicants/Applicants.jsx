@@ -310,12 +310,12 @@ export default function Applicants() {
     setSelected(sortedApplicants[newIdx]);
   };
 
-  // H!RE Score bands: ≥85 Strong (green) · ≥65 Good (yellow-green) ·
-  // ≥50 Moderate (yellow) · else Weak (red).
+  // H!RE Score bands: ≥80 Strong (green) · ≥60 Good (yellow-green) ·
+  // ≥45 Decent (yellow) · else Weak (red).
   const scoreColor = (score) =>
-    score >= 85 ? "text-green-500"
-    : score >= 65 ? "text-lime-500"
-    : score >= 50 ? "text-yellow-500"
+    score >= 80 ? "text-green-500"
+    : score >= 60 ? "text-lime-500"
+    : score >= 45 ? "text-yellow-500"
     : "text-red-500";
 
   return (
@@ -356,16 +356,16 @@ export default function Applicants() {
                 </p>
                 <div className="flex flex-col gap-1">
                   <span className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> <b>85–100</b> — Strong fit
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> <b>80–100</b> — Strong fit
                   </span>
                   <span className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-lime-500 inline-block" /> <b>65–84</b> — Good fit, minor gaps
+                    <span className="w-2.5 h-2.5 rounded-full bg-lime-500 inline-block" /> <b>60–79</b> — Good fit, minor gaps
                   </span>
                   <span className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block" /> <b>50–64</b> — Moderate, notable gaps
+                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block" /> <b>45–59</b> — Decent, evident gaps
                   </span>
                   <span className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> <b>0–49</b> — Weak fit
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> <b>0–44</b> — Weak fit
                   </span>
                 </div>
               </div>
@@ -482,8 +482,9 @@ export default function Applicants() {
                       <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
                     </div>
                     <div className="flex flex-col gap-2">
+                      {/* TEMP (score calibration): show resume filename instead of applicant name. Revert to {applicant.applicant_name || "Unknown Applicant"} when done. */}
                       <span className="bg-slate-100 border border-slate-300 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a] truncate max-w-[140px]">
-                        {applicant.applicant_name || "Unknown Applicant"}
+                        {applicant.file_name || applicant.applicant_name || "Unknown Applicant"}
                       </span>
                       <span className="bg-slate-100 border border-slate-300 rounded-full px-3 py-1 text-xs font-semibold text-[#0f172a]">
                         H!RE Score:{" "}
@@ -618,8 +619,9 @@ export default function Applicants() {
                   <PersonIcon style={{ fontSize: 40, color: "#94a3b8" }} />
                 </div>
                 <div className="flex flex-col gap-2 flex-1">
+                  {/* TEMP (score calibration): show resume filename instead of applicant name. Revert to {selected.applicant_name || "Unknown Applicant"} when done. */}
                   <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a] truncate">
-                    {selected.applicant_name || "Unknown Applicant"}
+                    {selected.file_name || selected.applicant_name || "Unknown Applicant"}
                   </span>
                   <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1.5 text-sm font-semibold text-[#0f172a]">
                     H!RE Score:{" "}

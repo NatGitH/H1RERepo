@@ -27,12 +27,12 @@ const CompanyIcon = () => (
   </svg>
 );
 
-// H!RE Score bands: ≥85 Strong (green) · ≥65 Good (yellow-green) ·
-// ≥50 Moderate (yellow) · else Weak (red). Kept in sync with Applicants.jsx.
+// H!RE Score bands: ≥80 Strong (green) · ≥60 Good (yellow-green) ·
+// ≥45 Decent (yellow) · else Weak (red). Kept in sync with Applicants.jsx.
 const scoreColor = (score) =>
-  score >= 85 ? "text-green-500"
-  : score >= 65 ? "text-lime-500"
-  : score >= 50 ? "text-yellow-500"
+  score >= 80 ? "text-green-500"
+  : score >= 60 ? "text-lime-500"
+  : score >= 45 ? "text-yellow-500"
   : "text-red-500";
 
 const STATUS_OPTIONS = [

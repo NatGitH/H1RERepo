@@ -116,7 +116,7 @@ export default function LoginHRAccount() {
           </p>
           <p>
             <button
-              onClick={() => navigate("/HR-Forgot-Password")}
+              onClick={() => { sessionStorage.setItem("pwreset_origin", "/Login-Company"); navigate("/HR-Forgot-Password"); }}
               className="cursor-pointer text-blue-600 hover:underline font-medium"
             >
               Forgot Password?

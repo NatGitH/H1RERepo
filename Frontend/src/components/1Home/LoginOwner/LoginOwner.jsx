@@ -92,7 +92,7 @@ export default function LoginOwner() {
             <div className="text-right mt-1">
               <button
                 type="button"
-                onClick={() => navigate("/HR-Forgot-Password")}
+                onClick={() => { sessionStorage.setItem("pwreset_origin", "/Login-Owner"); navigate("/HR-Forgot-Password"); }}
                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-transparent border-none cursor-pointer p-0"
               >
                 Forgot Password?

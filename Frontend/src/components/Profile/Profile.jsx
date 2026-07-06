@@ -12,6 +12,7 @@ import {
   ManageSubscriptionModal,
 } from "./ProfileModals";
 import { apiFetch, getErrorMessage } from "../../api";
+import { checkFileSize } from "../../fileLimit";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -149,7 +150,7 @@ export default function Profile() {
 
   const handlePicFileChange = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!file || !checkFileSize(file)) return;
     setNewPicFile(file);
     const reader = new FileReader();
     reader.onload = () => setNewPicPreview(reader.result);
@@ -159,7 +160,7 @@ export default function Profile() {
   const handleDrop = (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (!file) return;
+    if (!file || !checkFileSize(file)) return;
     setNewPicFile(file);
     const reader = new FileReader();
     reader.onload = () => setNewPicPreview(reader.result);
@@ -210,7 +211,7 @@ export default function Profile() {
 
   const handleLogoFileChange = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!file || !checkFileSize(file)) return;
     setNewLogoFile(file);
     const reader = new FileReader();
     reader.onload = () => setNewLogoPreview(reader.result);
@@ -220,7 +221,7 @@ export default function Profile() {
   const handleLogoDrop = (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (!file) return;
+    if (!file || !checkFileSize(file)) return;
     setNewLogoFile(file);
     const reader = new FileReader();
     reader.onload = () => setNewLogoPreview(reader.result);

@@ -30,6 +30,7 @@ urlpatterns = [
     path("profile/request-plan-change/", views.request_plan_change),
     path("admin/plans/pending/",         views.admin_get_pending_plans),
     path("admin/plans/approve-reject/",  views.admin_approve_reject_plan),
+    path("admin/plans/set/",             views.admin_set_subscription),
     
     path("auth/forgot-password/",   views.forgot_password),
     path("auth/send-reset-code/",   views.send_reset_code),
@@ -55,6 +56,7 @@ urlpatterns = [
     path("evaluations/", views.get_evaluations),
     path("evaluations/<uuid:evaluation_id>/status/", views.update_evaluation_status),
     path("evaluations/<uuid:evaluation_id>/remove/", views.remove_evaluation),
+    path("auto-reject/", views.auto_reject_threshold),
 
     path("notifications/",           views.get_notifications),
     path("notifications/mark-read/", views.mark_notifications_read),

@@ -299,11 +299,24 @@ def delete_employer(request):
         payload = decode_token(request)
         role    = payload.get("role")
 
-        if role != "owner":
-            return JsonResponse({"error": "Only owners can delete employers"}, status=403)
+        # Owners and HR Managers can delete employers.
+        if role not in ["owner", "HRManager"]:
+            return JsonResponse({"error": "Only owners and HR managers can delete employers"}, status=403)
 
         data    = json.loads(request.body)
         user_id = data.get("user_id", "").strip()
+
+        # Identify who is performing the deletion (email + role) — this is shown
+        # in the notification email to the deleted employer.
+        if role == "owner":
+            comp = Company.objects.filter(company_id=payload.get("company_id")).first()
+            deleter_email = comp.owner_email if comp else ""
+            deleter_role  = "Owner"
+        else:
+            actor = HRUser.objects.filter(user_id=payload.get("user_id")).first()
+            deleter_email = actor.email if actor else ""
+            deleter_role  = "HR Manager"
+        deleted_by = f"{deleter_email} ({deleter_role})" if deleter_email else deleter_role
 
         user = HRUser.objects.get(user_id=user_id)
         deleted_email = user.email
@@ -315,7 +328,7 @@ def delete_employer(request):
             if deleted_email:
                 requests.post(
                     f"{settings.N8N_BASE_URL}/webhook/employer-deleted",
-                    json={"email": deleted_email, "name": deleted_name},
+                    json={"email": deleted_email, "name": deleted_name, "deleted_by": deleted_by},
                     timeout=5,
                 )
         except Exception as n8n_err:
@@ -751,6 +764,73 @@ def reset_password(request):
 # --------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
 
+def get_auto_reject_threshold(company_id):
+    """The company's auto-reject minimum H!RE Score, or None if not set.
+    Stored as a Notification row (type 'auto_reject_threshold') because the DB
+    schema is frozen — same key/value-in-Notifications trick as plan changes."""
+    n = Notification.objects.filter(
+        recipient_company_id=company_id,
+        notification_type="auto_reject_threshold",
+    ).order_by("-created_at").first()
+    if not n:
+        return None
+    try:
+        return float(n.message)
+    except (TypeError, ValueError):
+        return None
+
+
+@csrf_exempt
+def auto_reject_threshold(request):
+    """GET returns the company's auto-reject threshold; POST (owner/manager) sets
+    or clears it. Applicants scoring below the threshold are auto-rejected."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+        if not company_id:
+            return JsonResponse({"error": "No company"}, status=400)
+
+        if request.method == "GET":
+            return JsonResponse({"threshold": get_auto_reject_threshold(company_id)})
+
+        if role not in ["owner", "HRManager"]:
+            return JsonResponse({"error": "Only owners and HR managers can set auto-reject"}, status=403)
+
+        data = json.loads(request.body)
+        raw  = data.get("threshold", None)
+
+        # Clear the existing setting first (single value per company).
+        Notification.objects.filter(
+            recipient_company_id=company_id,
+            notification_type="auto_reject_threshold",
+        ).delete()
+
+        if raw is None or raw == "":
+            return JsonResponse({"threshold": None, "message": "Auto-reject disabled"})
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Threshold must be a number"}, status=400)
+        if val < 0 or val > 100:
+            return JsonResponse({"error": "Threshold must be between 0 and 100"}, status=400)
+
+        Notification.objects.create(
+            notification_id=uuid.uuid4(),
+            recipient_company_id=company_id,
+            notification_type="auto_reject_threshold",
+            title="Auto-Reject Threshold",
+            message=str(val),
+            is_read=True,  # config value, not a user-facing alert
+        )
+        return JsonResponse({"threshold": val, "message": "Auto-reject threshold set"})
+
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @csrf_exempt
 @require_POST
 def evaluate_resume(request):
@@ -818,6 +898,26 @@ def evaluate_resume(request):
             )
 
         result = n8n_response.json()
+
+        # Auto-reject: if the company set a minimum H!RE Score and this resume is
+        # below it, mark the evaluation 'rejected' (not removed). The scheduled
+        # reject workflow then emails the applicant + cleans up after the grace
+        # period. Guarded so a failure never breaks the evaluation response.
+        try:
+            threshold = get_auto_reject_threshold(company_id)
+            score     = result.get("hire_score")
+            eval_id   = result.get("evaluation_id")
+            if threshold is not None and eval_id is not None and score is not None and float(score) < float(threshold):
+                from supabase import create_client
+                sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+                sb.table("Evaluations").update({
+                    "application_status": "rejected",
+                    "rejected_at":        datetime.datetime.utcnow().isoformat(),
+                }).eq("evaluation_id", str(eval_id)).execute()
+                result["auto_rejected"] = True
+        except Exception as ar_err:
+            print("auto-reject error:", ar_err)
+
         return JsonResponse(result, status=201)
 
     except JobRequirement.DoesNotExist:
@@ -1040,22 +1140,36 @@ def update_evaluation_status(request, evaluation_id):
                 req_obj   = JobRequirement.objects.filter(requirement_id=ev.get("requirement_id")).first() if ev.get("requirement_id") else None
                 req       = {"job_title": req_obj.job_title, "company_id": str(req_obj.company_id)} if req_obj else {}
                 comp_obj  = Company.objects.filter(company_id=req.get("company_id")).first() if req.get("company_id") else None
-                comp      = {"company_name": comp_obj.company_name} if comp_obj else {}
+                comp      = {"company_name": comp_obj.company_name, "owner_email": comp_obj.owner_email} if comp_obj else {}
+
+                # Who scheduled this interview (the interviewer). Owners have no
+                # Users row → fall back to the company owner email.
+                interviewer_name = get_user_fullname(user_id)
+                if user_id:
+                    iu = HRUser.objects.filter(user_id=user_id).first()
+                    interviewer_email = iu.email if iu else ""
+                else:
+                    interviewer_email = comp.get("owner_email", "")
+                # CC both the company and the interviewer on the invitation.
+                cc_list = [e for e in [comp.get("owner_email", ""), interviewer_email] if e and "@" in e]
+                cc_value = ",".join(sorted(set(cc_list)))
 
                 recipient = (appl.get("email") or "").strip()
                 if recipient and "@" in recipient and "placeholder" not in recipient:
                     requests.post(
                         f"{settings.N8N_BASE_URL}/webhook/interview-invitation",
                         json={
-                            "email":          recipient,
-                            "full_name":      appl.get("full_name") or "Applicant",
-                            "job_title":      req.get("job_title", ""),
-                            "company_name":   comp.get("company_name", ""),
-                            "hire_score":     float(ev.get("hire_score") or 0),
-                            "interview_date": date_display,
-                            "meeting_type":   meeting_type,
-                            "meeting_link":   meeting_link,
-                            "message":        message,
+                            "email":            recipient,
+                            "cc":               cc_value,
+                            "full_name":        appl.get("full_name") or "Applicant",
+                            "job_title":        req.get("job_title", ""),
+                            "company_name":     comp.get("company_name", ""),
+                            "interviewer_name": interviewer_name,
+                            "hire_score":       float(ev.get("hire_score") or 0),
+                            "interview_date":   date_display,
+                            "meeting_type":     meeting_type,
+                            "meeting_link":     meeting_link,
+                            "message":          message,
                         },
                         timeout=5,
                     )
@@ -1570,8 +1684,41 @@ def requirement_detail(request, req_id):
         if request.method == "DELETE":
             if role == "HRStaff":
                 return JsonResponse({"error": "Forbidden"}, status=403)
+            deleted_title = req.job_title
+            company_id_from_token = payload.get("company_id")
+            actor = get_user_fullname(user_id)
             ApprovalRequirement.objects.filter(requirement_id=req.requirement_id).delete()
             req.delete()
+
+            # Notify the company (owner) + managers that a requirement was deleted,
+            # and by whom. Guarded so a notification failure never blocks the delete.
+            try:
+                Notification.objects.create(
+                    notification_id=uuid.uuid4(),
+                    recipient_company_id=company_id_from_token,
+                    notification_type="requirement_deleted",
+                    title="Requirement Deleted",
+                    message=f"'{deleted_title}' was deleted by {actor}.",
+                    is_read=False,
+                )
+                managers = HRUser.objects.filter(
+                    company_id=company_id_from_token,
+                    role_id__in=Roles.objects.filter(role_name="HRManager").values_list("role_id", flat=True)
+                )
+                for mgr in managers:
+                    if str(mgr.user_id) == str(user_id):
+                        continue  # don't notify the manager who did the deleting
+                    Notification.objects.create(
+                        notification_id=uuid.uuid4(),
+                        recipient_user_id=mgr.user_id,
+                        notification_type="requirement_deleted",
+                        title="Requirement Deleted",
+                        message=f"'{deleted_title}' was deleted by {actor}.",
+                        is_read=False,
+                    )
+            except Exception as notif_err:
+                print("requirement deleted notification error:", notif_err)
+
             return JsonResponse({"message": "Deleted"})
 
     except JobRequirement.DoesNotExist:
@@ -1876,6 +2023,7 @@ def renew_subscription(request):
         new_expiry = base_date + datetime.timedelta(days=30)
 
         company.subscription_plan   = new_plan
+        company.subscription_start  = now
         company.subscription_expiry = new_expiry
         company.save()
 
@@ -2013,6 +2161,7 @@ def admin_approve_reject_plan(request):
         if new_status == "approved" and requested_plan in ["free", "standard", "enterprise"]:
             now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
             company.subscription_plan   = requested_plan
+            company.subscription_start  = now
             company.subscription_expiry = now + datetime.timedelta(days=30)
             company.save()
             title = "Plan Change Approved"
@@ -2039,6 +2188,57 @@ def admin_approve_reject_plan(request):
 
     except Notification.DoesNotExist:
         return JsonResponse({"error": "Request not found"}, status=404)
+    except Company.DoesNotExist:
+        return JsonResponse({"error": "Company not found"}, status=404)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def admin_set_subscription(request):
+    """Admin directly sets any company's subscription plan. Start resets to now
+    and the term is always one month."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+        data       = json.loads(request.body)
+        company_id = (data.get("company_id") or "").strip()
+        new_plan   = (data.get("plan") or "").strip().lower()
+        if new_plan not in ["free", "standard", "enterprise"]:
+            return JsonResponse({"error": "Invalid plan"}, status=400)
+
+        company = Company.objects.get(company_id=company_id)
+        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+        company.subscription_plan   = new_plan
+        company.subscription_start  = now
+        company.subscription_expiry = now + datetime.timedelta(days=30)
+        company.save()
+
+        # Let the owner know in-app that the admin changed their plan.
+        try:
+            Notification.objects.create(
+                notification_id=uuid.uuid4(),
+                recipient_company_id=company_id,
+                notification_type="plan_change_result",
+                title="Plan Updated",
+                message=f"Your subscription plan was set to '{new_plan}' by the H!RE admin.",
+                is_read=False,
+            )
+        except Exception as notif_err:
+            print("admin set subscription notification error:", notif_err)
+
+        return JsonResponse({
+            "message":             "Subscription updated",
+            "subscription_plan":   new_plan,
+            "subscription_start":  company.subscription_start.strftime("%b %d, %Y"),
+            "subscription_expiry": company.subscription_expiry.strftime("%b %d, %Y"),
+        })
+
     except Company.DoesNotExist:
         return JsonResponse({"error": "Company not found"}, status=404)
     except jwt.ExpiredSignatureError:
@@ -2112,7 +2312,7 @@ def get_notifications(request):
             notifs = Notification.objects.filter(
                 recipient_company_id=company_id
             ).exclude(
-                notification_type="plan_change_request"  # admin-only queue, not owner-facing
+                notification_type__in=["plan_change_request", "auto_reject_threshold"]  # internal rows, not owner-facing
             ).order_by("-created_at")[:20]
         else:
             if not user_id:
@@ -2433,6 +2633,17 @@ def admin_revoke_company(request):
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
 
+        # Email the company that their account was revoked (guarded: never 500s).
+        try:
+            if company.owner_email:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/company-status",
+                    json={"email": company.owner_email, "name": company.company_name, "status": "revoked"},
+                    timeout=5,
+                )
+        except Exception as n8n_err:
+            print("company revoked email error:", n8n_err)
+
         return JsonResponse({"message": "Company revoked and downgraded to free tier", "subscription_plan": "free"})
 
     except (Company.DoesNotExist, ApprovalCompany.DoesNotExist):
@@ -2489,6 +2700,18 @@ def admin_restore_company(request):
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
 
+        # Email the company that their account was restored (guarded: never 500s).
+        try:
+            company = Company.objects.filter(company_id=company_id).first()
+            if company and company.owner_email:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/company-status",
+                    json={"email": company.owner_email, "name": company.company_name, "status": "restored"},
+                    timeout=5,
+                )
+        except Exception as n8n_err:
+            print("company restored email error:", n8n_err)
+
         return JsonResponse({"message": "Company restored"})
 
     except ApprovalCompany.DoesNotExist:
@@ -2511,10 +2734,26 @@ def admin_delete_company(request):
         data       = json.loads(request.body)
         company_id = (data.get("company_id") or "").strip()
 
-        if not Company.objects.filter(company_id=company_id).exists():
+        company = Company.objects.filter(company_id=company_id).first()
+        if not company:
             return JsonResponse({"error": "Company not found"}, status=404)
 
+        # Capture contact details BEFORE the purge wipes the company row.
+        del_email = company.owner_email
+        del_name  = company.company_name
+
         _purge_company(company_id)
+
+        # Email the company that their account was permanently deleted.
+        try:
+            if del_email:
+                requests.post(
+                    f"{settings.N8N_BASE_URL}/webhook/company-status",
+                    json={"email": del_email, "name": del_name, "status": "deleted"},
+                    timeout=5,
+                )
+        except Exception as n8n_err:
+            print("company deleted email error:", n8n_err)
 
         return JsonResponse({"message": "Company permanently deleted"})
     except jwt.ExpiredSignatureError:

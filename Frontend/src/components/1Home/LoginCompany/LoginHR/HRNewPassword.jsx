@@ -140,7 +140,11 @@ export default function HRNewPassword() {
             </h2>
 
             <button
-              onClick={() => navigate("/Login-HR-Account")}
+              onClick={() => {
+                const origin = sessionStorage.getItem("pwreset_origin") || "/Login-Company";
+                sessionStorage.removeItem("pwreset_origin");
+                navigate(origin);
+              }}
               className="bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold px-8 py-2.5 rounded-lg transition duration-200"
             >
               Go to Login

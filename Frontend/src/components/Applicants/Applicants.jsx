@@ -22,10 +22,16 @@ export default function Applicants() {
   const [pendingFiles, setPendingFiles] = useState([]);   // now an array (multi-upload)
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [interviewDate, setInterviewDate] = useState("");
-  const [meetingType, setMeetingType] = useState("Zoom Meeting");
+  const [meetingType, setMeetingType] = useState("Online Meeting");
   const [meetingLink, setMeetingLink] = useState("");
   const [interviewMessage, setInterviewMessage] = useState("");
   const [sortBy, setSortBy] = useState("status"); // status | name_asc | name_desc | score_desc | score_asc
+
+  // Auto-reject: owners/managers can set a minimum H!RE Score; resumes below it
+  // are auto-rejected on upload.
+  const canSetAutoReject = auth.role === "owner" || auth.role === "HRManager";
+  const [autoReject, setAutoReject] = useState("");     // saved value ("" = off)
+  const [autoRejectInput, setAutoRejectInput] = useState("");
 
   // Plan-based feature flags (free tier: no pros/cons, no interview/reject).
   const feats = (() => {
@@ -62,9 +68,32 @@ export default function Applicants() {
     }
   };
 
+  const fetchAutoReject = async () => {
+    try {
+      const data = await apiFetch("/api/auto-reject/", { token: auth.token });
+      const t = data?.threshold;
+      setAutoReject(t === null || t === undefined ? "" : String(t));
+      setAutoRejectInput(t === null || t === undefined ? "" : String(t));
+    } catch { /* leave off */ }
+  };
+
+  const saveAutoReject = async (clear = false) => {
+    try {
+      const body = { threshold: clear ? "" : autoRejectInput };
+      const data = await apiFetch("/api/auto-reject/", { method: "POST", token: auth.token, body });
+      const t = data?.threshold;
+      setAutoReject(t === null || t === undefined ? "" : String(t));
+      setAutoRejectInput(t === null || t === undefined ? "" : String(t));
+      window.showAlert(data.message || "Saved.", { type: "success" });
+    } catch (err) {
+      window.showAlert(getErrorMessage(err, "Failed to save auto-reject."));
+    }
+  };
+
   useEffect(() => {
     fetchEvaluations();
     fetchRequirements();
+    if (canSetAutoReject) fetchAutoReject();
   }, []);
 
   // Accept multiple files at once. Resumes are capped at 20 MB each — anything
@@ -166,7 +195,7 @@ export default function Applicants() {
     if (new Date(interviewDate) <= new Date())
       return window.showAlert("The interview date must be in the future.");
     if (!meetingLink.trim())
-      return window.showAlert(meetingType === "Zoom Meeting" ? "Please paste the Zoom link." : "Please enter the location.");
+      return window.showAlert(meetingType === "Online Meeting" ? "Please paste the meeting link." : "Please enter the location.");
     handleStatusUpdate(selected.evaluation_id, "interview_sent", {
       interview_date: new Date(interviewDate).toISOString(),
       meeting_type: meetingType,
@@ -175,14 +204,13 @@ export default function Applicants() {
     });
     fetchEvaluations(); // pull the saved interview_date back
     setShowInterviewModal(false);
-    setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Zoom Meeting");
+    setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Online Meeting");
   };
 
-  // Generate an instant, no-login video meeting room (Jitsi Meet).
+  // Generate a Google Meet–style link for the interview.
   const createMeetLink = () => {
-    const rand = Math.random().toString(36).slice(2, 8);
-    const slug = (selected?.applicant_name || "interview").replace(/[^a-zA-Z0-9]/g, "").slice(0, 14) || "interview";
-    setMeetingLink(`https://meet.jit.si/HIRE-${slug}-${rand}`);
+    const seg = (n) => Math.random().toString(36).replace(/[^a-z]/g, "").padEnd(n, "x").slice(0, n);
+    setMeetingLink(`https://meet.google.com/${seg(3)}-${seg(4)}-${seg(3)}`);
   };
 
   // Search by applicant NAME (and still allow job title). Interview-sent
@@ -294,6 +322,36 @@ export default function Applicants() {
                 </div>
               </div>
             </div>
+
+            {/* Auto-reject control (owners / managers) */}
+            {canSetAutoReject && (
+              <div className="flex items-center gap-1.5 border-2 border-[#0B2447] rounded-full pl-3 pr-1.5 py-1">
+                <span className="text-xs font-bold text-[#0B2447] whitespace-nowrap">Auto-reject below</span>
+                <input
+                  type="number" min="0" max="100"
+                  value={autoRejectInput}
+                  onChange={(e) => setAutoRejectInput(e.target.value)}
+                  placeholder="—"
+                  className="w-12 text-center text-xs font-bold text-[#0B2447] border border-slate-300 rounded-md px-1 py-0.5 outline-none"
+                />
+                <span className="text-xs font-bold text-[#0B2447]">%</span>
+                <button
+                  onClick={() => saveAutoReject(false)}
+                  className="text-[0.7rem] font-bold text-white bg-teal-400 hover:bg-teal-500 rounded-full px-2 py-0.5 border-none cursor-pointer"
+                >
+                  Save
+                </button>
+                {autoReject !== "" && (
+                  <button
+                    onClick={() => saveAutoReject(true)}
+                    title="Turn off auto-reject"
+                    className="text-[0.7rem] font-bold text-slate-500 hover:text-red-500 bg-transparent border-none cursor-pointer px-1"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -623,15 +681,15 @@ export default function Applicants() {
 
             <label className="block text-xs font-bold text-[#0B2447] mb-1">Meeting Type</label>
             <div className="grid grid-cols-2 gap-2 mb-4">
-              {["Zoom Meeting", "Face to Face"].map((t) => (
+              {["Online Meeting", "Face to Face"].map((t) => (
                 <button key={t} onClick={() => setMeetingType(t)} className={`py-2 rounded-lg text-sm font-bold border-2 transition ${meetingType === t ? "border-teal-400 bg-teal-50 text-[#0B2447]" : "border-slate-200 text-slate-500 hover:border-teal-200"}`}>{t}</button>
               ))}
             </div>
 
-            <label className="block text-xs font-bold text-[#0B2447] mb-1">{meetingType === "Zoom Meeting" ? "Meeting Link" : "Location / Address"}</label>
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">{meetingType === "Online Meeting" ? "Meeting Link" : "Location / Address"}</label>
             <div className="flex gap-2 mb-4">
-              <input type="text" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder={meetingType === "Zoom Meeting" ? "Paste a link, or click Create Link" : "Office address"} className="flex-1 border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400" />
-              {meetingType === "Zoom Meeting" && (
+              <input type="text" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder={meetingType === "Online Meeting" ? "Paste a link, or click Create Link" : "Office address"} className="flex-1 border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400" />
+              {meetingType === "Online Meeting" && (
                 <button type="button" onClick={createMeetLink} className="shrink-0 bg-teal-400 hover:bg-teal-500 text-white font-bold rounded-lg px-3 text-xs border-none cursor-pointer whitespace-nowrap">
                   Create Link
                 </button>

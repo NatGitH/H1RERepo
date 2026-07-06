@@ -5,6 +5,7 @@ import { useLogin } from "../../../../.Context/LoginContext";
 import { useHRRegistration } from "../../../../.Context/HRRegistrationContext";
 import { supabase } from "../../../../.Context/supabaseClient";
 import { apiFetch, getErrorMessage } from "../../../../api";
+import { checkFileSize } from "../../../../fileLimit";
 
 export default function CreateHRProfile() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export default function CreateHRProfile() {
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (!checkFileSize(file)) return;
       setAvatarFile(file);
       const reader = new FileReader();
       reader.onload = () => setAvatarPreview(reader.result);

@@ -167,9 +167,9 @@ const ReqForm = ({ value, onChange, onSave, onCancel, submitLabel = "Save", role
 
 const CreateButton = ({ onClick, stretch }) => (
   <div onClick={onClick}
-    className={`border-[3px] border-dashed border-teal-400 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-teal-50 transition-colors p-6 w-full ${stretch ? "flex-1" : ""}`}>
-    <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-teal-300 text-white text-2xl shadow-lg">+</span>
-    <span className="font-extrabold text-[#0f172a] text-sm">Create new</span>
+    className={`border-[3px] border-dashed border-teal-400 rounded-2xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 w-full ${stretch ? "flex-1" : ""}`}>
+    <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-400 text-white text-3xl shadow-[4px_4px_0px_#0f172a]">+</span>
+    <span className="font-bold text-[#0f172a] text-sm mt-1">Create new</span>
     <span className="text-slate-500 text-xs">requirement</span>
   </div>
 );
@@ -316,7 +316,7 @@ export default function Requirements() {
   // killed focus after every keystroke (the "only 1 letter at a time" bug).
   // Renaming it to a plain render function (not capitalized, called directly
   // in JSX as {renderLeftPanel(...)} instead of <LeftPanel .../>) avoids the remount.
-  const renderLeftPanel = (submitLabel, cancelFn) =>
+  const renderLeftPanel = (submitLabel, cancelFn, forceStretch = false) =>
     editReq ? (
       <ReqForm value={editReq} onChange={setEditReq} onSave={handleEditSave}
         onCancel={() => setEditReq(null)}
@@ -325,7 +325,7 @@ export default function Requirements() {
       <ReqForm value={newReq} onChange={setNewReq} onSave={handleCreate}
         onCancel={cancelFn} submitLabel={submitLabel} role={role} />
     ) : (
-      <CreateButton onClick={() => setShowForm(true)} stretch={pending.length === 0} />
+      <CreateButton onClick={() => setShowForm(true)} stretch={forceStretch || pending.length === 0} />
     );
 
 return (
@@ -358,8 +358,8 @@ return (
       {/* ── HRStaff View ── */}
       {role === "HRStaff" && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,280px) 1fr", gap: "1.5rem", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
-          <div>
-            {renderLeftPanel("Submit", resetForm)}
+          <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            {renderLeftPanel("Submit", resetForm, true)}
           </div>
           {/* ✅ THIS is the scrollable column */}
           <div style={{ overflowY: "auto", height: "100%" }}>
@@ -370,10 +370,10 @@ return (
               </div>
             ) : (
               <>
-                <h3 className="font-extrabold text-[#0f172a] text-sm text-slate-500">
+                <h3 className="font-extrabold text-[#0f172a] text-sm text-slate-500 mb-3">
                   {all.length} Requirement(s) · Page {allPage} of {Math.ceil(all.length / ITEMS_PER_PAGE)}
                 </h3>
-                <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {paginate(all, allPage).map((req) => (
                     <ReqCard key={req.id} req={req} showActions={false} onClick={() => setModalReq(req)} />
                   ))}
@@ -418,7 +418,7 @@ return (
                 <h3 className="font-extrabold text-[#0f172a] text-sm text-slate-500 mb-3">
                   Approved ({approved.length}) · Page {approvedPage} of {Math.ceil(approved.length / ITEMS_PER_PAGE)}
                 </h3>
-                <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {paginate(approved, approvedPage).map((req) => (
                     <ReqCard key={req.id} req={req} showActions={false} onClick={() => setModalReq(req)} />
                   ))}

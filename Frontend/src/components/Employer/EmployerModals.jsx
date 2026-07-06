@@ -90,7 +90,7 @@ export function ProfileOverlay({
                     >
                       Change Role
                     </button>
-                    {role === "owner" && (
+                    {(role === "owner" || role === "HRManager") && (
                       <button
                         onClick={onOpenDeleteConfirm}
                         className="w-full text-left px-3 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg border-none bg-transparent cursor-pointer"

@@ -93,6 +93,21 @@ export default function AdminDashboard() {
     } catch (err) { window.showAlert(err.message); }
   };
 
+  // Admin directly sets a company's plan (start resets, term is always 1 month).
+  const handleSetPlan = async (company_id, plan) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/plans/set/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ company_id, plan }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      window.showAlert(`Plan set to ${plan}. Expires ${data.subscription_expiry}.`, { type: "success" });
+      fetchAll();
+    } catch (err) { window.showAlert(err.message); }
+  };
+
   const handleApproveReject = async (ap_id, status) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/companies/approve-reject/`, {
@@ -513,6 +528,17 @@ const handleDelete = async (company_id) => {
                         <p className="font-bold text-[#0B2447] text-xs truncate">{c.company_name}</p>
                         <p className="text-[0.7rem] text-slate-400">Plan: {c.subscription_plan}</p>
                         <p className="text-[0.7rem] text-slate-400">Expires {c.subscription_expiry}</p>
+                        {/* Admin can directly set the plan (resets to a fresh 1-month term). */}
+                        <select
+                          value=""
+                          onChange={(e) => { if (e.target.value) handleSetPlan(c.id, e.target.value); e.target.value = ""; }}
+                          className="mt-1 text-[0.65rem] font-semibold text-[#0B2447] border border-slate-300 rounded-md px-1 py-0.5 bg-white cursor-pointer outline-none"
+                        >
+                          <option value="">Set plan…</option>
+                          <option value="free">Free</option>
+                          <option value="standard">Standard</option>
+                          <option value="enterprise">Enterprise</option>
+                        </select>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
                         <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full capitalize ${getSubStatusColor(c.subscription_status)}`}>

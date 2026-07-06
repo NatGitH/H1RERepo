@@ -27,6 +27,7 @@ export default function Navbar() {
   welcome:              "🎉",
   requirement_approval: "📋",
   new_requirement:      "📝",
+  requirement_deleted:  "🗑️",
   changes_pending:      "✏️",
   new_account_request:  "👤",
   plan_change_result:   "💳",

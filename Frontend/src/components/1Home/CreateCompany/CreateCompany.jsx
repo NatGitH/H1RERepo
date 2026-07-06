@@ -230,7 +230,7 @@ export default function CreateCompany() {
                 { title: "4. Data Retention", content: <p className="mt-1">Your data is retained for as long as your account is active or as needed to provide services. You may request deletion at any time by contacting our support team.</p> },
                 { title: "5. Your Rights", content: <ul className="list-disc ml-6 mt-1 space-y-1"><li>Access the personal data we hold about you.</li><li>Request correction of inaccurate data.</li><li>Request deletion of your data.</li><li>Withdraw consent at any time.</li></ul> },
                 { title: "6. Security", content: <p className="mt-1">We implement industry-standard security measures including encrypted storage, secure connections (HTTPS), and access controls to protect your data.</p> },
-                { title: "7. Contact Us", content: <p className="mt-1">For any privacy concerns, contact us at: <span className="text-[#1a4ccc] font-semibold">support@hire-platform.com</span></p> },
+                { title: "7. Contact Us", content: <p className="mt-1">For any privacy concerns, contact us at: <span className="text-[#1a4ccc] font-semibold">hiree.noreply@gmail.com</span></p> },
               ].map(({ title, content }) => (
                 <div key={title}>
                   <p className="font-bold text-black">{title}</p>

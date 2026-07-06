@@ -21,7 +21,7 @@
       "parameters": {
         "sendTo": "={{ $json.body.email }}",
         "subject": "H!RE — Your account has been removed",
-        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color:#0d1b3e;\">\n  <h2 style=\"color: #f97316;\">Account Removed</h2>\n  <p>Hi {{ $json.body.name }},</p>\n  <p>Your H!RE employee account (<strong>{{ $json.body.name }}</strong>) has been deleted by your company. You will no longer be able to log in.</p>\n  <p>If you believe this was a mistake, please contact your HR Manager for details.</p>\n  <br/>\n  <p>Best regards,<br/><strong>The H!RE Team</strong></p>\n</div>",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color:#0d1b3e;\">\n  <h2 style=\"color: #f97316;\">Account Removed</h2>\n  <p>Hi {{ $json.body.name }},</p>\n  <p>Your H!RE employee account (<strong>{{ $json.body.name }}</strong>) has been deleted by <strong>{{ $json.body.deleted_by }}</strong>. You will no longer be able to log in.</p>\n  <p>If you believe this was a mistake, please contact your HR Manager or company owner for details.</p>\n  <br/>\n  <p>Best regards,<br/><strong>The H!RE Team</strong></p>\n</div>",
         "options": {}
       },
       "type": "n8n-nodes-base.gmail",

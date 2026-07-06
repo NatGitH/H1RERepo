@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationContext";
+import { checkFileSize } from "../../../fileLimit";
 
 
 export default function CompanyDocuments() {
@@ -16,6 +17,7 @@ export default function CompanyDocuments() {
 
   const handleFileChange = (e, field) => {
     const file = e.target.files[0];
+    if (file && !checkFileSize(file)) return;
     if (file) setFiles((prev) => ({ ...prev, [field]: file }));
   };
 

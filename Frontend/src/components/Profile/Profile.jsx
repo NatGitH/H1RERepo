@@ -107,11 +107,14 @@ export default function Profile() {
         // Owners and HR managers see every recruiter's interviews; an HR staff
         // only sees the interviews they personally sent.
         const canSeeAll = role === "owner" || role === "HRManager";
-        const filtered = (data || []).filter((ev) => {
-          if (ev.status !== "interview_sent") return false;
-          if (canSeeAll) return true;
-          return ev.action_made_by_user_id === auth.user_id;
-        });
+        const filtered = (data || [])
+          .filter((ev) => {
+            if (ev.status !== "interview_sent") return false;
+            if (canSeeAll) return true;
+            return ev.action_made_by_user_id === auth.user_id;
+          })
+          // Soonest interview first, later dates below.
+          .sort((a, b) => new Date(a.interview_date || "9999") - new Date(b.interview_date || "9999"));
         setInterviewApplicants(filtered);
       } catch (err) {
         if (!cancelled) setApplicantsError(getErrorMessage(err, "Failed to load applicants."));

@@ -43,14 +43,14 @@ export function ProfileOverlay({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="w-full max-w-[1100px] grid grid-cols-[1fr_360px] gap-6 max-[900px]:grid-cols-1">
+      <div className="w-full max-w-[1100px] grid grid-cols-[1fr_360px] gap-6 max-[900px]:grid-cols-1 items-stretch max-h-[80vh]">
 
-        {/* Left: Profile Card */}
+        {/* Left: Profile Card (min-w-0 lets long bios wrap instead of stretching) */}
         <div
-          className="bg-white rounded-[40px] p-8 flex flex-col gap-6 relative"
+          className="bg-white rounded-[40px] p-8 flex flex-col gap-6 relative min-w-0 max-h-[80vh]"
           style={{ border: "2px solid #0B2447", boxShadow: "6px 6px 0px #0B2447" }}
         >
-          <div className="flex items-start gap-5 relative">
+          <div className="flex items-start gap-5 relative shrink-0">
             {/* Avatar */}
             <div className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center">
               {member.profile_picture ? (
@@ -119,8 +119,8 @@ export function ProfileOverlay({
             )}
           </div>
 
-          {/* Bio — wraps long unbroken text and scrolls if very long */}
-          <div className="border-2 border-slate-200 rounded-[20px] p-6 max-h-[240px] overflow-y-auto">
+          {/* Bio — fills remaining height, wraps long unbroken text, scrolls if long */}
+          <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-0 overflow-y-auto">
             <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
               {member.bio || "No bio available."}
             </p>
@@ -128,7 +128,7 @@ export function ProfileOverlay({
 
           <button
             onClick={onClose}
-            className="self-start mt-2 text-sm text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer font-medium"
+            className="self-start shrink-0 text-sm text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer font-medium"
           >
             ← Back to Employers
           </button>

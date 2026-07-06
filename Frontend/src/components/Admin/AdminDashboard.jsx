@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../.Context/AuthContext";
 import { useNavigate } from "react-router";
 import SearchIcon from "@mui/icons-material/Search";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import LogoutIcon from "@mui/icons-material/Logout";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -18,6 +19,7 @@ export default function AdminDashboard() {
   const [pendingPlans, setPendingPlans] = useState([]);
   const [companies, setCompanies]   = useState([]);
   const [search, setSearch]         = useState("");
+  const [companySort, setCompanySort] = useState("name"); // "name" | "expiry"
   const [loading, setLoading]       = useState(true);
   const [activeNav, setActiveNav]   = useState("home");
   const [docsByCompany, setDocsByCompany] = useState({});
@@ -217,6 +219,16 @@ const handleDelete = async (company_id) => {
     c.company_name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Sort for the Companies tab — alphabetical or by subscription expiry.
+  const sortCompanies = (list) => {
+    const arr = [...list];
+    if (companySort === "name")
+      arr.sort((a, b) => (a.company_name || "").localeCompare(b.company_name || ""));
+    else if (companySort === "expiry")
+      arr.sort((a, b) => new Date(a.subscription_expiry || 0) - new Date(b.subscription_expiry || 0));
+    return arr;
+  };
+
   // "Open in new tab" must VIEW the file, not download it. Images open directly;
   // everything else (PDFs, docs) goes through the Google Docs viewer so the
   // browser renders it in-tab instead of downloading the raw Supabase object.
@@ -375,8 +387,8 @@ const handleDelete = async (company_id) => {
               {[
                 { label: "Total Companies",    value: totalCompaniesCount,          sub: "approved",      color: "text-teal-500" },
                 { label: "Pending Approval",   value: pending.length,               sub: "Needs Review",  color: "text-orange-500" },
-                { label: "Active Subscription",value: activeSubscriptionCount,      sub: "this week",     color: "text-teal-500" },
-                { label: "Revoked Accounts",   value: stats?.revoked || 0,          sub: "this week",     color: "text-red-500" },
+                { label: "Active Subscription",value: activeSubscriptionCount,      sub: "Total",         color: "text-teal-500" },
+                { label: "Revoked Accounts",   value: stats?.revoked || 0,          sub: "Total",         color: "text-red-500" },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -528,17 +540,6 @@ const handleDelete = async (company_id) => {
                         <p className="font-bold text-[#0B2447] text-xs truncate">{c.company_name}</p>
                         <p className="text-[0.7rem] text-slate-400">Plan: {c.subscription_plan}</p>
                         <p className="text-[0.7rem] text-slate-400">Expires {c.subscription_expiry}</p>
-                        {/* Admin can directly set the plan (resets to a fresh 1-month term). */}
-                        <select
-                          value=""
-                          onChange={(e) => { if (e.target.value) handleSetPlan(c.id, e.target.value); e.target.value = ""; }}
-                          className="mt-1 text-[0.65rem] font-semibold text-[#0B2447] border border-slate-300 rounded-md px-1 py-0.5 bg-white cursor-pointer outline-none"
-                        >
-                          <option value="">Set plan…</option>
-                          <option value="free">Free</option>
-                          <option value="standard">Standard</option>
-                          <option value="enterprise">Enterprise</option>
-                        </select>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
                         <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full capitalize ${getSubStatusColor(c.subscription_status)}`}>
@@ -574,15 +575,28 @@ const handleDelete = async (company_id) => {
               >
                 Companies
               </div>
-              <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
-                <input
-                  type="search"
-                  placeholder="Search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400"
-                />
-                <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <select
+                    value={companySort}
+                    onChange={(e) => setCompanySort(e.target.value)}
+                    className="appearance-none border-2 border-[#0B2447] rounded-full pl-4 pr-10 py-2 text-sm font-semibold text-[#0B2447] bg-white outline-none cursor-pointer"
+                  >
+                    <option value="name">Sort: Name (A–Z)</option>
+                    <option value="expiry">Sort: Expiry date</option>
+                  </select>
+                  <KeyboardArrowDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#0B2447]" style={{ fontSize: 20 }} />
+                </div>
+                <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
+                  <input
+                    type="search"
+                    placeholder="Search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="border-none outline-none w-full text-sm text-[#0B2447] bg-transparent placeholder-slate-400"
+                  />
+                  <SearchIcon style={{ fontSize: 20, color: "#0B2447" }} />
+                </div>
               </div>
             </div>
 
@@ -590,7 +604,7 @@ const handleDelete = async (company_id) => {
             {/* Active Companies */}
             <h3 className="font-bold text-[#0B2447] text-sm mb-3">Active</h3>
             <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 mb-8 items-start">
-              {filteredCompanies.filter((c) => c.approval_status === "approved").map((c) => (
+              {sortCompanies(filteredCompanies.filter((c) => c.approval_status === "approved")).map((c) => (
                 <div
                   key={c.id}
                   className="bg-slate-50 rounded-2xl p-4 border border-slate-200"
@@ -614,13 +628,24 @@ const handleDelete = async (company_id) => {
                       <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
                       <p className="text-xs text-slate-400">{c.active_employees} employees active</p>
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 items-end">
                       <button
                         onClick={() => setConfirmAction({ type: "revoke", id: c.id, name: c.company_name })}
                         className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 border-none cursor-pointer"
                       >
                         Revoke
                       </button>
+                      {/* Admin sets the plan directly (resets to a fresh 1-month term). */}
+                      <select
+                        value=""
+                        onChange={(e) => { if (e.target.value) handleSetPlan(c.id, e.target.value); e.target.value = ""; }}
+                        className="text-[0.7rem] font-semibold text-[#0B2447] border border-slate-300 rounded-md px-1.5 py-1 bg-white cursor-pointer outline-none"
+                      >
+                        <option value="">Set plan…</option>
+                        <option value="free">Free</option>
+                        <option value="standard">Standard</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
                     </div>
                   </div>
 

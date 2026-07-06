@@ -66,15 +66,31 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  // Presence: mark active when an HR session is (re)opened, and offline when the
-  // tab is closed/refreshed so they don't appear online after leaving.
+  // Presence: mark active when an HR session is (re)opened, send a heartbeat on
+  // an interval so the server knows they're online, and mark offline when the
+  // tab closes. If the unload beacon is missed, the server auto-marks them
+  // offline once heartbeats go stale.
   useEffect(() => {
     if (HR_ROLES.includes(authRef.current.role)) {
       postStatus(authRef.current.token, authRef.current.role, "active");
     }
+    const beat = () => {
+      const a = authRef.current;
+      if (HR_ROLES.includes(a.role) && a.token) {
+        fetch(`${API_BASE_URL}/api/heartbeat/`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${a.token}` },
+        }).catch(() => {});
+      }
+    };
+    beat();
+    const hb = setInterval(beat, 60000);
     const onLeave = () => postStatus(authRef.current.token, authRef.current.role, "offline");
     window.addEventListener("beforeunload", onLeave);
-    return () => window.removeEventListener("beforeunload", onLeave);
+    return () => {
+      clearInterval(hb);
+      window.removeEventListener("beforeunload", onLeave);
+    };
   }, []);
 
   return (

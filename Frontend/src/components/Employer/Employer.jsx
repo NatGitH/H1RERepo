@@ -60,9 +60,9 @@ export default function Employer() {
       try {
         const data = await apiFetch("/api/evaluations/", { token: auth.token });
         if (cancelled) return;
-        const list = (data || []).filter(
-          (ev) => ev.status === "interview_sent" && ev.action_made_by_user_id === selectedMember.id
-        );
+        const list = (data || [])
+          .filter((ev) => ev.status === "interview_sent" && ev.action_made_by_user_id === selectedMember.id)
+          .sort((a, b) => new Date(a.interview_date || "9999") - new Date(b.interview_date || "9999"));
         setMemberInterviews(list);
       } catch {
         if (!cancelled) setMemberInterviews([]);
@@ -212,7 +212,7 @@ export default function Employer() {
                 Active HR Members
               </h2>
               <span className="px-3 py-1.5 rounded-full text-[0.8rem] font-bold whitespace-nowrap border-2 border-[#22a861] bg-[#22a861] text-white">
-                {active.length} Active
+                {active.length} Total
               </span>
             </div>
             {active.length === 0 ? (

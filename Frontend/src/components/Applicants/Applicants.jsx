@@ -4,6 +4,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useAuth } from "../../.Context/AuthContext";
 import { apiFetch, getErrorMessage } from "../../api";
 
@@ -376,18 +377,24 @@ export default function Applicants() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Sort / Filter dropdown */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="border-2 border-[#0B2447] rounded-full px-4 py-2 text-sm font-semibold text-[#0B2447] bg-white outline-none cursor-pointer"
-            >
-              <option value="status">Sort: Status (default)</option>
-              <option value="name_asc">Name (A–Z)</option>
-              <option value="name_desc">Name (Z–A)</option>
-              <option value="score_desc">H!RE Score (High → Low)</option>
-              <option value="score_asc">H!RE Score (Low → High)</option>
-            </select>
+            {/* Sort / Filter dropdown — custom chevron so it stays consistent on zoom */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="appearance-none border-2 border-[#0B2447] rounded-full pl-4 pr-10 py-2 text-sm font-semibold text-[#0B2447] bg-white outline-none cursor-pointer"
+              >
+                <option value="status">Sort: Status (default)</option>
+                <option value="name_asc">Name (A–Z)</option>
+                <option value="name_desc">Name (Z–A)</option>
+                <option value="score_desc">H!RE Score (High → Low)</option>
+                <option value="score_asc">H!RE Score (Low → High)</option>
+              </select>
+              <KeyboardArrowDownIcon
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#0B2447]"
+                style={{ fontSize: 20 }}
+              />
+            </div>
 
             {/* Search */}
             <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">

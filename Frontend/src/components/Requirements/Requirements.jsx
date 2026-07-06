@@ -169,8 +169,7 @@ const CreateButton = ({ onClick, stretch }) => (
   <div onClick={onClick}
     className={`border-[3px] border-dashed border-teal-400 rounded-2xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 w-full ${stretch ? "flex-1" : ""}`}>
     <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-400 text-white text-3xl shadow-[4px_4px_0px_#0f172a]">+</span>
-    <span className="font-bold text-[#0f172a] text-sm mt-1">Create new</span>
-    <span className="text-slate-500 text-xs">requirement</span>
+    <span className="font-bold text-[#0f172a] text-sm mt-1 text-center">Create New Requirement</span>
   </div>
 );
 

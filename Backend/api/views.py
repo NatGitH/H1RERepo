@@ -1258,10 +1258,16 @@ def update_evaluation_status(request, evaluation_id):
         # Shortlist / reject / cancel-rejection are NOTIFICATIONS (clearable).
         # Sending an interview is an AUDIT LOG entry (permanent).
         if status == "interview_sent":
+            raw_dt = data.get("interview_date")
+            try:
+                _d = datetime.datetime.fromisoformat(str(raw_dt).replace("Z", ""))
+                when = _d.strftime("%m/%d/%Y %I:%M %p")
+            except Exception:
+                when = raw_dt
             log_audit(
                 company_id=company_id_tok,
                 action_type="INTERVIEW_SENT",
-                message=f"Interview sent to {appl_name} by {actor} for {data.get('interview_date')}",
+                message=f"Interview sent to {appl_name} by {actor} for {when}",
                 performed_by_user_id=user_id,
                 applicant_id=audit_applicant_id,
                 requirement_id=audit_requirement_id,
@@ -1348,6 +1354,25 @@ def remove_evaluation(request, evaluation_id):
 # --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
+@require_POST
+def heartbeat(request):
+    """Presence ping — bumps the caller's updated_at so they read as online.
+    The frontend calls this on an interval while the app is open."""
+    try:
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
+        if user_id:
+            u = HRUser.objects.filter(user_id=user_id).first()
+            if u:
+                u.save(update_fields=["updated_at"])  # auto_now bumps the timestamp
+        return JsonResponse({"ok": True})
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
 def get_employers(request):
     try:
         payload    = decode_token(request)
@@ -1359,6 +1384,11 @@ def get_employers(request):
 
         users = HRUser.objects.filter(company_id=company_id)
 
+        # Presence: a member who hasn't sent a heartbeat recently is shown as
+        # "offline" automatically (no reliance on the browser's unload event).
+        STALE_SECONDS = 150
+        now = datetime.datetime.now(datetime.timezone.utc)
+
         data = []
         for u in users:
             role_name = ""
@@ -1368,13 +1398,22 @@ def get_employers(request):
             except Roles.DoesNotExist:
                 pass
 
+            status = u.account_status or "pending"
+            if status in ("active", "on_break", "on_leave"):
+                ua = u.updated_at
+                if ua:
+                    if ua.tzinfo is None:
+                        ua = ua.replace(tzinfo=datetime.timezone.utc)
+                    if (now - ua).total_seconds() > STALE_SECONDS:
+                        status = "offline"
+
             data.append({
                 "id":              str(u.user_id),
                 "name":            f"{u.firstname or ''} {u.lastname or ''}".strip() or u.username or "No Name",
                 "email":           u.email or "",
                 "bio":             u.bio or "",
                 "profile_picture": u.profile_picture or "",
-                "account_status":  u.account_status or "pending",
+                "account_status":  status,
                 "role_name":       role_name,
             })
 

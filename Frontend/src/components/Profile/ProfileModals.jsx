@@ -515,21 +515,21 @@ const SUBSCRIPTION_PLANS = [
     planType: "free",
     price: "FREE",
     priceLabel: null,
-    features: ["1 active job post", "30 resume evaluations/month", "Basic HIRE Score", "AI summary (limited)"],
+    features: ["2 active job posts", "30 resume evaluations / month", "Basic H!RE Score", "AI summary (limited)"],
   },
   {
     name: "Standard",
     planType: "standard",
     price: "₱899",
     priceLabel: "per branch / month",
-    features: ["All in Basic +", "5 active job posts", "500 resume evaluations / month", "Full HIRE Score with pros & cons", "Interview scheduling"],
+    features: ["All in Basic +", "6 active job posts", "300 resume evaluations / month", "Full H!RE Score with pros & cons", "Interview scheduling & rejection emails"],
   },
   {
     name: "Enterprise",
     planType: "enterprise",
     price: "₱1,999",
     priceLabel: "per branch / month",
-    features: ["All in Basic + Standard", "Unlimited job posts", "Unlimited resume evaluations", "Audit logs & advanced analytics", "Priority support & SLA"],
+    features: ["All in Basic + Standard", "Unlimited job posts", "Unlimited resume evaluations", "Audit logs & Activity trail", "Priority support"],
   },
 ];
 

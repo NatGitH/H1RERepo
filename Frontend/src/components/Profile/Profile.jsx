@@ -407,10 +407,11 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {/* Bio */}
+                  {/* Bio (max 500 chars) */}
                   <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[120px] flex flex-col">
                     <textarea
                       value={profile?.bio || ""}
+                      maxLength={500}
                       onChange={(e) => setProfile((prev) => ({ ...prev, bio: e.target.value }))}
                       onBlur={async (e) => {
                         try {
@@ -424,6 +425,7 @@ export default function Profile() {
                       placeholder="Tell us about yourself..."
                       className="w-full flex-1 min-h-0 overflow-y-auto text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none"
                     />
+                    <span className="text-[0.7rem] text-slate-400 self-end shrink-0">{(profile?.bio || "").length}/500</span>
                   </div>
                 </>
               )}
@@ -498,10 +500,11 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {/* Company description */}
+                  {/* Company description (max 1,500 chars) */}
                   <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[120px] flex flex-col">
                     <textarea
                       value={profile?.description || ""}
+                      maxLength={1500}
                       onChange={(e) => setProfile((prev) => ({ ...prev, description: e.target.value }))}
                       onBlur={async (e) => {
                         try {
@@ -515,6 +518,7 @@ export default function Profile() {
                       placeholder="Tell applicants about your company..."
                       className="w-full flex-1 min-h-0 overflow-y-auto text-[0.9rem] text-slate-700 leading-[1.8] text-justify bg-transparent border-none outline-none resize-none"
                     />
+                    <span className="text-[0.7rem] text-slate-400 self-end shrink-0">{(profile?.description || "").length}/1500</span>
                   </div>
                 </>
               )}

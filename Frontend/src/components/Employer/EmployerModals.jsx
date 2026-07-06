@@ -1,8 +1,14 @@
+import { useState } from "react";
+
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
     <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
   </svg>
 );
+
+// H!RE Score bands, kept in sync with Applicants/Profile.
+const scoreColor = (score) =>
+  score >= 85 ? "text-green-500" : score >= 65 ? "text-lime-500" : score >= 50 ? "text-yellow-500" : "text-red-500";
 
 export const STATUS_OPTIONS = [
   { value: "active",   label: "Active",   dot: "bg-green-400",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" },
@@ -40,6 +46,7 @@ export function ProfileOverlay({
 }) {
   const currentStatus =
     STATUS_OPTIONS.find((s) => s.value === member.account_status) || STATUS_OPTIONS[0];
+  const [selectedInterview, setSelectedInterview] = useState(null);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
@@ -157,19 +164,25 @@ export function ProfileOverlay({
                     <div className="flex items-center gap-1.5 text-[0.78rem] font-bold text-[#0B2447]">
                       <span>💼</span> {a.job_title || "Untitled Requirement"}
                     </div>
-                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col gap-2">
-                      <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
-                        {a.applicant_name}
-                      </span>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
-                          H!RE Score: <span className="font-bold">{a.hire_score}%</span>
+                    <button
+                      onClick={() => setSelectedInterview(a)}
+                      className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center gap-3 text-left cursor-pointer transition-colors hover:bg-slate-100 w-full"
+                    >
+                      <div className="flex flex-col gap-2 flex-1 min-w-0">
+                        <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
+                          {a.applicant_name}
                         </span>
-                        <span className="rounded-full px-3 py-1 text-[0.72rem] font-bold bg-blue-50 text-blue-600 border border-blue-200">
-                          Interview Scheduled
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a]">
+                            H!RE Score: <span className="font-bold">{a.hire_score}%</span>
+                          </span>
+                          <span className="rounded-full px-3 py-1 text-[0.72rem] font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                            Interview Scheduled
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                      <span className="text-slate-400 text-lg shrink-0">›</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -177,6 +190,75 @@ export function ProfileOverlay({
           </div>
         </div>
       </div>
+
+      {/* Interview applicant detail (opens on top of the overlay) */}
+      {selectedInterview && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          onClick={() => setSelectedInterview(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg flex flex-col overflow-hidden"
+            style={{ maxHeight: "85vh", border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+              <h3 className="font-extrabold text-[#0B2447] text-base m-0">{selectedInterview.applicant_name}</h3>
+              <button
+                onClick={() => setSelectedInterview(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-slate-100 transition bg-transparent cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 text-sm">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex flex-col gap-1">
+                {selectedInterview.interview_date && (
+                  <p className="text-blue-700 m-0"><span className="font-semibold">📅 Interview Date:</span> {new Date(selectedInterview.interview_date).toLocaleString()}</p>
+                )}
+                {selectedInterview.interview_location && (
+                  <p className="text-blue-700 m-0 break-words"><span className="font-semibold">📍 Location / Link:</span> {selectedInterview.interview_location}</p>
+                )}
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                <p className="text-[#0B2447] m-0 font-bold">💼 {selectedInterview.job_title || "Untitled Requirement"}</p>
+                {selectedInterview.job_description && (
+                  <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Description:</span> {selectedInterview.job_description}</p>
+                )}
+                {selectedInterview.job_qualifications && (
+                  <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Qualifications:</span> {selectedInterview.job_qualifications}</p>
+                )}
+              </div>
+              <p className="text-slate-600 m-0">
+                <span className="font-semibold text-[#0B2447]">H!RE Score:</span>{" "}
+                <span className={`font-bold ${scoreColor(selectedInterview.hire_score)}`}>{selectedInterview.hire_score}%</span>
+              </p>
+              {selectedInterview.applicant_email && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Email:</span> {selectedInterview.applicant_email}</p>
+              )}
+              {selectedInterview.applicant_phone && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Phone:</span> {selectedInterview.applicant_phone}</p>
+              )}
+              {selectedInterview.summary && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">AI Summary:</span> {selectedInterview.summary}</p>
+              )}
+              {selectedInterview.pros?.length > 0 && (
+                <div>
+                  <p className="font-semibold text-green-600 m-0 mb-1">Pros</p>
+                  <ul className="list-disc pl-5 m-0 text-slate-600">{selectedInterview.pros.map((p, i) => <li key={i}>{p}</li>)}</ul>
+                </div>
+              )}
+              {selectedInterview.cons?.length > 0 && (
+                <div>
+                  <p className="font-semibold text-red-500 m-0 mb-1">Cons</p>
+                  <ul className="list-disc pl-5 m-0 text-slate-600">{selectedInterview.cons.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

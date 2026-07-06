@@ -84,7 +84,7 @@ export function AuthProvider({ children }) {
       }
     };
     beat();
-    const hb = setInterval(beat, 60000);
+    const hb = setInterval(beat, 30000);
     const onLeave = () => postStatus(authRef.current.token, authRef.current.role, "offline");
     window.addEventListener("beforeunload", onLeave);
     return () => {

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { apiFetch, getErrorMessage } from "../../api";
 import qrCode from "../../assets/qr code.svg";
+import PasswordInput from "../Functions/PasswordInput";
 
 // ─────────────────────────────────────────────
 // Change Profile Picture Modal (HR roles)
@@ -326,8 +327,7 @@ export function ChangeCompanyPasswordModal({ token, onClose }) {
             ].map(({ label, value, setter }) => (
               <div key={label}>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">{label}:</label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={value}
                   onChange={(e) => setter(e.target.value)}
                   className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
@@ -818,11 +818,11 @@ export function ChangePasswordModal({ initialEmail = "", onClose }) {
           <div className="flex flex-col gap-4">
             <div>
               <label className="text-sm font-medium text-slate-700 mb-1 block">New Password:</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+              <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700 mb-1 block">Re-Enter New Password:</label>
-              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+              <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             {error && <p className="text-red-500 text-xs text-center">{error}</p>}
             <div className="grid grid-cols-2 gap-3 mt-2">

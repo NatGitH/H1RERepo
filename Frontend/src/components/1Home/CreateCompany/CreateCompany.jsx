@@ -4,6 +4,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import CloseIcon from "@mui/icons-material/Close";
 import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationContext";
 import { apiFetch, getErrorMessage } from "../../../api";
+import PasswordInput from "../../Functions/PasswordInput";
 
 export default function CreateCompany() {
   const navigate = useNavigate();
@@ -119,14 +120,24 @@ export default function CreateCompany() {
           ].map(({ label, name, type, placeholder }) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input
-                type={type}
-                name={name}
-                value={form[name]}
-                onChange={handleChange}
-                placeholder={placeholder}
-                className="w-full px-4 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              />
+              {type === "password" ? (
+                <PasswordInput
+                  name={name}
+                  value={form[name]}
+                  onChange={handleChange}
+                  placeholder={placeholder}
+                  className="w-full px-4 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                />
+              ) : (
+                <input
+                  type={type}
+                  name={name}
+                  value={form[name]}
+                  onChange={handleChange}
+                  placeholder={placeholder}
+                  className="w-full px-4 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                />
+              )}
             </div>
           ))}
         </div>

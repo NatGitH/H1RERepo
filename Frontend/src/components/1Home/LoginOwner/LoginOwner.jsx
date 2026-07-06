@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useAuth } from "../../../.Context/AuthContext";
 import { apiFetch, getErrorMessage } from "../../../api";
+import PasswordInput from "../../Functions/PasswordInput";
 
 export default function LoginOwner() {
   const navigate = useNavigate();
@@ -80,8 +81,7 @@ export default function LoginOwner() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
+            <PasswordInput
               name="password"
               value={form.password}
               onChange={handleChange}

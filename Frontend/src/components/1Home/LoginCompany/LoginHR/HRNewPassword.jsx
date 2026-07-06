@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { apiFetch, getErrorMessage } from "../../../../api";
+import PasswordInput from "../../../Functions/PasswordInput";
 
 export default function HRNewPassword() {
   const navigate = useNavigate();
@@ -73,8 +74,7 @@ export default function HRNewPassword() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               New Password
             </label>
-            <input
-              type="password"
+            <PasswordInput
               name="newPassword"
               value={form.newPassword}
               onChange={handleChange}
@@ -87,8 +87,7 @@ export default function HRNewPassword() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Re-Enter New Password
             </label>
-            <input
-              type="password"
+            <PasswordInput
               name="confirmPassword"
               value={form.confirmPassword}
               onChange={handleChange}

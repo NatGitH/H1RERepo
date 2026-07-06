@@ -1386,7 +1386,8 @@ def get_employers(request):
 
         # Presence: a member who hasn't sent a heartbeat recently is shown as
         # "offline" automatically (no reliance on the browser's unload event).
-        STALE_SECONDS = 150
+        # Heartbeat is every 30s, so 90s = ~3 missed beats before going offline.
+        STALE_SECONDS = 90
         now = datetime.datetime.now(datetime.timezone.utc)
 
         data = []
@@ -1867,7 +1868,7 @@ def update_bio(request):
         payload = decode_token(request)
         user_id = payload.get("user_id")
         data    = json.loads(request.body)
-        bio     = data.get("bio", "").strip()
+        bio     = data.get("bio", "").strip()[:500]  # cap at 500 chars
 
         user     = HRUser.objects.get(user_id=user_id)
         user.bio = bio
@@ -2107,7 +2108,7 @@ def update_company_description(request):
             return JsonResponse({"error": "Only owners can update the company description"}, status=403)
 
         data        = json.loads(request.body)
-        description = data.get("description", "").strip()
+        description = data.get("description", "").strip()[:1500]  # cap at 1,500 chars
 
         company = Company.objects.get(company_id=company_id)
         company.company_description = description

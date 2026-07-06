@@ -4,6 +4,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useLogin } from '../../../../.Context/LoginContext';
 import { useAuth } from '../../../../.Context/AuthContext';
 import { useHRRegistration } from '../../../../.Context/HRRegistrationContext';
+import PasswordInput from '../../../Functions/PasswordInput';
 
 export default function CreateHRAccount() {
   const navigate = useNavigate();
@@ -116,8 +117,7 @@ export default function CreateHRAccount() {
               Password
             </label>
 
-            <input
-              type="password"
+            <PasswordInput
               name="password"
               value={form.password}
               onChange={handleChange}
@@ -131,8 +131,7 @@ export default function CreateHRAccount() {
               Confirm Password
             </label>
 
-            <input
-              type="password"
+            <PasswordInput
               name="confirmPassword"
               value={form.confirmPassword}
               onChange={handleChange}

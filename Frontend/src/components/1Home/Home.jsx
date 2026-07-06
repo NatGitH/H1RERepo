@@ -8,7 +8,7 @@ export default function Home() {
     { label: "Create Company",   route: "/create-company",  variant: "blue" },
     { label: "Login as Owner",   route: "/login-owner",     variant: "dark" },
     { label: "Login to Company", route: "/login-company",   variant: "blue" },
-    { label: "Login as Admin",   route: "/login-admin",     variant: "dark" },
+    { label: "For H!RE Admins",   route: "/login-admin",     variant: "dark" },
   ];
 
   return (

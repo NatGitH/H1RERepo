@@ -50,14 +50,14 @@ export default function CompanyHome() {
             onClick={() => navigate("/Create-HR-Account")}
             className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-4 rounded-2xl transition duration-200"
           >
-            Sign In
+            Create HR Account
           </button>
 
           <button
             onClick={() => navigate("/Login-HR-Account")}
             className="cursor-pointer w-full bg-[#0d1b3e] hover:bg-[#162553] text-white font-semibold py-4 rounded-2xl transition duration-200"
           >
-            Log in
+            Log in HR Account
           </button>
         </div>
       </div>

@@ -1933,8 +1933,11 @@ def requirement_detail(request, req_id):
                 req.current_status      = "changes_pending"
                 req.save()
 
-                # Notify manager
+                # Notify the approvers that a pending change awaits + who asked for it.
                 try:
+                    asker   = get_user_fullname(user_id)
+                    pc_msg  = f"{asker} proposed changes to '{req.job_title}'."
+                    # Managers (per-user).
                     managers = HRUser.objects.filter(
                         company_id=payload.get("company_id"),
                         role_id__in=Roles.objects.filter(
@@ -1947,9 +1950,16 @@ def requirement_detail(request, req_id):
                             recipient_user_id=mgr.user_id,
                             notification_type="changes_pending",
                             title="Requirement Edit Pending Approval",
-                            message=f"{get_user_fullname(user_id)} proposed changes to '{req.job_title}'.",
+                            message=pc_msg,
                             is_read=False,
                         )
+                    # Owner logs in company-scoped, so notify the company too.
+                    notify_company(
+                        payload.get("company_id"),
+                        "changes_pending",
+                        "Requirement Edit Pending Approval",
+                        pc_msg,
+                    )
                 except Exception as notif_err:
                     print("Notification error:", notif_err)
 

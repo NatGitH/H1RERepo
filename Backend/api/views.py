@@ -687,6 +687,18 @@ def send_reset_code(request):
         if origin == "owner" and not company:
             return JsonResponse({"error": "No company is registered with this email."}, status=404)
 
+        # HR staff flow (Login-to-Company "Forgot Password"): may only reset a
+        # staff/manager account that belongs to the SAME company they signed into —
+        # never another company's users, and never the company owner's login (owners
+        # have no Users row, so the company-scoped lookup already excludes them).
+        if origin == "staff":
+            company_id = (data.get("company_id") or "").strip()
+            if not company_id:
+                return JsonResponse({"error": "Missing company context. Please sign in to your company again."}, status=400)
+            staff = HRUser.objects.filter(email=email, company_id=company_id).first()
+            if not staff:
+                return JsonResponse({"error": "That email doesn't belong to a staff or manager in this company."}, status=404)
+
         # Don't reveal whether the email exists (HR / generic flow).
         if not user and not company:
             return JsonResponse({"message": "If that email exists, a code was sent."})

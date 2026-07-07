@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import { useLogin } from "../../../../.Context/LoginContext";
 import { apiFetch, getErrorMessage } from "../../../../api";
 
 export default function HRForgotPassword() {
   const navigate = useNavigate();
+  const { loginData } = useLogin();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,12 +17,18 @@ export default function HRForgotPassword() {
     try {
       setLoading(true);
       setError("");
-      // From the Login-as-Owner page we tag the request as an owner reset so the
-      // backend returns an explicit error when the email isn't a registered company.
-      const isOwner = sessionStorage.getItem("pwreset_origin") === "/Login-Owner";
+      // Tag the reset by where it came from so the backend can scope it:
+      //  - Owner page  -> must be a registered company owner email.
+      //  - Company page -> must be a staff/manager in THIS company (not the owner,
+      //    not another company). We pass the signed-into company for that check.
+      const origin = sessionStorage.getItem("pwreset_origin");
+      const scope =
+        origin === "/Login-Owner"   ? { origin: "owner" } :
+        origin === "/Login-Company" ? { origin: "staff", company_id: loginData?.companyId || "" } :
+        {};
       await apiFetch("/api/auth/send-reset-code/", {
         method: "POST",
-        body: { email: email.trim(), ...(isOwner ? { origin: "owner" } : {}) },
+        body: { email: email.trim(), ...scope },
       });
       sessionStorage.setItem("pwreset_email", email.trim());
       navigate("/Verify-Code");

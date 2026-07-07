@@ -13,7 +13,7 @@ checklist that keeps them working after the move to Render.
 | **H!RE - Interview Invitation Email** | Webhook `/interview-invitation` | ✅ | Fired by Django on `interview_sent` |
 | **H!RE - Reject Email & Cleanup** | Schedule (every 15 min) | ✅ | Replaces the old "Evaluation Clean Up". After the grace period + email it now **hard-deletes** the applicant's data (see below) instead of archiving. |
 | **H!RE - Interview Reminder** | Schedule (daily) | ✅ | NEW — emails applicants ~1 day before their interview |
-| **H!RE - Interview Cleanup** | Schedule (daily) | ✅ | NEW — hard-deletes an applicant's data once their interview date is >12h in the past ("interview done"). Writes an `INTERVIEW_COMPLETED` audit entry. Ships inactive. |
+| **H!RE - Interview Cleanup** | Schedule (every 5 min) | ✅ | NEW — hard-deletes an applicant's data (incl. resume Storage file) once their interview date has passed. Writes an `INTERVIEW_COMPLETED` audit entry. Ships inactive. **⚠️ Currently in TEST mode: 2-min cutoff on a 5-min schedule — change to a 12h cutoff / daily schedule for production.** |
 | **H!RE - Subscription Expiry Reminder** | Schedule (daily) | ✅ | NEW — emails owners ~7 days before their plan expires |
 | **H!RE - Company Approval Email** | Webhook `/company-approval` | ✅ | NEW — emails owner on admin approve/reject (fired by `admin_approve_reject_company`) |
 | **H!RE - Password Reset Code** | Webhook `/password-reset-code` | ✅ | NEW — emails the 6-digit code for the in-profile Change Password flow (fired by `send_reset_code`) |
@@ -75,20 +75,25 @@ Supabase + Gmail credentials.
 
 The **permanent record** now lives in `Audit_Logs` (the bell's Activity tab), not in
 the retained applicant rows. Deleting the evaluation also means it no longer matches
-the step-2 query, so it isn't re-processed. (Resume storage files are **not** deleted
-by this flow — orphaned files are harmless; delete-on-purge can be added later.)
+the step-2 query, so it isn't re-processed. The resume's **Storage file is also
+deleted** (`DELETE /storage/v1/object/<bucket>` with the `file_path` prefix) so it
+doesn't accumulate.
 
 **Cancel Rejection** flips the status back to `pending` before the hour is up, so the
 row never matches the query — no email, no deletion. ✔️
 
 ## Interview Cleanup (how it works) — HARD DELETE once the interview is over
 
-Daily schedule. Finds `Interviews` whose `interview_date` is **>12h in the past**
-(the interview has happened), then for each one resolves evaluation→resume→applicant,
-writes an `INTERVIEW_COMPLETED` audit entry (company-scoped via the `[c:<id>]` marker),
-and hard-deletes the same children→parents chain as the reject purge (plus the
-`Interviews` row). Ships **inactive**; needs `SUPABASE_SERVICE_KEY`. All requests are
-guarded (`try/catch`) so one bad row can't halt the run.
+Schedule. Finds `Interviews` whose `interview_date` is in the past (the interview has
+happened), then for each one resolves evaluation→resume→applicant, writes an
+`INTERVIEW_COMPLETED` audit entry (company-scoped via the `[c:<id>]` marker), deletes
+the resume Storage file, and hard-deletes the same children→parents chain as the reject
+purge (plus the `Interviews` row). Ships **inactive**; needs `SUPABASE_SERVICE_KEY`. All
+requests are guarded (`try/catch`) so one bad row can't halt the run.
+
+> **⚠️ TEST MODE:** the cutoff is set to **2 minutes** past the interview on a **5-minute**
+> schedule so it can be verified quickly. For production, change `2 * 60 * 1000` back to
+> `12 * 60 * 60 * 1000` in the code node and set the schedule trigger to daily.
 
 ### Batch processing (all rejected rows per trigger)
 - The **Get rejected > 1h** node has `returnAll: true`, so every trigger pulls the

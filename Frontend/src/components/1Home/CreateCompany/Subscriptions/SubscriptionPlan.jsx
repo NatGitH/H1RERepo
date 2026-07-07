@@ -4,7 +4,6 @@ import { useCompanyRegistration } from "../../../../.Context/CompanyRegistration
 import { supabase } from "../../../../.Context/supabaseClient";
 import { apiFetch, getErrorMessage } from "../../../../api";
 
-
 export default function SubscriptionPlan() {
   const navigate = useNavigate();
   const { registrationData, updateData } = useCompanyRegistration();
@@ -78,7 +77,6 @@ export default function SubscriptionPlan() {
     .from("company-documents")
     .getPublicUrl(path);
 
-  // Force inline display instead of download
   return data.publicUrl.replace("/object/public/", "/object/public/") + "?download=false";
 };
 
@@ -99,7 +97,6 @@ export default function SubscriptionPlan() {
       });
       const companyId = data.company_id;
 
-      // Upload documents directly to Supabase Storage from the frontend
       const docFields = {
         business_permit: { file: registrationData.businessPermit, label: "Business Permit" },
         dti_sec:          { file: registrationData.dtiSec,          label: "DTI/SEC Registration" },
@@ -197,7 +194,7 @@ export default function SubscriptionPlan() {
                 {plan.buttonLabel}
                 <span className="w-6 h-6 rounded-full bg-[#1a2e6b] text-white flex items-center justify-center text-xs cursor-pointer">→</span>
               </button>
-            </div> 
+            </div>
           ))}
         </div>
 

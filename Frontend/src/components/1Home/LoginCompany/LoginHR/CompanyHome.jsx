@@ -8,7 +8,7 @@ export default function CompanyHome() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0d1b3e] relative overflow-hidden">
-      
+
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
 
@@ -22,7 +22,7 @@ export default function CompanyHome() {
          boxShadow: "6px 6px 0px #000000",
         }}
       >
-        
+
         <div className="relative flex items-center justify-center mb-0">
 
           <button

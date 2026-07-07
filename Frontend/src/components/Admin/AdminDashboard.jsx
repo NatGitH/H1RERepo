@@ -19,15 +19,15 @@ export default function AdminDashboard() {
   const [pendingPlans, setPendingPlans] = useState([]);
   const [companies, setCompanies]   = useState([]);
   const [search, setSearch]         = useState("");
-  const [companySort, setCompanySort] = useState("name"); // "name" | "expiry"
+  const [companySort, setCompanySort] = useState("name");
   const [loading, setLoading]       = useState(true);
   const [activeNav, setActiveNav]   = useState("home");
   const [docsByCompany, setDocsByCompany] = useState({});
   const [expandedDocs, setExpandedDocs]   = useState(null);
   const [previewDoc, setPreviewDoc]       = useState(null);
   const [showNotifs, setShowNotifs]       = useState(false);
-  const [confirmAction, setConfirmAction] = useState(null); // { type: "revoke"|"restore"|"delete", id, name }
-  const [planModal, setPlanModal]         = useState(null); // { id, name, plan, expiry }
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [planModal, setPlanModal]         = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -96,7 +96,6 @@ export default function AdminDashboard() {
     } catch (err) { window.showAlert(err.message); }
   };
 
-  // Admin directly sets a company's plan (start resets, term is always 1 month).
   const handleSetPlan = async (company_id, plan, expiry) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/plans/set/`, {
@@ -164,8 +163,6 @@ const handleDelete = async (company_id) => {
   } catch (err) { window.showAlert(err.message); }
 };
 
-  // Guess a MIME type from the file extension so "Open in new tab" always renders
-  // inline (regardless of how Supabase stored the Content-Disposition/content-type).
   const guessMime = (url = "") => {
     const u = url.toLowerCase();
     if (/\.(jpg|jpeg)(\?|$)/.test(u)) return "image/jpeg";
@@ -216,8 +213,6 @@ const handleDelete = async (company_id) => {
     setConfirmAction(null);
   };
 
-  // Seed the date picker: parse the company's current expiry (e.g. "Aug 05, 2026")
-  // into YYYY-MM-DD using local parts (avoids a UTC off-by-one). Falls back to +30 days.
   const toDateInput = (val) => {
     let d = val ? new Date(val) : null;
     if (!d || isNaN(d.getTime())) {
@@ -234,7 +229,6 @@ const handleDelete = async (company_id) => {
     c.company_name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Sort for the Companies tab — alphabetical or by subscription expiry.
   const sortCompanies = (list) => {
     const arr = [...list];
     if (companySort === "name")
@@ -244,9 +238,6 @@ const handleDelete = async (company_id) => {
     return arr;
   };
 
-  // "Open in new tab" must VIEW the file, not download it. Images open directly;
-  // everything else (PDFs, docs) goes through the Google Docs viewer so the
-  // browser renders it in-tab instead of downloading the raw Supabase object.
   const docOpenUrl = (doc) => {
     const url = doc?.document_url || "";
     const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
@@ -260,8 +251,6 @@ const handleDelete = async (company_id) => {
     return "bg-slate-400";
   };
 
-  // Only approved companies count toward "Total Companies" and "Active Subscription".
-  // Pending companies are tracked separately and shouldn't inflate these totals.
   const approvedCompanies = companies.filter((c) => c.approval_status === "approved");
   const totalCompaniesCount = approvedCompanies.length;
   const activeSubscriptionCount = approvedCompanies.filter((c) => c.subscription_status === "active").length;
@@ -485,7 +474,6 @@ const handleDelete = async (company_id) => {
                 )}
                 </div>
 
-                {/* Pending Change Plans */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-extrabold text-[#0B2447] text-base">Pending Change Plans</h2>
@@ -616,7 +604,6 @@ const handleDelete = async (company_id) => {
             </div>
 
             <div className="overflow-y-auto flex-1 min-h-0 pr-1">
-            {/* Active Companies */}
             <h3 className="font-bold text-[#0B2447] text-sm mb-3">Active</h3>
             <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 mb-8 items-start">
               {sortCompanies(filteredCompanies.filter((c) => c.approval_status === "approved")).map((c) => (
@@ -650,7 +637,6 @@ const handleDelete = async (company_id) => {
                       >
                         Revoke
                       </button>
-                      {/* Admin changes the plan + expiry via a modal. */}
                       <button
                         onClick={() => setPlanModal({
                           id: c.id,
@@ -686,7 +672,6 @@ const handleDelete = async (company_id) => {
               )}
             </div>
 
-            {/* Revoked Companies */}
             <h3 className="font-bold text-red-500 text-sm mb-3">Revoked</h3>
             <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 items-start">
               {filteredCompanies.filter((c) => c.approval_status === "rejected").map((c) => (
@@ -810,7 +795,6 @@ const handleDelete = async (company_id) => {
         </div>
       )}
 
-      {/* Confirmation modal — Revoke / Restore / Delete */}
       {confirmAction && (() => {
         const cfg = {
           revoke:  { title: "Revoke Company",  msg: `Revoke "${confirmAction.name}"? They'll be moved to Revoked and dropped to the free tier.`, label: "Revoke",  color: "bg-red-500 hover:bg-red-600" },
@@ -850,7 +834,6 @@ const handleDelete = async (company_id) => {
         );
       })()}
 
-      {/* Change Plan modal — pick plan + expiry date */}
       {planModal && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center px-4"
@@ -865,7 +848,6 @@ const handleDelete = async (company_id) => {
             <h3 className="text-lg font-bold text-[#0B2447] mb-1">Change Plan</h3>
             <p className="text-sm text-slate-500 mb-4 truncate">{planModal.name}</p>
 
-            {/* Plan options */}
             <label className="block text-xs font-bold text-[#0B2447] mb-2">Plan</label>
             <div className="grid grid-cols-3 gap-2 mb-5">
               {["free", "standard", "enterprise"].map((p) => (
@@ -883,7 +865,6 @@ const handleDelete = async (company_id) => {
               ))}
             </div>
 
-            {/* Expiry date */}
             <label className="block text-xs font-bold text-[#0B2447] mb-2">Expires On</label>
             <input
               type="date"

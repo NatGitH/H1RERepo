@@ -26,12 +26,10 @@ export default function Payment() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden px-4">
 
-
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
-
 
       <div
         className="relative z-10 bg-white rounded-2xl px-8 pt-6 pb-6 w-full max-w-2xl mx-4"
@@ -41,7 +39,6 @@ export default function Payment() {
         }}
       >
 
-   
         <div className="flex items-center gap-3 mb-1">
           <button
             onClick={() => navigate("/")}
@@ -55,11 +52,9 @@ export default function Payment() {
           </h2>
         </div>
 
-  
         <p className="text-xs text-slate-400 mb-4 text-left">
           Scan the QR code to complete your payment
         </p>
-
 
         <div className="mb-4">
           <span className="bg-[#0d1b3e] text-white text-xs font-semibold px-3 py-1.5 rounded-md">
@@ -67,14 +62,12 @@ export default function Payment() {
           </span>
         </div>
 
-
         <div className="flex items-center justify-center gap-1.5 mb-3">
           <div className="flex items-center gap-1 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
             QR Ph
           </div>
         </div>
 
-  
         <div className="flex justify-center mb-4">
           <div className="border-2 border-slate-800 rounded-xl overflow-hidden">
             <img
@@ -85,16 +78,13 @@ export default function Payment() {
           </div>
         </div>
 
-  
         <p className="text-center text-2xl font-bold text-black mb-3">
           {planDetails.amount}
         </p>
 
-
         <p className="text-center text-xs text-slate-400 leading-relaxed mb-6">
           Scan the QR code using any BSP-accredited banking or e-wallet app that supports QR Ph.
         </p>
-
 
         <div className="flex flex-col gap-3">
           <button
@@ -113,7 +103,6 @@ export default function Payment() {
         </div>
       </div>
 
-  
       {modal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -130,7 +119,6 @@ export default function Payment() {
             onClick={(e) => e.stopPropagation()}
           >
 
-
             <button
               onClick={() => setModal(null)}
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-slate-100 transition"
@@ -140,7 +128,6 @@ export default function Payment() {
 
             <div className="flex flex-col items-center text-center pt-2">
 
-              {/* Icon */}
               {modal === "success" ? (
                 <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mb-5">
                   <CheckIcon style={{ fontSize: 42, color: "white" }} />
@@ -151,14 +138,12 @@ export default function Payment() {
                 </div>
               )}
 
- 
               <h2 className="text-2xl font-bold text-black mb-2">
                 {modal === "success"
                   ? "Payment Successful!"
                   : "Payment Failed"}
               </h2>
 
-   
               <p className="text-sm text-slate-400 mb-5 leading-relaxed">
                 {modal === "success"
                   ? "Your subscription is now active."
@@ -167,7 +152,6 @@ export default function Payment() {
 
               <hr className="w-full border-slate-200 mb-5" />
 
-  
               {modal === "success" ? (
                 <button
                   onClick={() => navigate("/Account-Verification")}

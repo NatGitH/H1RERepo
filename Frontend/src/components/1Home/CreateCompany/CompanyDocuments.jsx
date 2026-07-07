@@ -4,7 +4,6 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useCompanyRegistration } from "../../../.Context/CompanyRegistrationContext";
 import { checkFileSize } from "../../../fileLimit";
 
-
 export default function CompanyDocuments() {
   const navigate = useNavigate();
   const { updateData } = useCompanyRegistration();

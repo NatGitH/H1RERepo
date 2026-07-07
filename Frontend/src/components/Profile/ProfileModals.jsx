@@ -3,9 +3,6 @@ import { apiFetch, getErrorMessage } from "../../api";
 import qrCode from "../../assets/qr code.svg";
 import PasswordInput from "../Functions/PasswordInput";
 
-// ─────────────────────────────────────────────
-// Change Profile Picture Modal (HR roles)
-// ─────────────────────────────────────────────
 export function ChangeProfilePictureModal({
   newPicPreview,
   newPicFile,
@@ -81,9 +78,6 @@ export function ChangeProfilePictureModal({
   );
 }
 
-// ─────────────────────────────────────────────
-// Change Company Logo Modal (Owner)
-// ─────────────────────────────────────────────
 export function ChangeCompanyLogoModal({
   newPicPreview,
   newPicFile,
@@ -159,9 +153,6 @@ export function ChangeCompanyLogoModal({
   );
 }
 
-// ─────────────────────────────────────────────
-// Change Company Name Modal (Owner)
-// ─────────────────────────────────────────────
 export function ChangeCompanyNameModal({ currentName = "", token, onSuccess, onClose }) {
   const [newName, setNewName]   = useState("");
   const [loading, setLoading]   = useState(false);
@@ -256,9 +247,6 @@ export function ChangeCompanyNameModal({ currentName = "", token, onSuccess, onC
   );
 }
 
-// ─────────────────────────────────────────────
-// Change Company Password Modal (Owner)
-// ─────────────────────────────────────────────
 export function ChangeCompanyPasswordModal({ token, onClose }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword]         = useState("");
@@ -373,9 +361,6 @@ export function ChangeCompanyPasswordModal({ token, onClose }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// Change Company Profile (Description) Modal (Owner)
-// ─────────────────────────────────────────────
 export function ChangeCompanyProfileModal({ currentDescription = "", token, onSuccess, onClose }) {
   const [description, setDescription] = useState(currentDescription);
   const [loading, setLoading]         = useState(false);
@@ -435,9 +420,6 @@ export function ChangeCompanyProfileModal({ currentDescription = "", token, onSu
   );
 }
 
-// ─────────────────────────────────────────────
-// Delete Company Modal (Owner)
-// ─────────────────────────────────────────────
 export function DeleteCompanyModal({ companyName = "", token, onSuccess, onClose }) {
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading]         = useState(false);
@@ -506,9 +488,6 @@ export function DeleteCompanyModal({ companyName = "", token, onSuccess, onClose
   );
 }
 
-// ─────────────────────────────────────────────
-// Manage Subscription Modal (Owner)
-// ─────────────────────────────────────────────
 const SUBSCRIPTION_PLANS = [
   {
     name: "Basic",
@@ -559,7 +538,7 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
         token,
         body: { plan: selectedPlan },
       });
-      setRequested(true);   // show QR + "awaiting admin approval"
+      setRequested(true);
     } catch (err) {
       setError(getErrorMessage(err));
       setConfirmed(false);
@@ -680,10 +659,6 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
     </div>
   );
 }
-
-// ─────────────────────────────────────────────
-// Change Password Modal (HR roles)
-// ─────────────────────────────────────────────
 
 const STEP_EMAIL   = "email";
 const STEP_CODE    = "code";

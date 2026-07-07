@@ -24,20 +24,16 @@ export default function Employer() {
   const [search, setSearch]   = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Profile overlay
   const [selectedMember, setSelectedMember] = useState(null);
   const [showDotsMenu, setShowDotsMenu]     = useState(false);
-  const [memberInterviews, setMemberInterviews] = useState(null); // null = loading
+  const [memberInterviews, setMemberInterviews] = useState(null);
 
-  // Pending account-request profile overlay (read-only, no interview panel)
   const [pendingMember, setPendingMember] = useState(null);
 
-  // Change role modal
   const [showRoleModal, setShowRoleModal]     = useState(false);
   const [selectedRole, setSelectedRole]       = useState("");
   const [showConfirmRole, setShowConfirmRole] = useState(false);
 
-  // Delete confirm
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -53,8 +49,6 @@ export default function Employer() {
     })();
   }, []);
 
-  // When a member is opened, load the interviews THEY personally scheduled
-  // (so owners/managers can see each recruiter's interview pipeline).
   useEffect(() => {
     if (!selectedMember) { setMemberInterviews(null); return; }
     let cancelled = false;
@@ -137,7 +131,6 @@ export default function Employer() {
         className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447] flex-1 flex flex-col min-h-0 mb-4"
         style={{ boxShadow: "6px 6px 0px #0B2447" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
           <div
             className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
@@ -155,10 +148,8 @@ export default function Employer() {
           </div>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-2 gap-6 max-[768px]:grid-cols-1 flex-1 min-h-0">
 
-          {/* Pending Panel */}
           <div className="bg-[#fde8c0] rounded-[24px] p-6 flex flex-col min-h-0">
             <div className="flex items-start justify-between gap-4 mb-5 flex-shrink-0">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
@@ -212,7 +203,6 @@ export default function Employer() {
             )}
           </div>
 
-          {/* Active Panel */}
           <div className="bg-[#d4edb8] rounded-[24px] p-6 flex flex-col min-h-0">
             <div className="flex items-start justify-between gap-4 mb-5 flex-shrink-0">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
@@ -265,7 +255,6 @@ export default function Employer() {
         </div>
       </div>
 
-      {/* ── Overlays & Modals ── */}
       {selectedMember && (
         <ProfileOverlay
           member={selectedMember}

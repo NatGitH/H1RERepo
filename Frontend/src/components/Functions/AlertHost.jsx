@@ -1,9 +1,5 @@
 import { useState, useEffect } from "react";
 
-// Imperative, app-wide replacement for window.alert / window.confirm.
-// Mount <AlertHost/> once (in main.jsx). Call window.showAlert(...) /
-// window.showConfirm(...) anywhere — no per-component wiring needed.
-
 let _push = null;
 
 export function showAlert(message, { title = "", type = "info" } = {}) {
@@ -26,7 +22,6 @@ export default function AlertHost() {
 
   useEffect(() => {
     _push = (item) => setQueue((q) => [...q, { ...item, id: Date.now() + Math.random() }]);
-    // Expose globally so plain `window.showAlert(...)` works everywhere.
     window.showAlert = showAlert;
     window.showConfirm = showConfirm;
     return () => {

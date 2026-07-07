@@ -39,7 +39,6 @@ def notify_company(company_id, ntype, title, message):
     except Exception as e:
         print("notify_company error:", e)
 
-
 def notify_user(user_id, ntype, title, message):
     """Create a per-user notification. Clearable."""
     if not user_id:
@@ -55,7 +54,6 @@ def notify_user(user_id, ntype, title, message):
         )
     except Exception as e:
         print("notify_user error:", e)
-
 
 def log_audit(company_id, action_type, message, performed_by_user_id=None,
               applicant_id=None, requirement_id=None):
@@ -75,8 +73,6 @@ def log_audit(company_id, action_type, message, performed_by_user_id=None,
     except Exception as e:
         print("audit log error:", e)
 
-# ---- Subscription plan feature matrix --------------------------------------
-# None = unlimited. These gate limits + features across the app.
 PLAN_FEATURES = {
     "free":       {"job_posts": 2,    "resumes": 30,   "interview": False, "reject": False, "pros_cons": False, "audit": False},
     "standard":   {"job_posts": 6,    "resumes": 300,  "interview": True,  "reject": True,  "pros_cons": True,  "audit": False},
@@ -89,7 +85,6 @@ def plan_features(plan):
 def get_company_plan(company_id):
     c = Company.objects.filter(company_id=company_id).first()
     return (c.subscription_plan or "free").lower() if c and c.subscription_plan else "free"
-
 
 def make_token(payload: dict) -> str:
     payload["exp"] = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
@@ -109,10 +104,6 @@ def fmt_ph(dt):
     ph = dt.astimezone(datetime.timezone(datetime.timedelta(hours=8)))
     return ph.strftime("%m/%d/%Y %I:%M %p")
 
-# LOGINS
-# --------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
-
 @csrf_exempt
 @require_POST
 def login_owner(request):
@@ -128,7 +119,6 @@ def login_owner(request):
         except argon2.exceptions.VerifyMismatchError:
             return JsonResponse({"error": "Invalid credentials"}, status=401)
 
-        # Check if company is approved by admin
         try:
             approval = ApprovalCompany.objects.get(subscribing_company_id=company.company_id)
             if approval.action_status == "pending":
@@ -205,11 +195,9 @@ def register_company(request):
             action_status="pending",
         )
 
-        # AUDIT (permanent): record when the company account was created.
         log_audit(company_id=company.company_id, action_type="COMPANY_CREATED",
                   message=f"Company account '{company_name}' was created.")
 
-        # Upload documents to Supabase Storage
         try:
             from supabase import create_client
             from django.conf import settings
@@ -248,7 +236,6 @@ def register_company(request):
         except Exception as doc_err:
             print("Document upload error:", doc_err)
 
-        # Notify n8n to send welcome email
         print(f"[n8n] N8N_BASE_URL = {settings.N8N_BASE_URL}")
         try:
             resp = requests.post(
@@ -264,7 +251,6 @@ def register_company(request):
         except Exception as n8n_err:
             print("[n8n] register-confirmation error:", n8n_err)
 
-        # Notify all platform admins by email that a company is awaiting approval
         try:
             from .models import Admin
             admin_emails = [a.admin_email for a in Admin.objects.all() if a.admin_email]
@@ -322,15 +308,12 @@ def delete_employer(request):
         payload = decode_token(request)
         role    = payload.get("role")
 
-        # Owners and HR Managers can delete employers.
         if role not in ["owner", "HRManager"]:
             return JsonResponse({"error": "Only owners and HR managers can delete employers"}, status=403)
 
         data    = json.loads(request.body)
         user_id = data.get("user_id", "").strip()
 
-        # Identify who is performing the deletion (email + role) — this is shown
-        # in the notification email to the deleted employer.
         if role == "owner":
             comp = Company.objects.filter(company_id=payload.get("company_id")).first()
             deleter_email = comp.owner_email if comp else ""
@@ -346,7 +329,6 @@ def delete_employer(request):
         deleted_name  = f"{user.firstname or ''} {user.lastname or ''}".strip() or user.username or "there"
         user.delete()
 
-        # Notify the deleted employer by email (guarded: never 500s)
         try:
             if deleted_email:
                 requests.post(
@@ -431,10 +413,6 @@ def check_approval_status(request):
         return JsonResponse({"error": "Company not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-
-# HR Account
-# --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 @require_POST
@@ -550,15 +528,11 @@ def create_hr_account(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def login_hr(request):
     try:
         data       = json.loads(request.body)
-        # Use `or ""` (not a get-default) so an explicit null value in the JSON
-        # body doesn't blow up on .strip() — that produced the confusing
-        # "'NoneType' object has no attribute 'strip'" login error.
         email      = (data.get("email") or "").strip()
         password   = (data.get("password") or "").strip()
         company_id = (data.get("company_id") or "").strip()
@@ -566,7 +540,6 @@ def login_hr(request):
         if not company_id:
             return JsonResponse({"error": "Please select your company before logging in."}, status=400)
 
-        # Check if company has been revoked/rejected
         try:
             approval = ApprovalCompany.objects.get(subscribing_company_id=company_id)
             if approval.action_status == "rejected":
@@ -610,7 +583,6 @@ def login_hr(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def update_hr_profile(request):
@@ -640,9 +612,6 @@ def update_hr_profile(request):
         return JsonResponse({"error": str(e)}, status=500)
     
     
-# Password Reset
-# --------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 @require_POST
@@ -657,13 +626,10 @@ def forgot_password(request):
             print(f"DEBUG: email '{email}' not found in HRUser table")
             return JsonResponse({"message": "If that email exists, a reset link was sent."})
 
-        # Generate a reset token (reuse JWT, expires in 30 min)
         token = make_token({"user_id": str(user.user_id), "purpose": "password_reset"})
 
-        # Frontend uses HashRouter, so the SPA route lives after the '#'.
         reset_link = f"{settings.FRONTEND_URL}/#/HR-New-Password?token={token}"
         
-        # Notify n8n to send reset email
         try:
             requests.post(
                 f"{settings.N8N_BASE_URL}/webhook/password-reset",
@@ -682,7 +648,6 @@ def forgot_password(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def send_reset_code(request):
@@ -692,20 +657,12 @@ def send_reset_code(request):
         email  = data.get("email", "").strip()
         origin = (data.get("origin") or "").strip()
 
-        # The Change Password modal is used by BOTH HR users and company owners.
         user    = HRUser.objects.filter(email=email).first()
         company = None if user else Company.objects.filter(owner_email=email).first()
 
-        # Owner flow (Login-as-Owner "Forgot Password"): the email must belong to a
-        # registered company owner — surface an explicit error instead of the
-        # generic message so the owner knows the address isn't recognised.
         if origin == "owner" and not company:
             return JsonResponse({"error": "No company is registered with this email."}, status=404)
 
-        # HR staff flow (Login-to-Company "Forgot Password"): may only reset a
-        # staff/manager account that belongs to the SAME company they signed into —
-        # never another company's users, and never the company owner's login (owners
-        # have no Users row, so the company-scoped lookup already excludes them).
         if origin == "staff":
             company_id = (data.get("company_id") or "").strip()
             if not company_id:
@@ -714,14 +671,13 @@ def send_reset_code(request):
             if not staff:
                 return JsonResponse({"error": "That email doesn't belong to a staff or manager in this company."}, status=404)
 
-        # Don't reveal whether the email exists (HR / generic flow).
         if not user and not company:
             return JsonResponse({"message": "If that email exists, a code was sent."})
 
         display_name = user.username if user else company.company_name
         code = f"{random.randint(0, 999999):06d}"
         from django.core.cache import cache
-        cache.set(f"pwcode:{email}", code, timeout=600)  # 10 minutes
+        cache.set(f"pwcode:{email}", code, timeout=600)
 
         try:
             requests.post(
@@ -736,7 +692,6 @@ def send_reset_code(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_POST
@@ -757,7 +712,6 @@ def verify_reset_code(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def reset_password(request):
@@ -775,7 +729,6 @@ def reset_password(request):
             return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
 
         if token:
-            # Link-based flow (JWT from forgot_password) — HR users only.
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             if payload.get("purpose") != "password_reset":
                 return JsonResponse({"error": "Invalid token"}, status=400)
@@ -785,12 +738,11 @@ def reset_password(request):
             return JsonResponse({"message": "Password reset successfully"})
 
         if email and code:
-            # Code-based flow (send_reset_code / verify_reset_code) — HR users OR owners.
             from django.core.cache import cache
             stored = cache.get(f"pwcode:{email}")
             if not stored or stored != code:
                 return JsonResponse({"error": "Invalid or expired code"}, status=400)
-            cache.delete(f"pwcode:{email}")  # one-time use
+            cache.delete(f"pwcode:{email}")
 
             hashed = ph.hash(new_pass)
             hr = HRUser.objects.filter(email=email).first()
@@ -817,9 +769,6 @@ def reset_password(request):
         return JsonResponse({"error": str(e)}, status=500)
     
     
-# Applicants / AI Evaluation 
-# --------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
 
 def get_auto_reject_threshold(company_id):
     """The company's auto-reject minimum H!RE Score, or None if not set.
@@ -835,7 +784,6 @@ def get_auto_reject_threshold(company_id):
         return float(n.message)
     except (TypeError, ValueError):
         return None
-
 
 @csrf_exempt
 def auto_reject_threshold(request):
@@ -857,7 +805,6 @@ def auto_reject_threshold(request):
         data = json.loads(request.body)
         raw  = data.get("threshold", None)
 
-        # Clear the existing setting first (single value per company).
         Notification.objects.filter(
             recipient_company_id=company_id,
             notification_type="auto_reject_threshold",
@@ -878,7 +825,7 @@ def auto_reject_threshold(request):
             notification_type="auto_reject_threshold",
             title="Auto-Reject Threshold",
             message=str(val),
-            is_read=True,  # config value, not a user-facing alert
+            is_read=True,
         )
         return JsonResponse({"threshold": val, "message": "Auto-reject threshold set"})
 
@@ -887,7 +834,6 @@ def auto_reject_threshold(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def create_meet_link(request):
@@ -895,7 +841,7 @@ def create_meet_link(request):
     and return it. Requires a Google Calendar OAuth2 credential configured on the
     'H!RE - Create Meet Link' workflow in n8n."""
     try:
-        decode_token(request)  # auth required
+        decode_token(request)
         data = json.loads(request.body)
         interview_date = data.get("interview_date")
         if not interview_date:
@@ -926,7 +872,6 @@ def create_meet_link(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def evaluate_resume(request):
@@ -935,7 +880,6 @@ def evaluate_resume(request):
         user_id = payload.get("user_id")
         company_id = payload.get("company_id")
 
-        # Get the uploaded file
         resume_file    = request.FILES.get("resume")
         requirement_id = request.POST.get("requirement_id", "").strip()
 
@@ -944,11 +888,8 @@ def evaluate_resume(request):
         if not requirement_id:
             return JsonResponse({"error": "No requirement selected"}, status=400)
 
-        # Read the bytes once so we can reuse them (auto-match + evaluate).
         resume_bytes = resume_file.read()
 
-        # ✨ Auto Find Best Job Position: score the resume against every approved
-        # requirement (via the Match Resume workflow) and pick the best fit.
         if requirement_id == "auto":
             approved = JobRequirement.objects.filter(
                 company_id=company_id, is_deleted=False, current_status="approved")
@@ -975,14 +916,12 @@ def evaluate_resume(request):
                 return JsonResponse({"error": "Could not auto-match this file to a position. Please pick one manually."}, status=502)
             requirement_id = best_id
 
-        # Get the job requirement from DB
         req = JobRequirement.objects.get(
             requirement_id=requirement_id,
             company_id=company_id,
             is_deleted=False
         )
 
-        # Plan limit: monthly-style cap on how many resumes this company can evaluate.
         feats = plan_features(get_company_plan(company_id))
         if feats["resumes"] is not None:
             from supabase import create_client
@@ -1001,7 +940,6 @@ def evaluate_resume(request):
                     status=403,
                 )
 
-        # Forward the resume + job context to the n8n evaluation webhook
         n8n_url = getattr(settings, "N8N_EVALUATE_WEBHOOK_URL", "http://localhost:5678/webhook/evaluate-resume")
 
         files = {
@@ -1019,9 +957,6 @@ def evaluate_resume(request):
         n8n_response = requests.post(n8n_url, files=files, data=data, timeout=60)
 
         if not n8n_response.ok:
-            # A reachable n8n returning non-200 almost always means the AI flagged
-            # the upload as not-a-resume (the parse node throws). Genuine
-            # connectivity failures raise RequestException below instead.
             return JsonResponse(
                 {"error": "This file is not considered a Resume in our system."},
                 status=422
@@ -1065,7 +1000,6 @@ def evaluate_resume(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def get_evaluations(request):
     try:
@@ -1076,7 +1010,6 @@ def get_evaluations(request):
         from django.conf import settings
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
-        # Get all evaluations for this company's requirements
         reqs = JobRequirement.objects.filter(
             company_id=company_id,
             is_deleted=False
@@ -1087,7 +1020,6 @@ def get_evaluations(request):
         if not req_ids:
             return JsonResponse([], safe=False)
 
-        # Fetch evaluations
         evals = sb.table("Evaluations").select("*").in_(
             "requirement_id", req_ids
         ).execute().data
@@ -1104,22 +1036,18 @@ def get_evaluations(request):
             # Skip soft-removed evaluations (rejected past the 1h grace, archived by the reject workflow)
             if ev.get("application_status") == "removed":
                 continue
-            # Get resume info
             resume = sb.table("Resumes").select("*").eq(
                 "resume_id", ev["resume_id"]
             ).execute().data
 
-            # Get pros
             pros = sb.table("Evaluation_Pros").select("pros_text").eq(
                 "evaluation_id", ev["evaluation_id"]
             ).execute().data
 
-            # Get cons
             cons = sb.table("Evaluation_Cons").select("cons_text").eq(
                 "evaluation_id", ev["evaluation_id"]
             ).execute().data
 
-            # Requirement details (title + description + qualifications) via ORM
             req_obj = req_map.get(str(ev["requirement_id"]))
 
             applicant = sb.table("Applicants").select("*").eq(
@@ -1164,7 +1092,6 @@ def get_evaluations(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def update_evaluation_status(request, evaluation_id):
     try:
@@ -1177,8 +1104,6 @@ def update_evaluation_status(request, evaluation_id):
         if status not in ["pending", "shortlisted", "rejected", "interview_sent"]:
             return JsonResponse({"error": "Invalid status"}, status=400)
 
-        # Plan gating: the free tier can't schedule interviews or reject-with-email
-        # (it uses "Remove Resume" instead — see remove_evaluation).
         feats = plan_features(get_company_plan(payload.get("company_id")))
         if status == "interview_sent" and not feats["interview"]:
             return JsonResponse({"error": "Interview scheduling isn't available on your plan. Please upgrade."}, status=403)
@@ -1189,9 +1114,6 @@ def update_evaluation_status(request, evaluation_id):
         from django.conf import settings
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
-        # Resolve the applicant + requirement behind this evaluation up front so
-        # the status change can be written to the audit trail below. Guarded —
-        # a lookup failure must not block the status update itself.
         audit_applicant_id   = None
         audit_requirement_id = None
         try:
@@ -1226,7 +1148,6 @@ def update_evaluation_status(request, evaluation_id):
             if not interview_date:
                 return JsonResponse({"error": "interview_date is required"}, status=400)
 
-            # Reject interview dates in the past
             try:
                 dt = datetime.datetime.fromisoformat(interview_date.replace("Z", "+00:00"))
                 if dt.tzinfo is None:
@@ -1256,14 +1177,12 @@ def update_evaluation_status(request, evaluation_id):
                 sent_date=datetime.datetime.utcnow(),
             )
 
-            # friendly date for the email (DB still stores the raw ISO above)
             try:
                 dt = datetime.datetime.fromisoformat(interview_date.replace("Z", ""))
                 date_display = dt.strftime("%B %d, %Y at %I:%M %p")
             except Exception:
                 date_display = interview_date
 
-            # Gather details + trigger the interview email (fully guarded: never 500s)
             try:
                 ev_rows   = sb.table("Evaluations").select("resume_id, hire_score, requirement_id").eq("evaluation_id", str(evaluation_id)).execute().data
                 ev        = ev_rows[0] if ev_rows else {}
@@ -1286,7 +1205,6 @@ def update_evaluation_status(request, evaluation_id):
                     interviewer_email = iu.email if iu else ""
                 else:
                     interviewer_email = comp.get("owner_email", "")
-                # CC both the company and the interviewer on the invitation.
                 cc_list = [e for e in [comp.get("owner_email", ""), interviewer_email] if e and "@" in e]
                 cc_value = ",".join(sorted(set(cc_list)))
 
@@ -1331,7 +1249,6 @@ def update_evaluation_status(request, evaluation_id):
 
         sb.table("Evaluations").update(update_data).eq("evaluation_id", str(evaluation_id)).execute()
 
-        # Resolve the applicant's name once for the notification / audit message.
         appl_name = "Applicant"
         if audit_applicant_id:
             try:
@@ -1345,8 +1262,6 @@ def update_evaluation_status(request, evaluation_id):
         actor          = get_user_fullname(user_id)
         company_id_tok = payload.get("company_id")
 
-        # Shortlist / reject / cancel-rejection are NOTIFICATIONS (clearable).
-        # Sending an interview is an AUDIT LOG entry (permanent).
         if status == "interview_sent":
             raw_dt = data.get("interview_date")
             try:
@@ -1378,7 +1293,6 @@ def update_evaluation_status(request, evaluation_id):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_POST
@@ -1415,7 +1329,6 @@ def remove_evaluation(request, evaluation_id):
             if res:
                 applicant_id = res[0].get("applicant_id")
                 file_path    = res[0].get("file_path")
-        # Resolve the name for the audit entry BEFORE the rows are deleted.
         if applicant_id:
             _an = sb.table("Applicants").select("full_name").eq(
                 "applicant_id", applicant_id).execute().data
@@ -1438,7 +1351,6 @@ def remove_evaluation(request, evaluation_id):
         if applicant_id:
             sb.table("Applicants").delete().eq("applicant_id", applicant_id).execute()
 
-        # Best-effort storage cleanup (file_path is "<bucket>/<path>").
         if file_path:
             try:
                 bucket, _, path = file_path.partition("/")
@@ -1447,8 +1359,6 @@ def remove_evaluation(request, evaluation_id):
             except Exception as storage_err:
                 print("resume storage cleanup error:", storage_err)
 
-        # AUDIT (permanent) — shows in the bell's Activity tab. applicant_id=None
-        # because the applicant row was just deleted (the name is in the message).
         log_audit(company_id=company_id, action_type="APPLICANT_REMOVED",
                   message=f"{get_user_fullname(user_id)} removed {appl_name}",
                   performed_by_user_id=user_id, applicant_id=None, requirement_id=req_id)
@@ -1459,7 +1369,6 @@ def remove_evaluation(request, evaluation_id):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_POST
@@ -1507,7 +1416,6 @@ def remove_interview(request, evaluation_id):
         comp_obj     = Company.objects.filter(company_id=req_obj.company_id).first() if req_obj else None
         company_name = comp_obj.company_name if comp_obj else ""
 
-        # Email the applicant BEFORE deleting the rows (guarded: never 500s).
         try:
             if appl_email and "@" in appl_email and "placeholder" not in appl_email:
                 requests.post(
@@ -1524,7 +1432,6 @@ def remove_interview(request, evaluation_id):
         except Exception as n8n_err:
             print("interview cancelled email error:", n8n_err)
 
-        # Delete interview + evaluation + resume + applicant (full removal).
         Interview.objects.filter(evaluation_id=evaluation_id).delete()
         # Clear child rows that reference this evaluation/applicant first, or the
         # Evaluations/Applicants deletes below hit FK violations (Postgres 23503):
@@ -1564,10 +1471,6 @@ def remove_interview(request, evaluation_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
-# Employer
-# --------------------------------------------------------------------------------------------------------------------
-
 @csrf_exempt
 @require_POST
 def heartbeat(request):
@@ -1586,7 +1489,6 @@ def heartbeat(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def get_employers(request):
     try:
@@ -1599,9 +1501,6 @@ def get_employers(request):
 
         users = HRUser.objects.filter(company_id=company_id)
 
-        # Presence: a member who hasn't sent a heartbeat recently is shown as
-        # "offline" automatically (no reliance on the browser's unload event).
-        # Heartbeat is every 30s, so 90s = ~3 missed beats before going offline.
         STALE_SECONDS = 90
         now = datetime.datetime.now(datetime.timezone.utc)
 
@@ -1640,7 +1539,6 @@ def get_employers(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def approve_reject_account(request):
@@ -1664,7 +1562,6 @@ def approve_reject_account(request):
         target_name    = f"{user.firstname or ''} {user.lastname or ''}".strip() or user.username or "an employee"
         actor          = get_user_fullname(reviewer_id)
 
-        # Update Employer_Account_Requests
         try:
             emp_request = EmployerAccountRequest.objects.get(
                 requested_user_id=user_id,
@@ -1679,7 +1576,6 @@ def approve_reject_account(request):
 
         if new_status == "rejected":
             user.delete()
-            # AUDIT (permanent): employer account rejected.
             log_audit(company_id=target_company, action_type="EMPLOYER_REJECTED",
                       message=f"{actor} rejected the employer account for {target_name}",
                       performed_by_user_id=reviewer_id)
@@ -1688,7 +1584,6 @@ def approve_reject_account(request):
         user.account_status = new_status
         user.save()
 
-        # AUDIT (permanent): employer account approved.
         log_audit(company_id=target_company, action_type="EMPLOYER_APPROVED",
                   message=f"{actor} approved the employer account for {target_name}",
                   performed_by_user_id=reviewer_id)
@@ -1714,7 +1609,6 @@ def approve_reject_account(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def change_role(request):
@@ -1738,14 +1632,12 @@ def change_role(request):
         user.save()
 
         display_role = "HR Manager" if role_name == "HRManager" else "HR Staff"
-        actor        = get_user_fullname(payload.get("user_id"))  # "Owner" when the owner does it
+        actor        = get_user_fullname(payload.get("user_id"))
         target_name  = f"{user.firstname or ''} {user.lastname or ''}".strip() or user.username or "an employee"
 
-        # NOTIFICATION (clearable) — tell the affected user their role changed.
         notify_user(user.user_id, "role_change", "Your Role Was Changed",
                     f"Your role was changed to {display_role} by {actor}.")
 
-        # AUDIT (permanent) — who was changed and who changed them.
         log_audit(company_id=user.company_id, action_type="ROLE_CHANGED",
                   message=f"{actor} changed {target_name}'s role to {display_role}",
                   performed_by_user_id=payload.get("user_id"))
@@ -1760,10 +1652,6 @@ def change_role(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-
-# Requirement
-# --------------------------------------------------------------------------------------------------------------------
 
 def get_user_fullname(user_id):
     """Helper to get full name from user_id, returns 'Owner' if None"""
@@ -1799,7 +1687,7 @@ def requirements_list(request):
                     "created_by":     get_user_fullname(r.created_by_user_id),
                     "modified_by":    get_user_fullname(r.modified_by_user_id) if r.modified_by_user_id else None,
                     "date_modified":  r.date_updated.strftime("%m/%d/%Y") if (r.modified_by_user_id and r.date_updated) else None,
-                    "pending_changes": r.pending_changes,  # json or None
+                    "pending_changes": r.pending_changes,
                 }
                 for r in reqs
             ]
@@ -1816,7 +1704,6 @@ def requirements_list(request):
             if not all([job_title, description, qualifications]):
                 return JsonResponse({"error": "All fields are required"}, status=400)
 
-            # Plan limit: active (non-deleted) job posts.
             feats = plan_features(get_company_plan(company_id))
             if feats["job_posts"] is not None:
                 active_posts = JobRequirement.objects.filter(company_id=company_id, is_deleted=False).count()
@@ -1838,7 +1725,6 @@ def requirements_list(request):
             is_deleted         = False,
         )
 
-        # Notify HRManagers and Owner about the new requirement
         try:
             managers = HRUser.objects.filter(
                 company_id=company_id,
@@ -1856,7 +1742,6 @@ def requirements_list(request):
                     is_read=False,
                 )
 
-            # Notify Owner using company_id as recipient
             Notification.objects.create(
                 notification_id=uuid.uuid4(),
                 recipient_company_id=company_id,
@@ -1886,7 +1771,6 @@ def requirements_list(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def requirement_detail(request, req_id):
     try:
@@ -1909,11 +1793,8 @@ def requirement_detail(request, req_id):
             if action_status in ["approved", "rejected"] and role not in ["HRManager", "owner"]:
                 return JsonResponse({"error": "Forbidden"}, status=403)
 
-            # Was this an approval/rejection of a proposed EDIT (pending changes),
-            # rather than of a brand-new requirement? Capture before we clear it.
             was_modification = bool(req.pending_changes)
 
-            # If approving and there are pending_changes, apply them
             if action_status == "approved" and req.pending_changes:
                 req.job_title      = req.pending_changes.get("job_title", req.job_title)
                 req.description    = req.pending_changes.get("description", req.description)
@@ -1956,8 +1837,6 @@ def requirement_detail(request, req_id):
             except Exception as notif_err:
                 print("Notification error:", notif_err)
 
-            # AUDIT (permanent): who approved/rejected which requirement. Approving an
-            # edit is worded as a "modification" approval so it's distinct in Activity.
             if was_modification:
                 audit_action  = f"REQUIREMENT_MODIFICATION_{action_status.upper()}"
                 audit_message = f"{get_user_fullname(user_id)} {action_status} the modification of requirement '{req.job_title}'"
@@ -1982,14 +1861,12 @@ def requirement_detail(request, req_id):
             new_quals      = data.get("qualifications", req.qualifications).strip()
 
             if role in ["HRManager", "owner"]:
-                # Apply directly
                 req.job_title      = new_job_title
                 req.description    = new_desc
                 req.qualifications = new_quals
                 req.modified_by_user_id = user_id
                 req.pending_changes     = None
                 req.save()
-                # AUDIT (permanent) — a direct edit. No notification for edits.
                 log_audit(company_id=payload.get("company_id"),
                           action_type="REQUIREMENT_MODIFIED",
                           message=f"{get_user_fullname(user_id)} modified the requirement '{req.job_title}'",
@@ -2005,7 +1882,6 @@ def requirement_detail(request, req_id):
                 })
 
             elif role == "HRStaff":
-                # Store as pending changes, mark status as "changes_pending"
                 req.pending_changes     = {
                     "job_title":      new_job_title,
                     "description":    new_desc,
@@ -2015,7 +1891,6 @@ def requirement_detail(request, req_id):
                 req.current_status      = "changes_pending"
                 req.save()
 
-                # Notify the approvers that a pending change awaits + who asked for it.
                 try:
                     asker   = get_user_fullname(user_id)
                     pc_msg  = f"{asker} proposed changes to '{req.job_title}'."
@@ -2035,7 +1910,6 @@ def requirement_detail(request, req_id):
                             message=pc_msg,
                             is_read=False,
                         )
-                    # Owner logs in company-scoped, so notify the company too.
                     notify_company(
                         payload.get("company_id"),
                         "changes_pending",
@@ -2064,15 +1938,9 @@ def requirement_detail(request, req_id):
             company_id_from_token = payload.get("company_id")
             actor = get_user_fullname(user_id)
             ApprovalRequirement.objects.filter(requirement_id=req.requirement_id).delete()
-            # Audit rows reference this requirement via FK. Detach them (keep the
-            # audit — its company scope lives in action_details) so the delete
-            # doesn't violate Audit_Logs_requirement_id_fkey.
             AuditLog.objects.filter(requirement_id=req.requirement_id).update(requirement_id=None)
             req.delete()
 
-            # AUDIT (permanent): a requirement deletion belongs in the Activity trail,
-            # not the clearable notifications feed. requirement_id is left null — the
-            # row no longer exists (passing it would violate the FK).
             log_audit(company_id=company_id_from_token,
                       action_type="REQUIREMENT_DELETED",
                       message=f"{actor} deleted the requirement '{deleted_title}'",
@@ -2087,16 +1955,13 @@ def requirement_detail(request, req_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
-# Profile
-# --------------------------------------------------------------------------------------------------------------------
 @csrf_exempt
 def update_bio(request):
     try:
         payload = decode_token(request)
         user_id = payload.get("user_id")
         data    = json.loads(request.body)
-        bio     = data.get("bio", "").strip()[:500]  # cap at 500 chars
+        bio     = data.get("bio", "").strip()[:500]
 
         user     = HRUser.objects.get(user_id=user_id)
         user.bio = bio
@@ -2137,7 +2002,6 @@ def get_hr_profile(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def get_owner_profile(request):
     try:
@@ -2161,7 +2025,6 @@ def get_owner_profile(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 def update_hr_status(request):
@@ -2188,7 +2051,6 @@ def update_hr_status(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def update_profile_picture(request):
     try:
@@ -2213,10 +2075,6 @@ def update_profile_picture(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-# Company Profile Actions (Owner)
-# --------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 def update_company_logo(request):
@@ -2246,7 +2104,6 @@ def update_company_logo(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_POST
@@ -2281,7 +2138,6 @@ def update_company_name(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def update_company_password(request):
@@ -2309,9 +2165,6 @@ def update_company_password(request):
         try:
             ph.verify(company.staff_password, current_password)
         except argon2.exceptions.VerifyMismatchError:
-            # 400 (not 401): a 401 on an authenticated request makes the frontend
-            # api wrapper treat the session as expired and bounce the owner to the
-            # login screen instead of showing the error inline.
             return JsonResponse({"error": "Wrong Password"}, status=400)
 
         company.staff_password = ph.hash(new_password)
@@ -2326,7 +2179,6 @@ def update_company_password(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def update_company_description(request):
@@ -2339,7 +2191,7 @@ def update_company_description(request):
             return JsonResponse({"error": "Only owners can update the company description"}, status=403)
 
         data        = json.loads(request.body)
-        description = data.get("description", "").strip()[:1500]  # cap at 1,500 chars
+        description = data.get("description", "").strip()[:1500]
 
         company = Company.objects.get(company_id=company_id)
         company.company_description = description
@@ -2376,10 +2228,8 @@ def renew_subscription(request):
         is_same_plan = (new_plan == company.subscription_plan)
 
         if is_same_plan:
-            # Renewing the same plan: extend from current expiry (or now, if already expired)
             base_date = company.subscription_expiry if (company.subscription_expiry and company.subscription_expiry > now) else now
         else:
-            # Switching plans: reset the cycle, starting fresh from today
             base_date = now
 
         new_expiry = base_date + datetime.timedelta(days=30)
@@ -2423,7 +2273,6 @@ def request_plan_change(request):
 
         company = Company.objects.get(company_id=company_id)
 
-        # Only one pending request per company at a time.
         Notification.objects.filter(
             recipient_company_id=company_id,
             notification_type="plan_change_request",
@@ -2434,11 +2283,10 @@ def request_plan_change(request):
             recipient_company_id=company_id,
             notification_type="plan_change_request",
             title="Plan Change Request",
-            message=new_plan,          # the requested plan lives here
+            message=new_plan,
             is_read=False,
         )
 
-        # Email all admins (guarded, like company registration)
         try:
             from .models import Admin
             admin_emails = [a.admin_email for a in Admin.objects.all() if a.admin_email]
@@ -2464,7 +2312,6 @@ def request_plan_change(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 def admin_get_pending_plans(request):
@@ -2499,7 +2346,6 @@ def admin_get_pending_plans(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 @require_POST
 def admin_approve_reject_plan(request):
@@ -2532,7 +2378,6 @@ def admin_approve_reject_plan(request):
             title = "Plan Change Declined"
             msg   = f"Your subscription plan change to '{requested_plan}' was declined by the admin."
 
-        # Notify the owner in-app
         try:
             Notification.objects.create(
                 notification_id=uuid.uuid4(),
@@ -2545,12 +2390,11 @@ def admin_approve_reject_plan(request):
         except Exception as notif_err:
             print("plan change result notification error:", notif_err)
 
-        # AUDIT (permanent): admin's decision on the plan-change request.
         log_audit(company_id=company_id,
                   action_type=f"PLAN_{new_status.upper()}",
                   message=f"The H!RE admin {new_status} the subscription plan change to '{requested_plan}'.")
 
-        req.delete()  # clear the pending request
+        req.delete()
         return JsonResponse({"message": f"Plan change {new_status}", "status": new_status})
 
     except Notification.DoesNotExist:
@@ -2561,7 +2405,6 @@ def admin_approve_reject_plan(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_POST
@@ -2583,7 +2426,6 @@ def admin_set_subscription(request):
         company = Company.objects.get(company_id=company_id)
         now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
 
-        # Admin may pick a custom expiry date (YYYY-MM-DD); otherwise default to a 1-month term.
         if expiry_str:
             try:
                 exp_date = datetime.datetime.strptime(expiry_str, "%Y-%m-%d")
@@ -2599,7 +2441,6 @@ def admin_set_subscription(request):
         company.subscription_expiry = new_expiry
         company.save()
 
-        # Let the owner know in-app that the admin changed their plan.
         try:
             Notification.objects.create(
                 notification_id=uuid.uuid4(),
@@ -2612,7 +2453,6 @@ def admin_set_subscription(request):
         except Exception as notif_err:
             print("admin set subscription notification error:", notif_err)
 
-        # AUDIT (permanent): admin directly set the company's plan.
         log_audit(company_id=company_id, action_type="PLAN_SET",
                   message=f"The H!RE admin set the subscription plan to '{new_plan}'.")
 
@@ -2630,7 +2470,6 @@ def admin_set_subscription(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def delete_company(request):
     try:
@@ -2646,7 +2485,6 @@ def delete_company(request):
 
         company = Company.objects.get(company_id=company_id)
 
-        # Delete uploaded documents from Storage + DB
         try:
             from supabase import create_client
             from django.conf import settings
@@ -2663,7 +2501,6 @@ def delete_company(request):
         Document.objects.filter(company_id=company_id).delete()
         Notification.objects.filter(recipient_company_id=company_id).delete()
 
-        # Cascade: delete HR users, approval records, requests, notifications
         HRUser.objects.filter(company_id=company_id).delete()
         ApprovalCompany.objects.filter(subscribing_company_id=company_id).delete()
         EmployerAccountRequest.objects.filter(company_id=company_id).delete()
@@ -2680,9 +2517,6 @@ def delete_company(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
-# Notifications
-# --------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 def get_notifications(request):
@@ -2696,7 +2530,7 @@ def get_notifications(request):
             notifs = Notification.objects.filter(
                 recipient_company_id=company_id
             ).exclude(
-                notification_type__in=["plan_change_request", "auto_reject_threshold"]  # internal rows, not owner-facing
+                notification_type__in=["plan_change_request", "auto_reject_threshold"]
             ).order_by("-created_at")[:20]
         else:
             if not user_id:
@@ -2722,7 +2556,6 @@ def get_notifications(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_POST
@@ -2751,11 +2584,7 @@ def mark_notifications_read(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
-# Internal Notification rows that back a feature (not real notifications) and must
-# survive the Clear button.
 INTERNAL_NOTIF_TYPES = ["plan_change_request", "auto_reject_threshold"]
-
 
 @csrf_exempt
 @require_POST
@@ -2781,7 +2610,6 @@ def clear_notifications(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 def get_audit_logs(request):
@@ -2814,11 +2642,6 @@ def get_audit_logs(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-
-#Admin
-#--------------------------------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------------------------
 
 @csrf_exempt
 @require_POST
@@ -2891,14 +2714,12 @@ def admin_get_companies(request):
 
         data = []
         for c in companies:
-            # Get approval status
             try:
                 approval = ApprovalCompany.objects.get(subscribing_company_id=c.company_id)
                 approval_status = approval.action_status
             except ApprovalCompany.DoesNotExist:
                 approval_status = "pending"
 
-            # Determine subscription status
             now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
             if c.subscription_expiry:
                 days_left = (c.subscription_expiry - now).days
@@ -2911,7 +2732,6 @@ def admin_get_companies(request):
             else:
                 sub_status = "unknown"
 
-            # Employee counts
             total_employees  = HRUser.objects.filter(company_id=c.company_id).count()
             active_employees = HRUser.objects.filter(company_id=c.company_id, account_status="active").count()
 
@@ -2936,7 +2756,6 @@ def admin_get_companies(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 def admin_get_pending_companies(request):
@@ -2972,7 +2791,6 @@ def admin_get_pending_companies(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 def _purge_company(company_id):
     """Hard-delete a company and everything attached to it (Storage files + all
     related rows). Used by both an admin *reject* (declining a pending
@@ -2980,7 +2798,7 @@ def _purge_company(company_id):
     try:
         from supabase import create_client
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
-        folder = str(company_id)  # register_company uploads under "<company_id>/..."
+        folder = str(company_id)
         files  = sb.storage.from_("company-documents").list(folder)
         if files:
             paths = [f"{folder}/{f['name']}" for f in files]
@@ -2995,7 +2813,6 @@ def _purge_company(company_id):
     EmployerAccountRequest.objects.filter(company_id=company_id).delete()
     JobRequirement.objects.filter(company_id=company_id).delete()
     Company.objects.filter(company_id=company_id).delete()
-
 
 @csrf_exempt
 @require_POST
@@ -3019,7 +2836,6 @@ def admin_approve_reject_company(request):
         company_id = approval.subscribing_company_id
         company    = Company.objects.filter(company_id=company_id).first()
 
-        # Email the owner of the decision BEFORE any deletion (guarded: never 500s).
         try:
             if company:
                 requests.post(
@@ -3035,9 +2851,6 @@ def admin_approve_reject_company(request):
             print("company approval email error:", n8n_err)
 
         if new_status == "rejected":
-            # A rejected registration is removed entirely — it does NOT linger as a
-            # "revoked" account. (Revoking an already-approved company is a separate
-            # action that keeps the row so it can be restored.)
             _purge_company(company_id)
             return JsonResponse({"message": "Company rejected and removed", "status": "rejected"})
 
@@ -3046,7 +2859,6 @@ def admin_approve_reject_company(request):
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
 
-        # AUDIT (permanent): admin approved the company registration.
         log_audit(company_id=company_id, action_type="COMPANY_APPROVED",
                   message="The H!RE admin approved this company's registration.")
 
@@ -3058,7 +2870,6 @@ def admin_approve_reject_company(request):
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_POST
@@ -3074,8 +2885,6 @@ def admin_revoke_company(request):
         data       = json.loads(request.body)
         company_id = (data.get("company_id") or "").strip()
 
-        # Revoke = move the company to the "Revoked" list AND drop them to the
-        # free tier (so if they're later restored, they come back on free).
         company = Company.objects.get(company_id=company_id)
         company.subscription_plan = "free"
         company.save()
@@ -3086,7 +2895,6 @@ def admin_revoke_company(request):
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
 
-        # Email the company that their account was revoked (guarded: never 500s).
         try:
             if company.owner_email:
                 requests.post(
@@ -3153,7 +2961,6 @@ def admin_restore_company(request):
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
 
-        # Email the company that their account was restored (guarded: never 500s).
         try:
             company = Company.objects.filter(company_id=company_id).first()
             if company and company.owner_email:
@@ -3191,13 +2998,11 @@ def admin_delete_company(request):
         if not company:
             return JsonResponse({"error": "Company not found"}, status=404)
 
-        # Capture contact details BEFORE the purge wipes the company row.
         del_email = company.owner_email
         del_name  = company.company_name
 
         _purge_company(company_id)
 
-        # Email the company that their account was permanently deleted.
         try:
             if del_email:
                 requests.post(

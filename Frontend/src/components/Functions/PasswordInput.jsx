@@ -2,8 +2,6 @@ import { useState } from "react";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 
-// A password input with a show/hide eye toggle. Accepts all normal <input> props
-// (value, onChange, name, placeholder, className, etc.) and swaps the type.
 export default function PasswordInput({ className = "", ...props }) {
   const [show, setShow] = useState(false);
   return (

@@ -19,7 +19,7 @@ function postStatus(token, role, status) {
       body: JSON.stringify({ status }),
       keepalive: true,
     }).catch(() => {});
-  } catch { /* ignore */ }
+  } catch {  }
 }
 
 const defaultAuth = {
@@ -55,8 +55,6 @@ export function AuthProvider({ children }) {
     const newAuth = { ...defaultAuth, ...data };
     setAuth(newAuth);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newAuth));
-    // Mark active only on a real sign-in (not on profile-refresh re-calls that
-    // already had a token), so a manual On Break / On Leave isn't wiped out.
     if (wasLoggedOut) postStatus(newAuth.token, newAuth.role, "active");
   };
 

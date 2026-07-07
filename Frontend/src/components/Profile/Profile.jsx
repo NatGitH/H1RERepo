@@ -27,8 +27,6 @@ const CompanyIcon = () => (
   </svg>
 );
 
-// H!RE Score bands: ≥80 Strong (green) · ≥60 Good (yellow-green) ·
-// ≥45 Decent (yellow) · else Weak (red). Kept in sync with Applicants.jsx.
 const scoreColor = (score) =>
   score >= 80 ? "text-green-500"
   : score >= 60 ? "text-lime-500"
@@ -75,7 +73,6 @@ export default function Profile() {
   const [showDeleteModal, setShowDeleteModal]             = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-  // ── Interview Applicants (shortlisted / interview_sent evaluations) ──
   const [interviewApplicants, setInterviewApplicants] = useState([]);
   const [loadingApplicants, setLoadingApplicants]     = useState(true);
   const [applicantsError, setApplicantsError]         = useState("");
@@ -89,7 +86,6 @@ export default function Profile() {
         const data = await apiFetch(endpoint, { token: auth.token });
         setProfile(data);
       } catch {
-        /* leave profile empty */
       } finally {
         setLoading(false);
       }
@@ -105,9 +101,6 @@ export default function Profile() {
       try {
         const data = await apiFetch("/api/evaluations/", { token: auth.token });
         if (cancelled) return;
-        // Only applicants actually sent to interview (not merely shortlisted).
-        // Owners and HR managers see every recruiter's interviews; an HR staff
-        // only sees the interviews they personally sent.
         const canSeeAll = role === "owner" || role === "HRManager";
         const filtered = (data || [])
           .filter((ev) => {
@@ -115,7 +108,6 @@ export default function Profile() {
             if (canSeeAll) return true;
             return ev.action_made_by_user_id === auth.user_id;
           })
-          // Soonest interview first, later dates below.
           .sort((a, b) => new Date(a.interview_date || "9999") - new Date(b.interview_date || "9999"));
         setInterviewApplicants(filtered);
       } catch (err) {
@@ -260,7 +252,7 @@ export default function Profile() {
       });
 
       setProfile((prev) => ({ ...prev, logo: displayUrl }));
-      login({ ...auth, profile_picture: displayUrl });   // keep navbar logo fresh
+      login({ ...auth, profile_picture: displayUrl });
       setShowLogoModal(false);
       setNewLogoFile(null);
       setNewLogoPreview(null);
@@ -321,7 +313,6 @@ export default function Profile() {
       className="px-4 pt-1 bg-[#0B2447]"
       style={{ height: "calc(100vh - 56px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
     >
-      {/* ── White box ── */}
       <div
         className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-4 px-10 pb-6 border-2 border-[#0B2447]"
         style={{
@@ -334,18 +325,14 @@ export default function Profile() {
           overflow: "hidden",
         }}
       >
-        {/* ── Inner area: left panel is locked, only the right list scrolls ── */}
         <div className="max-[900px]:overflow-y-auto" style={{ flex: "1 1 0", minHeight: 0 }}>
           <div className="grid grid-cols-[1fr_380px] gap-6 items-stretch h-full max-[900px]:grid-cols-1 max-[900px]:h-auto" style={{ minHeight: 0 }}>
 
-            {/* ── LEFT PANEL (fixed / non-scrolling) ── */}
             <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-0 border border-slate-200/20 flex flex-col gap-6 overflow-y-auto">
 
-              {/* ── HR Staff / Manager ── */}
               {(role === "HRStaff" || role === "HRManager") && (
                 <>
                   <div className="flex items-start gap-5 relative">
-                    {/* Avatar */}
                     <div
                       onClick={() => setShowPicModal(true)}
                       className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer relative group"
@@ -358,7 +345,6 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    {/* Info */}
                     <div className="flex flex-col gap-3 flex-1">
                       <div
                         className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
@@ -369,7 +355,6 @@ export default function Profile() {
                           : profile?.username || "No Name"}
                       </div>
 
-                      {/* Status Dropdown */}
                       <div className="relative self-start" ref={statusRef}>
                         <button
                           onClick={() => setShowStatusMenu((v) => !v)}
@@ -402,7 +387,6 @@ export default function Profile() {
                       )}
                     </div>
 
-                    {/* 3 dots menu — HR */}
                     <div className="absolute top-0 right-0" ref={dotsRef}>
                       <button
                         onClick={() => setShowDotsMenu((v) => !v)}
@@ -426,7 +410,6 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {/* Bio (max 500 chars) */}
                   <div className="border-2 border-slate-200 rounded-[20px] p-6 h-[300px] flex flex-col">
                     <textarea
                       value={profile?.bio || ""}
@@ -449,11 +432,9 @@ export default function Profile() {
                 </>
               )}
 
-              {/* ── Owner ── */}
               {role === "owner" && (
                 <>
                   <div className="flex items-start gap-5 relative">
-                    {/* Company logo */}
                     <div
                       onClick={() => setShowLogoModal(true)}
                       className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer relative group"
@@ -468,7 +449,6 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    {/* Company name badge */}
                     <div className="flex flex-col gap-3 flex-1">
                       <div
                         className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
@@ -477,7 +457,6 @@ export default function Profile() {
                         {profile?.company_name || "Company Name"}
                       </div>
 
-                      {/* Subscription badge */}
                       <div className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 self-start bg-white">
                         <span className="text-sm font-semibold text-slate-600 capitalize">
                           {profile?.subscription_plan || "free"} plan
@@ -490,7 +469,6 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    {/* 3 dots menu — Owner */}
                     <div className="absolute top-0 right-0" ref={ownerDotsRef}>
                       <button
                         onClick={() => setShowOwnerDotsMenu((v) => !v)}
@@ -519,7 +497,6 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {/* Company description (max 1,500 chars) */}
                   <div className="border-2 border-slate-200 rounded-[20px] p-6 h-[300px] flex flex-col">
                     <textarea
                       value={profile?.description || ""}
@@ -543,7 +520,6 @@ export default function Profile() {
               )}
             </div>
 
-            {/* ── RIGHT PANEL (header fixed, list scrolls) ── */}
             <div className="bg-[#f8fafc] rounded-[40px] p-8 min-h-0 border border-slate-200/20 flex flex-col">
               <div
                 className="font-extrabold text-[#0B2447] px-6 py-2.5 rounded-full border-2 border-[#0B2447] text-base tracking-wide self-start mb-6 shrink-0"
@@ -561,7 +537,6 @@ export default function Profile() {
                 <div className="flex flex-col gap-4">
                   {interviewApplicants.map((applicant) => (
                     <div key={applicant.evaluation_id} className="flex flex-col gap-2">
-                      {/* Job requirement label */}
                       <div className="flex items-center gap-1.5 text-[0.78rem] font-bold text-[#0B2447]">
                         <span>💼</span> {applicant.job_title || "Untitled Requirement"}
                       </div>
@@ -599,7 +574,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* ══ Interview applicant detail modal ══ */}
       {selectedInterview && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -622,7 +596,6 @@ export default function Profile() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 text-sm">
-              {/* Interview date + location at the top */}
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex flex-col gap-1">
                 {selectedInterview.interview_date && (
                   <p className="text-blue-700 m-0">
@@ -637,7 +610,6 @@ export default function Profile() {
                 )}
               </div>
 
-              {/* Requirement */}
               <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
                 <p className="text-[#0B2447] m-0 font-bold">💼 {selectedInterview.job_title || "Untitled Requirement"}</p>
                 {selectedInterview.job_description && (
@@ -679,7 +651,6 @@ export default function Profile() {
               )}
               <p className="text-slate-400 text-xs m-0">Handled by: {selectedInterview.action_made_by || "—"}</p>
             </div>
-            {/* Footer — cancel/remove this interview */}
             <div className="px-6 py-4 border-t border-slate-200 shrink-0">
               <button
                 onClick={() => setShowRemoveInterview(true)}
@@ -700,7 +671,6 @@ export default function Profile() {
         />
       )}
 
-      {/* ══ HR Modals ══ */}
       {showPicModal && (
         <ChangeProfilePictureModal
           newPicPreview={newPicPreview}
@@ -720,7 +690,6 @@ export default function Profile() {
         />
       )}
 
-      {/* ══ Owner Modals ══ */}
       {showLogoModal && (
         <ChangeCompanyLogoModal
           newPicPreview={newLogoPreview}
@@ -739,7 +708,7 @@ export default function Profile() {
           token={auth.token}
           onSuccess={(newName) => {
             setProfile((prev) => ({ ...prev, company_name: newName }));
-            login({ ...auth, companyName: newName });   // keep navbar name fresh
+            login({ ...auth, companyName: newName });
             setShowCompanyNameModal(false);
           }}
           onClose={() => setShowCompanyNameModal(false)}

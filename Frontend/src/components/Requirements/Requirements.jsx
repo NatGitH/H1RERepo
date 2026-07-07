@@ -213,7 +213,7 @@ export default function Requirements() {
   const [modalReq, setModalReq]         = useState(null);
   const [approvedPage, setApprovedPage] = useState(1);
   const [allPage, setAllPage]           = useState(1);
-  const [reqSort, setReqSort]           = useState("default"); // default | az | za
+  const [reqSort, setReqSort]           = useState("default");
 
   const autoApprove = role === "owner" || role === "HRManager";
 
@@ -313,15 +313,8 @@ export default function Requirements() {
   };
   const resetForm = () => { setShowForm(false); setNewReq({ job_title: "", description: "", qualifications: "" }); };
 
-  // Paginate helper
   const paginate = (list, page) => list.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  // NOTE: this used to be a component function (const LeftPanel = (...) => ...)
-  // defined inside Requirements(). React treated it as a brand-new component
-  // type on every render, which remounted the <input>/<textarea> elements and
-  // killed focus after every keystroke (the "only 1 letter at a time" bug).
-  // Renaming it to a plain render function (not capitalized, called directly
-  // in JSX as {renderLeftPanel(...)} instead of <LeftPanel .../>) avoids the remount.
   const renderLeftPanel = (submitLabel, cancelFn, forceStretch = false) =>
     editReq ? (
       <ReqForm value={editReq} onChange={setEditReq} onSave={handleEditSave}
@@ -347,7 +340,6 @@ return (
       className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-4 px-8 pb-6 border-2 border-[#0B2447]"
       style={{ boxShadow: "6px 6px 0px #0B2447", flex: "1 1 0", minHeight: 0, display: "flex", flexDirection: "column", marginBottom: "1rem", overflow: "hidden" }}
     >
-      {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide px-6 h-[50px] flex items-center justify-center whitespace-nowrap"
           style={{ boxShadow: "3px 3px 0px #0B2447" }}>
@@ -375,13 +367,11 @@ return (
         </div>
       </div>
 
-      {/* ── HRStaff View ── */}
       {role === "HRStaff" && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,280px) 1fr", gap: "1.5rem", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
           <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
             {renderLeftPanel("Submit", resetForm, true)}
           </div>
-          {/* ✅ THIS is the scrollable column */}
           <div style={{ overflowY: "auto", height: "100%" }}>
             {all.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
@@ -405,11 +395,9 @@ return (
         </div>
       )}
 
-      {/* ── HRManager / Owner View ── */}
       {(role === "HRManager" || role === "owner") && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,280px) 1fr", gap: "1.5rem", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
 
-          {/* Left: scrollable */}
           <div style={{ overflowY: "auto", height: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
             {renderLeftPanel("Save", resetForm)}
             {pending.length > 0 && (
@@ -427,7 +415,6 @@ return (
             )}
           </div>
 
-          {/* Right: scrollable approved */}
           <div style={{ overflowY: "auto", height: "100%" }}>
             {approved.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">

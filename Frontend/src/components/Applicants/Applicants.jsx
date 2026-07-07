@@ -20,21 +20,18 @@ export default function Applicants() {
   const [requirements, setRequirements] = useState([]);
   const [selectedReqId, setSelectedReqId] = useState("");
   const [showReqPicker, setShowReqPicker] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState([]);   // now an array (multi-upload)
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [interviewDate, setInterviewDate] = useState("");
   const [meetingType, setMeetingType] = useState("Online Meeting");
   const [meetingLink, setMeetingLink] = useState("");
   const [interviewMessage, setInterviewMessage] = useState("");
-  const [sortBy, setSortBy] = useState("status"); // status | name_asc | name_desc | score_desc | score_asc
+  const [sortBy, setSortBy] = useState("status");
 
-  // Auto-reject: owners/managers can set a minimum H!RE Score; resumes below it
-  // are auto-rejected on upload.
   const canSetAutoReject = auth.role === "owner" || auth.role === "HRManager";
-  const [autoReject, setAutoReject] = useState("");     // saved value ("" = off)
+  const [autoReject, setAutoReject] = useState("");
   const [autoRejectInput, setAutoRejectInput] = useState("");
 
-  // Plan-based feature flags (free tier: no pros/cons, no interview/reject).
   const feats = (() => {
     const M = {
       free:       { interview: false, reject: false, pros_cons: false },
@@ -44,7 +41,6 @@ export default function Applicants() {
     return M[(auth.subscription_plan || "free").toLowerCase()] || M.free;
   })();
 
-  // Fetch evaluations
   const fetchEvaluations = async () => {
     setLoading(true);
     try {
@@ -57,7 +53,6 @@ export default function Applicants() {
     }
   };
 
-  // Fetch approved requirements for the picker
   const fetchRequirements = async () => {
     try {
       const data = await apiFetch("/api/requirements/", { token: auth.token });
@@ -75,7 +70,7 @@ export default function Applicants() {
       const t = data?.threshold;
       setAutoReject(t === null || t === undefined ? "" : String(t));
       setAutoRejectInput(t === null || t === undefined ? "" : String(t));
-    } catch { /* leave off */ }
+    } catch {  }
   };
 
   const saveAutoReject = async (clear = false) => {
@@ -97,12 +92,10 @@ export default function Applicants() {
     if (canSetAutoReject) fetchAutoReject();
   }, []);
 
-  // Accept multiple files at once. Resumes are capped at 20 MB each — anything
-  // larger is almost certainly not a resume, and it protects the AI pipeline.
   const MAX_FILE_MB = 20;
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
-    e.target.value = ""; // allow re-selecting the same files later
+    e.target.value = "";
     if (files.length === 0) return;
 
     const limit  = MAX_FILE_MB * 1024 * 1024;
@@ -123,7 +116,6 @@ export default function Applicants() {
     setShowReqPicker(true);
   };
 
-  // Upload every selected file one-by-one against the chosen requirement
   const handleUpload = async () => {
     if (pendingFiles.length === 0 || !selectedReqId) {
       window.showAlert("Please select a job requirement.");
@@ -148,8 +140,6 @@ export default function Applicants() {
         failed.push({ name: pendingFiles[i].name, reason: getErrorMessage(err, "") });
       }
       setUploadProgress({ done: i + 1, total: pendingFiles.length });
-      // Small gap between files so the free-tier AI/embedding services aren't
-      // rate-limited on a big batch (a common cause of "not a resume" errors).
       if (i < pendingFiles.length - 1) await new Promise((r) => setTimeout(r, 1500));
     }
 
@@ -158,7 +148,6 @@ export default function Applicants() {
     setSelectedReqId("");
     setUploadProgress({ done: 0, total: 0 });
     fetchEvaluations();
-    // List every file that failed — e.g. "not a resume", or a plan resume-limit message.
     if (failed.length > 0) {
       const lines = failed.map((f) => `• ${f.name}${f.reason ? ` — ${f.reason}` : ""}`).join("\n");
       window.showAlert(`${failed.length} of ${pendingFiles.length} file(s) could not be evaluated:\n\n${lines}`);
@@ -181,8 +170,6 @@ export default function Applicants() {
     }
   };
 
-  // Free tier "Remove Resume" — permanently deletes the applicant (it has no
-  // reject-with-email). Available to any plan.
   const handleRemove = async (evaluationId) => {
     if (!(await window.showConfirm("Remove this applicant permanently? This cannot be undone.", { danger: true, confirmText: "Remove" }))) return;
     try {
@@ -206,12 +193,11 @@ export default function Applicants() {
       meeting_link: meetingLink.trim(),
       message: interviewMessage.trim(),
     });
-    fetchEvaluations(); // pull the saved interview_date back
+    fetchEvaluations();
     setShowInterviewModal(false);
     setInterviewDate(""); setMeetingLink(""); setInterviewMessage(""); setMeetingType("Online Meeting");
   };
 
-  // Create a real Google Meet link (n8n → Google Calendar event with a Meet).
   const [creatingLink, setCreatingLink] = useState(false);
   const createMeetLink = async () => {
     if (!interviewDate) {
@@ -238,8 +224,6 @@ export default function Applicants() {
     }
   };
 
-  // View the resume inline (same approach as the admin document viewer): fetch as
-  // a typed blob so the browser opens it in a new tab instead of downloading it.
   const guessMime = (url = "") => {
     const u = url.toLowerCase();
     if (/\.(jpg|jpeg)(\?|$)/.test(u)) return "image/jpeg";
@@ -262,16 +246,12 @@ export default function Applicants() {
     }
   };
 
-  // Search by applicant NAME (and still allow job title). Interview-sent
-  // applicants leave this list once the invite is sent (they live in the
-  // Profile "For Interview" panel) — same idea as rejected ones disappearing.
   const filtered = applicants.filter((a) =>
     a.status !== "interview_sent" &&
     ((a.applicant_name || "").toLowerCase().includes(search.toLowerCase()) ||
      (a.job_title || "").toLowerCase().includes(search.toLowerCase()))
   );
 
-  // status priority: blue (interview_sent), green (shortlisted), black (pending), red (rejected)
   const statusRank = (s) => ({ interview_sent: 0, shortlisted: 1, pending: 2, rejected: 3 }[s] ?? 2);
 
   const sortedApplicants = [...filtered].sort((a, b) => {
@@ -281,7 +261,6 @@ export default function Applicants() {
       return (b.applicant_name || "").localeCompare(a.applicant_name || "");
     if (sortBy === "score_desc") return (b.hire_score || 0) - (a.hire_score || 0);
     if (sortBy === "score_asc") return (a.hire_score || 0) - (b.hire_score || 0);
-    // default: keep the blue/green/black/red grouping
     return statusRank(a.status) - statusRank(b.status);
   });
 
@@ -310,8 +289,6 @@ export default function Applicants() {
     setSelected(sortedApplicants[newIdx]);
   };
 
-  // H!RE Score bands: ≥80 Strong (green) · ≥60 Good (yellow-green) ·
-  // ≥45 Decent (yellow) · else Weak (red).
   const scoreColor = (score) =>
     score >= 80 ? "text-green-500"
     : score >= 60 ? "text-lime-500"
@@ -324,7 +301,6 @@ export default function Applicants() {
         className="max-w-[1200px] w-full mx-auto bg-white rounded-3xl pt-3 px-10 pb-4 border-2 border-[#0B2447] flex-1 flex flex-col min-h-0 mb-4"
         style={{ boxShadow: "6px 6px 0px #0B2447" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
           <div className="flex items-center gap-2">
             <div
@@ -334,7 +310,6 @@ export default function Applicants() {
               Evaluated Applicants
             </div>
 
-            {/* H!RE Score explainer tooltip (hover / focus) */}
             <div className="relative group">
               <button
                 type="button"
@@ -371,7 +346,6 @@ export default function Applicants() {
               </div>
             </div>
 
-            {/* Auto-reject control (owners / managers) */}
             {canSetAutoReject && (
               <div className="flex items-center gap-1.5 border-2 border-[#0B2447] rounded-full pl-3 pr-1.5 py-1">
                 <span className="text-xs font-bold text-[#0B2447] whitespace-nowrap">Auto-reject below</span>
@@ -401,7 +375,6 @@ export default function Applicants() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Sort / Filter dropdown — custom chevron so it stays consistent on zoom */}
             <div className="relative">
               <select
                 value={sortBy}
@@ -420,7 +393,6 @@ export default function Applicants() {
               />
             </div>
 
-            {/* Search */}
             <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">
               <input
                 type="search"
@@ -435,7 +407,6 @@ export default function Applicants() {
         </div>
 
         <div className="flex gap-6 items-stretch flex-1 min-h-0">
-          {/* Upload Zone (multiple) */}
           <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 flex-shrink-0">
             <input
               type="file"
@@ -462,7 +433,6 @@ export default function Applicants() {
             </p>
           </label>
 
-          {/* Applicant Cards */}
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-3 h-full">
@@ -521,7 +491,6 @@ export default function Applicants() {
         </div>
       </div>
 
-      {/* Requirement Picker Modal */}
       {showReqPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
@@ -540,8 +509,6 @@ export default function Applicants() {
               </p>
             ) : (
               <div className="flex flex-col gap-2 mb-4 max-h-[240px] overflow-y-auto">
-                {/* ✨ Auto Find Best Job Position — scores the resume against every
-                    approved requirement and files it under the best-matching one. */}
                 <label
                   className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${
                     selectedReqId === "auto"
@@ -600,7 +567,6 @@ export default function Applicants() {
         </div>
       )}
 
-      {/* Applicant Detail Modal (fixed size, scrollable) */}
       {selected && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -611,7 +577,6 @@ export default function Applicants() {
             style={{ boxShadow: "6px 6px 0px #0B2447", border: "2px solid #0B2447" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* scrollable content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-[100px] min-w-[100px] h-[110px] bg-slate-100 rounded-xl border-2 border-[#0f172a] overflow-hidden flex items-center justify-center">
@@ -673,7 +638,6 @@ export default function Applicants() {
               </div>
             </div>
 
-            {/* pinned action footer */}
             <div className="border-t border-slate-200 p-4">
               {(() => {
                 const s = selected.status;
@@ -727,7 +691,6 @@ export default function Applicants() {
         </div>
       )}
 
-      {/* Interview Modal (fixed size, scrollable) */}
       {showInterviewModal && selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setShowInterviewModal(false)}>
           <div

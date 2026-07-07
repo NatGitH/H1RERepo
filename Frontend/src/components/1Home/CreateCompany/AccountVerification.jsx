@@ -8,7 +8,7 @@ export default function AccountVerification() {
   const navigate = useNavigate();
   const { registrationData } = useCompanyRegistration();
 
-  const [status, setStatus]   = useState("pending"); // pending | approved | rejected
+  const [status, setStatus]   = useState("pending");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function AccountVerification() {
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 10000); // poll every 10s
+    const interval = setInterval(checkStatus, 10000);
     return () => clearInterval(interval);
   }, []);
 

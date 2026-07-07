@@ -13,11 +13,9 @@ export default function Navbar() {
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifList, setNotifList] = useState([]);
   const [auditList, setAuditList] = useState([]);
-  const [panelTab, setPanelTab] = useState("notifs"); // "notifs" | "activity"
+  const [panelTab, setPanelTab] = useState("notifs");
   const [showProfile, setShowProfile] = useState(false);
   const dropdownRef = useRef(null);
-  // Notif ids already toasted — persisted so the "Plan Updated" nudge shows only
-  // once ever (not again after a refresh, re-login, or app restart).
   const toastedRef = useRef(new Set(JSON.parse(localStorage.getItem("hire_toasted_notifs") || "[]")));
   // Audit_Logs has no is_read column (frozen schema), so Activity "read" state is
   // tracked client-side: any audit id NOT in this set is shown as new (orange dot).
@@ -31,11 +29,9 @@ export default function Navbar() {
   const { auth, logout } = useAuth();
   const role = auth.role;
 
-  // Bell badge counts unread notifications + unread (new) Activity items.
   const unreadCount =
     notifList.filter((n) => n.unread).length + auditList.filter((a) => a.unread).length;
 
-  // Clearable notification types → icon.
   const ICON_MAP = {
   welcome:              "🎉",
   requirement_approval: "📋",
@@ -50,7 +46,6 @@ export default function Navbar() {
   applicant_pending:     "↩️",
 };
 
-  // Permanent audit-log action types → friendly title + icon for the Activity tab.
   const AUDIT_TITLE = {
     REQUIREMENT_APPROVED: "Requirement Approved",
     REQUIREMENT_REJECTED: "Requirement Rejected",
@@ -102,8 +97,6 @@ export default function Navbar() {
             );
           }
         });
-        // Keep the persisted read/cleared sets to only ids the server still returns
-        // (latest 20) so they can't grow without bound.
         const ids = new Set(data.map((n) => n.id));
         readNotifsRef.current    = new Set([...readNotifsRef.current].filter((id) => ids.has(id)));
         clearedNotifsRef.current = new Set([...clearedNotifsRef.current].filter((id) => ids.has(id)));
@@ -132,8 +125,6 @@ export default function Navbar() {
     try {
       const data = await apiFetch("/api/audit-logs/", { token: auth.token });
       if (Array.isArray(data)) {
-        // Keep the persisted read-set to only ids the server still returns so it
-        // can't grow without bound (the endpoint returns the latest 50).
         const ids = new Set(data.map((a) => a.id));
         readAuditsRef.current = new Set([...readAuditsRef.current].filter((id) => ids.has(id)));
         localStorage.setItem("hire_read_audits", JSON.stringify([...readAuditsRef.current]));
@@ -235,7 +226,6 @@ export default function Navbar() {
     <nav className="bg-[#0B2447] text-white px-6">
       <div className="max-w-[1350px] mx-auto flex items-center gap-12 h-14">
 
-        {/* Logo + Bell */}
         <div className="flex items-center gap-2 shrink-0 h-full">
           <Link
             to="/"
@@ -256,7 +246,6 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* Nav Links */}
         <ul className="flex items-center gap-6 list-none m-0 p-0 ml-auto h-full">
           {NAV_LINKS.map(({ label, path }) => {
             const active = pathname === path;
@@ -277,7 +266,6 @@ export default function Navbar() {
             );
           })}
 
-          {/* My Profile Dropdown — all roles */}
           <li className="relative h-full flex items-center" ref={dropdownRef}>
             <button
               onClick={() => setShowProfile((v) => !v)}
@@ -301,7 +289,6 @@ export default function Navbar() {
                 className="absolute right-0 top-14 bg-white rounded-xl py-3 px-4 w-56 z-50"
                 style={{ border: "2px solid #1a1a2e", boxShadow: "3px 3px 0px #000000" }}
               >
-                {/* User info */}
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden">
                     {auth.profile_picture ? (
@@ -328,7 +315,6 @@ export default function Navbar() {
 
                 <hr className="border-gray-200 mb-3" />
 
-                {/* Profile link */}
                 <Link
                   to="/Profile"
                   onClick={() => setShowProfile(false)}
@@ -339,7 +325,6 @@ export default function Navbar() {
 
                 <hr className="border-gray-200 mb-3" />
 
-                {/* Sign out */}
                 <button
                   onClick={() => { logout(); navigate("/"); }}
                   className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-medium transition w-full bg-transparent p-0 m-0 cursor-pointer border-none"
@@ -352,7 +337,6 @@ export default function Navbar() {
           </li>
         </ul>
 
-        {/* Notification Panel */}
         {showNotifs && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />

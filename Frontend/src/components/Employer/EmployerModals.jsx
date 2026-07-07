@@ -7,7 +7,6 @@ const UserIcon = () => (
   </svg>
 );
 
-// H!RE Score bands, kept in sync with Applicants/Profile.
 const scoreColor = (score) =>
   score >= 80 ? "text-green-500" : score >= 60 ? "text-lime-500" : score >= 45 ? "text-yellow-500" : "text-red-500";
 
@@ -21,20 +20,6 @@ export const STATUS_OPTIONS = [
 export const getStatusMeta = (value) =>
   STATUS_OPTIONS.find((s) => s.value === value) || STATUS_OPTIONS[0];
 
-// ─────────────────────────────────────────────
-// ProfileOverlay — full member profile view
-// ─────────────────────────────────────────────
-
-/**
- * Props:
- *   member           {object}    - the selected member object
- *   role             {string}    - auth role ("owner", "HRManager", etc.)
- *   showDotsMenu     {boolean}
- *   onToggleDotsMenu {Function}
- *   onClose          {Function}
- *   onOpenRoleModal  {Function}
- *   onOpenDeleteConfirm {Function}
- */
 const PENDING_META = {
   label: "Pending", dot: "bg-amber-400", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200",
 };
@@ -66,20 +51,17 @@ export function ProfileOverlay({
           : "max-w-[1100px] grid-cols-[1fr_360px] max-[900px]:grid-cols-1"
       }`}>
 
-        {/* Left: Profile Card (min-w-0 lets long bios wrap instead of stretching) */}
         <div
           className="bg-white rounded-[40px] p-8 flex flex-col gap-6 relative min-w-0 max-h-[80vh]"
           style={{ border: "2px solid #0B2447", boxShadow: "6px 6px 0px #0B2447" }}
         >
           <div className="flex items-start gap-5 relative shrink-0">
-            {/* Avatar */}
             <div className="w-[120px] min-w-[120px] h-[120px] border-2 border-slate-200 rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center">
               {member.profile_picture ? (
                 <img src={member.profile_picture} alt={member.name} className="w-full h-full object-cover" />
               ) : <UserIcon />}
             </div>
 
-            {/* Info */}
             <div className="flex flex-col gap-3 flex-1">
               <div
                 className="font-extrabold text-[#0B2447] px-5 py-2 rounded-full border-2 border-[#0B2447] text-base self-start"
@@ -96,7 +78,6 @@ export function ProfileOverlay({
               </div>
             </div>
 
-            {/* ⋯ dots — Owner / Manager (not for pending, unapproved accounts) */}
             {!pending && isManager && (
               <div className="absolute top-0 right-0">
                 <button
@@ -129,7 +110,6 @@ export function ProfileOverlay({
               </div>
             )}
 
-            {/* Close button — pending view, or HR Staff view of an active member */}
             {(pending || !isManager) && (
               <button
                 onClick={onClose}
@@ -140,7 +120,6 @@ export function ProfileOverlay({
             )}
           </div>
 
-          {/* Bio — grows to fill the card (min 300px), wraps long unbroken text, scrolls if long */}
           <div className="border-2 border-slate-200 rounded-[20px] p-6 flex-1 min-h-[300px] overflow-y-auto">
             <p className="text-[0.9rem] text-slate-700 leading-[1.8] text-justify m-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
               {member.bio || "No bio available."}
@@ -155,7 +134,6 @@ export function ProfileOverlay({
           </button>
         </div>
 
-        {/* Right: Interviews scheduled by this member (hidden for pending accounts) */}
         {!pending && (
         <div
           className="bg-white rounded-[40px] p-8 flex flex-col min-h-0 max-h-[80vh]"
@@ -207,7 +185,6 @@ export function ProfileOverlay({
         )}
       </div>
 
-      {/* Interview applicant detail (opens on top of the overlay) */}
       {selectedInterview && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center px-4"
@@ -301,17 +278,6 @@ export function ProfileOverlay({
   );
 }
 
-// ─────────────────────────────────────────────
-// ChangeRoleModal
-// ─────────────────────────────────────────────
-
-/**
- * Props:
- *   selectedRole  {string}    - currently selected role value
- *   onSelectRole  {Function}  - called with the new role string
- *   onCancel      {Function}
- *   onDone        {Function}  - called when user clicks "Done"
- */
 export function ChangeRoleModal({ selectedRole, onSelectRole, onCancel, onDone }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">
@@ -355,17 +321,6 @@ export function ChangeRoleModal({ selectedRole, onSelectRole, onCancel, onDone }
   );
 }
 
-// ─────────────────────────────────────────────
-// ConfirmRoleModal
-// ─────────────────────────────────────────────
-
-/**
- * Props:
- *   memberName    {string}    - the member's full name
- *   selectedRole  {string}    - the new role being applied
- *   onCancel      {Function}
- *   onConfirm     {Function}
- */
 export function ConfirmRoleModal({ memberName, selectedRole, onCancel, onConfirm }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">

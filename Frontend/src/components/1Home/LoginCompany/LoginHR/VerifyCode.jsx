@@ -36,7 +36,6 @@ export default function VerifyCode() {
     try {
       await apiFetch("/api/auth/send-reset-code/", { method: "POST", body: { email } });
     } catch {
-      /* non-fatal */
     }
     setShowResent(true);
     setTimeout(() => setShowResent(false), 3000);

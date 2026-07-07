@@ -3,11 +3,6 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:80
 // Must match STORAGE_KEY in .Context/AuthContext.jsx
 const AUTH_STORAGE_KEY = "hire_auth";
 
-/**
- * Normalized error for every API failure. Always carries a user-friendly
- * `.message`, plus the HTTP `.status` (0 = network/unreachable) and any parsed
- * response `.data` for callers that want the raw detail.
- */
 export class ApiError extends Error {
   constructor(message, { status = 0, data = null } = {}) {
     super(message);
@@ -17,7 +12,6 @@ export class ApiError extends Error {
   }
 }
 
-// Prefer a server-provided message; otherwise a friendly default per status.
 function messageForStatus(status, data) {
   const serverMsg =
     data && typeof data === "object" ? data.error || data.detail || data.message : null;
@@ -37,7 +31,6 @@ function redirectToLogin() {
   try {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   } catch {
-    /* ignore storage errors */
   }
   if (window.location.hash !== "#/" && window.location.hash !== "") {
     window.location.assign("/#/");
@@ -64,7 +57,7 @@ export async function apiFetch(path, { method = "GET", body, headers = {}, token
 
   if (body !== undefined && body !== null) {
     if (body instanceof FormData) {
-      opts.body = body; // let the browser set the multipart boundary
+      opts.body = body;
     } else {
       opts.body = JSON.stringify(body);
       opts.headers["Content-Type"] = opts.headers["Content-Type"] || "application/json";
@@ -82,7 +75,6 @@ export async function apiFetch(path, { method = "GET", body, headers = {}, token
     );
   }
 
-  // Parse the body once (JSON when possible, else raw text).
   let data = null;
   const raw = await res.text();
   if (raw) {
@@ -93,9 +85,6 @@ export async function apiFetch(path, { method = "GET", body, headers = {}, token
     }
   }
 
-  // A 401 on an AUTHENTICATED request means the session expired -> bounce to login.
-  // A 401 on an unauthenticated request (e.g. a login attempt with bad credentials)
-  // should just surface the server's message inline, NOT redirect.
   if (res.status === 401 && token) {
     redirectToLogin();
   }
@@ -106,17 +95,12 @@ export async function apiFetch(path, { method = "GET", body, headers = {}, token
   return data;
 }
 
-/** Consistent user-facing string for any thrown error (ApiError or otherwise). */
 export function getErrorMessage(err, fallback = "Something went wrong. Please try again.") {
   if (err instanceof ApiError) return err.message;
   if (err && err.message && err.message !== "Failed to fetch") return err.message;
   return fallback;
 }
 
-/**
- * Legacy helper kept for backward compatibility. Prefer apiFetch.
- * Returns the raw Response; handles 401 the same way as apiFetch.
- */
 export async function authFetch(url, options = {}, token) {
   const res = await fetch(url, {
     ...options,

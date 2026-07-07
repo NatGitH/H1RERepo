@@ -96,7 +96,6 @@ export default function CreateHRProfile() {
         },
       });
 
-      // Reset registration state now that the account is created
       updateData({ username: "", email: "", password: "" });
       setShowVerification(true);
 
@@ -108,11 +107,6 @@ export default function CreateHRProfile() {
   };
 
   const handleBackToLogin = () => {
-    // Keep the company context (companyId) so the user can log straight into the
-    // account they just created — clearing it made the HR login post
-    // company_id: null, which crashed with "'NoneType' object has no attribute
-    // 'strip'". `replace` drops this Create-Profile page from history so the
-    // login page's back button doesn't return here.
     navigate("/Login-HR-Account", { replace: true });
   };
 

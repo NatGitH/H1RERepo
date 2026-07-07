@@ -67,7 +67,6 @@ export default function CreateCompany() {
       return;
     }
 
-    // Check if company name already exists
     try {
       await apiFetch("/api/auth/check-company-name/", {
         method: "POST",

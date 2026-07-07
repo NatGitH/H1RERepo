@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-// Warning modal for cancelling an interview + removing the applicant.
-// onConfirm(reason) is awaited; the applicant is emailed the reason server-side.
 export default function RemoveInterviewModal({ applicantName, onCancel, onConfirm }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);

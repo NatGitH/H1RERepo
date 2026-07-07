@@ -34,16 +34,12 @@ import Profile from './components/Profile/Profile'
 import LoginAdmin from './components/Admin/LoginAdmin'
 import AdminDashboard from './components/Admin/AdminDashboard'
 
-
-
 function App() {
   return (
     <>
       <Routes>
-          /* Home */
           <Route path="" element={<Home/>}/>
 
-          /* Create Company */
           <Route path="/Create-Company" element={<CreateCompany/>}/>
           <Route path="/Company-Documents" element={<CompanyDocuments />} />
           <Route path="/Account-Verification" element={<AccountVerification />} />
@@ -51,7 +47,6 @@ function App() {
           <Route path="/Receipt" element={<Receipt />} />
           <Route path="/Payment" element={<Payment />} />
 
-          /* Login Company */
           <Route path="/Login-Company" element={<LoginCompany />} />
           <Route path="/Company-Home" element={<CompanyHome />} />
           <Route path="/Create-HR-Account" element={<CreateHRAccount />} />
@@ -61,10 +56,8 @@ function App() {
           <Route path="/Verify-Code" element={<VerifyCode />} />
           <Route path="/HR-New-Password" element={<HRNewPassword />} />
 
-           /* Login Owner */
           <Route path="/Login-Owner" element={<LoginOwner />} />
-          
-            /* Login Admin */
+
           <Route path="/Login-Admin" element={<LoginAdmin />} />
           <Route path="/Admin-Dashboard" element={<AdminDashboard />} />
 
@@ -74,20 +67,15 @@ function App() {
             </ProtectedRoute>
             }>
 
-            /* Applicants */
             <Route path="/Applicants" element={<Applicants/>}/>
 
-            /* Requirements */
             <Route path="/Requirements" element={<Requirements />} />
-           
-            /* Profile */
+
             <Route path="/Profile" element={<Profile />} />
 
-            /* Employer */
             <Route path="/Employer" element={<Employer/>}/>
           </Route>
 
-          {/* Any unknown route -> back to Home / Login */}
           <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

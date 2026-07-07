@@ -100,7 +100,6 @@ export default function LoginOwner() {
             </div>
           </div>
 
-          {/* Error message */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               <p className="text-red-600 text-sm font-medium text-center">{error}</p>

@@ -17,12 +17,10 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    // Keep a record in the console for debugging; swap for a logging service later.
     console.error("Unhandled UI error:", error, info);
   }
 
   handleGoHome = () => {
-    // Full navigation resets any bad component state.
     window.location.assign("/");
   };
 

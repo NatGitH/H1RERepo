@@ -35,7 +35,6 @@ export default function LoginHRAccount() {
       try {
         profileData = await apiFetch("/api/profile/hr/", { token: data.token });
       } catch {
-        /* profile details are optional for login */
       }
 
       login({
@@ -98,7 +97,6 @@ export default function LoginHRAccount() {
           </div>
         </div>
 
-        {/* Error message */}
         {error && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <p className="text-red-600 text-sm font-medium text-center">{error}</p>

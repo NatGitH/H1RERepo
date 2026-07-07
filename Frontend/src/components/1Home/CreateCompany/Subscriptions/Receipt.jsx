@@ -30,18 +30,15 @@ const planDetails =
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B2447] relative overflow-hidden px-4">
 
-
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-blue-400 opacity-8 rounded-full blur-3xl" />
       </div>
 
-
         <div
           className="relative z-10 bg-white rounded-2xl px-8 pt-6 pb-8 w-full max-w-2xl mx-4"
           style={{ border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
         >
-
 
         <div className="flex items-center gap-3 mb-1">
           <button
@@ -57,8 +54,6 @@ const planDetails =
           Please confirm all details before submitting
         </p>
 
-
-
         <div className="divide-y divide-slate-100">
           {rows.map((row) => (
             <div key={row.label} className="flex justify-between items-center py-2.5 text-sm">
@@ -67,21 +62,16 @@ const planDetails =
             </div>
           ))}
 
-
-
           <div className="flex justify-between items-center py-2.5">
             <span className="text-sm font-bold text-slate-900">Total</span>
             <span className="text-sm font-bold text-slate-900">{planDetails.total}</span>
           </div>
         </div>
 
-
         <p className="text-xs text-slate-400 mt-4 mb-6 leading-relaxed text-center">
           By submitting, you agree to our Terms of Service. Your account will be reviewed by
           the System Admin before access is granted. You will receive an email once approved.
         </p>
-
-
 
         <button
           onClick={() => navigate("/Payment")}

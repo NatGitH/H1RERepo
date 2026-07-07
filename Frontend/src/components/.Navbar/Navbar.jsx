@@ -55,6 +55,7 @@ export default function Navbar() {
     REQUIREMENT_MODIFICATION_REJECTED: "Modification Rejected",
     INTERVIEW_REMOVED:    "Interview Cancelled",
     INTERVIEW_SENT:       "Interview Sent",
+    INTERVIEW_COMPLETED:  "Interview Completed",
     ROLE_CHANGED:         "Role Changed",
     EMPLOYER_APPROVED:    "Employer Approved",
     EMPLOYER_REJECTED:    "Employer Rejected",

@@ -13,6 +13,7 @@ checklist that keeps them working after the move to Render.
 | **H!RE - Interview Invitation Email** | Webhook `/interview-invitation` | ✅ | Fired by Django on `interview_sent` |
 | **H!RE - Reject Email & Cleanup** | Schedule (every 15 min) | ✅ | Replaces the old "Evaluation Clean Up". After the grace period it emails, logs to `Email_Logs`, and **soft-deletes** (`application_status='removed'`) — the applicant is **kept** so the email log persists. |
 | **H!RE - Interview Reminder** | Schedule (daily) | ✅ | NEW — emails applicants ~1 day before their interview |
+| **H!RE - Interview Cleanup** | Schedule (every 30 min) | ✅ | NEW — once an interview date has passed, **soft-deletes** like rejection (`application_status='removed'`, interview marked `completed`). Keeps applicant + `Email_Logs` + `Interviews`. Writes an `INTERVIEW_COMPLETED` audit entry. Ships inactive; needs `SUPABASE_SERVICE_KEY`. |
 | **H!RE - Subscription Expiry Reminder** | Schedule (daily) | ✅ | NEW — emails owners ~7 days before their plan expires |
 | **H!RE - Company Approval Email** | Webhook `/company-approval` | ✅ | NEW — emails owner on admin approve/reject (fired by `admin_approve_reject_company`) |
 | **H!RE - Password Reset Code** | Webhook `/password-reset-code` | ✅ | NEW — emails the 6-digit code for the in-profile Change Password flow (fired by `send_reset_code`) |
@@ -32,6 +33,7 @@ password-reset-code, interview-invitation, company-approval, evaluate-resume.
 - H!RE - Password Reset Code (webhook)
 - H!RE - Reject Email & Cleanup (schedule) — and **deactivate the old "Evaluation Clean Up"** in the n8n instance
 - H!RE - Interview Reminder (schedule)
+- H!RE - Interview Cleanup (schedule) — needs `SUPABASE_SERVICE_KEY`
 - H!RE - Subscription Expiry Reminder (schedule)
 
 Already active: Account Registration, Evaluate Resume, Interview Invitation, Password Reset.
@@ -76,6 +78,26 @@ disappears from the Applicants UI as intended.
 
 **Cancel Rejection** flips the status back to `pending` before the hour is up, so the
 row never matches the query — no email, no removal. ✔️
+
+## Interview Cleanup (how it works) — SOFT DELETE once the interview date passes
+
+Runs every 30 min. Finds `Interviews` that are still `interview_status = 'scheduled'`
+**and** whose `interview_date` is now in the past. For each one it resolves
+evaluation→resume→applicant, writes an `INTERVIEW_COMPLETED` audit entry (company-scoped
+via the `[c:<id>]` marker, applicant link kept since nothing is deleted), then:
+
+1. Sets `Evaluations.application_status = 'removed'` — hides it from the Applicants /
+   interview panels (`get_evaluations` skips `'removed'`), exactly like rejection.
+2. Sets `Interviews.interview_status = 'completed'` — so the row isn't re-processed
+   on the next run (the query only picks up `'scheduled'` interviews).
+
+**Nothing is deleted** — applicant, resume, `Email_Logs`, and `Interviews` rows all stay
+for the audit trail. Ships **inactive**; needs `SUPABASE_SERVICE_KEY`. All requests are
+guarded (`try/catch`) so one bad row can't halt the run.
+
+> Timing: it removes them as soon as the scheduled time is in the past (checked every
+> 30 min). To add a grace period after the meeting, change `cutoff` in the code node to
+> e.g. `new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()` (2 hours).
 
 ### Batch processing (all rejected rows per trigger)
 - The **Get rejected > 1h** node has `returnAll: true`, so every trigger pulls the

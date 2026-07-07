@@ -3,6 +3,7 @@ import email
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.db import IntegrityError
 import json, datetime, jwt, requests, random
 from django.conf import settings
 import requests
@@ -458,8 +459,13 @@ def create_hr_account(request):
         if len(password) < 8:
             return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
 
-        if HRUser.objects.filter(email=email, company_id=company_id).exists():
-            return JsonResponse({"error": "Email already registered"}, status=400)
+        # email + username are UNIQUE across the whole Users table (not per company),
+        # so check globally — otherwise the raw Postgres "Users_email_key" error leaks.
+        if HRUser.objects.filter(email=email).exists():
+            return JsonResponse({"error": "That email is already registered."}, status=400)
+
+        if HRUser.objects.filter(username=username).exists():
+            return JsonResponse({"error": "That username is already taken."}, status=400)
 
         role   = Roles.objects.get(role_name=role_name)
         hashed = ph.hash(password)
@@ -532,6 +538,15 @@ def create_hr_account(request):
 
     except Roles.DoesNotExist:
         return JsonResponse({"error": "Invalid role"}, status=400)
+    except IntegrityError as e:
+        # Safety net for a race between the checks above and the insert (or any other
+        # unique violation) — surface a friendly message, never the raw SQL error.
+        msg = str(e).lower()
+        if "email" in msg:
+            return JsonResponse({"error": "That email is already registered."}, status=400)
+        if "username" in msg:
+            return JsonResponse({"error": "That username is already taken."}, status=400)
+        return JsonResponse({"error": "That account already exists."}, status=400)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 

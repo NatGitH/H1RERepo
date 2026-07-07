@@ -1508,10 +1508,13 @@ def remove_interview(request, evaluation_id):
             except Exception as storage_err:
                 print("resume storage cleanup error:", storage_err)
 
-        # AUDIT (permanent).
+        # AUDIT (permanent) — shows in the bell's Activity tab. The applicant row
+        # was just deleted above, so pass applicant_id=None: otherwise the FK
+        # (Audit_Logs -> Applicants) rejects the insert and the entry silently
+        # never appears. The applicant's name is preserved in the message text.
         log_audit(company_id=company_id, action_type="INTERVIEW_REMOVED",
-                  message=f"{get_user_fullname(user_id)} removed the interview for {appl_name}" + (f" — reason: {reason}" if reason else ""),
-                  performed_by_user_id=user_id, applicant_id=applicant_id, requirement_id=req_id)
+                  message=f"{get_user_fullname(user_id)} cancelled the interview for {appl_name}" + (f" — reason: {reason}" if reason else ""),
+                  performed_by_user_id=user_id, applicant_id=None, requirement_id=req_id)
 
         return JsonResponse({"message": "Interview removed"})
 

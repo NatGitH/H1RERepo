@@ -35,6 +35,10 @@ export const getStatusMeta = (value) =>
  *   onOpenRoleModal  {Function}
  *   onOpenDeleteConfirm {Function}
  */
+const PENDING_META = {
+  label: "Pending", dot: "bg-amber-400", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200",
+};
+
 export function ProfileOverlay({
   member,
   role,
@@ -45,15 +49,24 @@ export function ProfileOverlay({
   onOpenDeleteConfirm,
   interviewApplicants,
   onRemoveInterview,
+  pending = false,
+  onApprove,
+  onReject,
 }) {
-  const currentStatus =
-    STATUS_OPTIONS.find((s) => s.value === member.account_status) || STATUS_OPTIONS[0];
+  const isManager = role === "owner" || role === "HRManager";
+  const currentStatus = pending
+    ? PENDING_META
+    : STATUS_OPTIONS.find((s) => s.value === member.account_status) || STATUS_OPTIONS[0];
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [showRemoveInterview, setShowRemoveInterview] = useState(false);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="w-full max-w-[1100px] grid grid-cols-[1fr_360px] gap-6 max-[900px]:grid-cols-1 items-stretch max-h-[80vh]">
+      <div className={`w-full grid gap-6 items-stretch max-h-[80vh] ${
+        pending
+          ? "max-w-[560px] grid-cols-1"
+          : "max-w-[1100px] grid-cols-[1fr_360px] max-[900px]:grid-cols-1"
+      }`}>
 
         {/* Left: Profile Card (min-w-0 lets long bios wrap instead of stretching) */}
         <div
@@ -85,8 +98,8 @@ export function ProfileOverlay({
               </div>
             </div>
 
-            {/* ⋯ dots — Owner / Manager */}
-            {(role === "owner" || role === "HRManager") && (
+            {/* ⋯ dots — Owner / Manager (not for pending, unapproved accounts) */}
+            {!pending && isManager && (
               <div className="absolute top-0 right-0">
                 <button
                   onClick={onToggleDotsMenu}
@@ -118,8 +131,8 @@ export function ProfileOverlay({
               </div>
             )}
 
-            {/* Close button — HR Staff view */}
-            {role !== "owner" && role !== "HRManager" && (
+            {/* Close button — pending view, or HR Staff view of an active member */}
+            {(pending || !isManager) && (
               <button
                 onClick={onClose}
                 className="absolute top-0 right-0 text-slate-400 text-xl font-bold px-2 cursor-pointer bg-transparent border-none hover:text-slate-600"
@@ -136,6 +149,24 @@ export function ProfileOverlay({
             </p>
           </div>
 
+          {/* Approve / Reject — pending account request (Owner / Manager only) */}
+          {pending && isManager && (
+            <div className="grid grid-cols-2 gap-3 shrink-0">
+              <button
+                onClick={onApprove}
+                className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 border-none cursor-pointer"
+              >
+                Approve
+              </button>
+              <button
+                onClick={onReject}
+                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 border-none cursor-pointer"
+              >
+                Reject
+              </button>
+            </div>
+          )}
+
           <button
             onClick={onClose}
             className="self-start shrink-0 text-sm text-[#0B2447] hover:text-[#162553] border-none bg-transparent cursor-pointer font-semibold"
@@ -144,7 +175,8 @@ export function ProfileOverlay({
           </button>
         </div>
 
-        {/* Right: Interviews scheduled by this member */}
+        {/* Right: Interviews scheduled by this member (hidden for pending accounts) */}
+        {!pending && (
         <div
           className="bg-white rounded-[40px] p-8 flex flex-col min-h-0 max-h-[80vh]"
           style={{ border: "2px solid #0B2447", boxShadow: "6px 6px 0px #0B2447" }}
@@ -192,6 +224,7 @@ export function ProfileOverlay({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* Interview applicant detail (opens on top of the overlay) */}

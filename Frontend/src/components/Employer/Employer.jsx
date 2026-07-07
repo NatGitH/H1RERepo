@@ -29,6 +29,9 @@ export default function Employer() {
   const [showDotsMenu, setShowDotsMenu]     = useState(false);
   const [memberInterviews, setMemberInterviews] = useState(null); // null = loading
 
+  // Pending account-request profile overlay (read-only, no interview panel)
+  const [pendingMember, setPendingMember] = useState(null);
+
   // Change role modal
   const [showRoleModal, setShowRoleModal]     = useState(false);
   const [selectedRole, setSelectedRole]       = useState("");
@@ -173,7 +176,11 @@ export default function Employer() {
             ) : (
               <div className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1 min-h-0">
                 {pending.map((member) => (
-                  <div key={member.id} className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-[0_4px_16px_rgba(15,23,42,0.07)]">
+                  <div
+                    key={member.id}
+                    onClick={() => setPendingMember(member)}
+                    className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-[0_4px_16px_rgba(15,23,42,0.07)] cursor-pointer hover:shadow-md transition-shadow"
+                  >
                     <div className="w-[70px] min-w-[70px] h-[80px] bg-slate-200 rounded-[10px] overflow-hidden flex items-center justify-center">
                       {member.profile_picture ? (
                         <img src={member.profile_picture} alt={member.name} className="w-full h-full object-cover" />
@@ -187,13 +194,13 @@ export default function Employer() {
                     </div>
                     <div className="flex flex-col gap-2">
                       <button
-                        onClick={() => handleApproveReject(member.id, "active")}
+                        onClick={(e) => { e.stopPropagation(); handleApproveReject(member.id, "active"); }}
                         className="px-4 py-1.5 rounded-full font-bold text-xs text-white bg-green-500 hover:bg-green-600 border-none cursor-pointer"
                       >
                         Approved
                       </button>
                       <button
-                        onClick={() => handleApproveReject(member.id, "rejected")}
+                        onClick={(e) => { e.stopPropagation(); handleApproveReject(member.id, "rejected"); }}
                         className="px-4 py-1.5 rounded-full font-bold text-xs text-white bg-red-500 hover:bg-red-600 border-none cursor-pointer"
                       >
                         Reject
@@ -280,6 +287,17 @@ export default function Employer() {
               window.showAlert(getErrorMessage(err, "Failed to remove the interview."));
             }
           }}
+        />
+      )}
+
+      {pendingMember && (
+        <ProfileOverlay
+          member={pendingMember}
+          role={role}
+          pending
+          onClose={() => setPendingMember(null)}
+          onApprove={() => { handleApproveReject(pendingMember.id, "active"); setPendingMember(null); }}
+          onReject={() => { handleApproveReject(pendingMember.id, "rejected"); setPendingMember(null); }}
         />
       )}
 

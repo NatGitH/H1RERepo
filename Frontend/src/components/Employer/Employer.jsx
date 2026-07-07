@@ -296,8 +296,6 @@ export default function Employer() {
           role={role}
           pending
           onClose={() => setPendingMember(null)}
-          onApprove={() => { handleApproveReject(pendingMember.id, "active"); setPendingMember(null); }}
-          onReject={() => { handleApproveReject(pendingMember.id, "rejected"); setPendingMember(null); }}
         />
       )}
 

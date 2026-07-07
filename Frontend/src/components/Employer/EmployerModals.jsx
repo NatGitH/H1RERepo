@@ -50,8 +50,6 @@ export function ProfileOverlay({
   interviewApplicants,
   onRemoveInterview,
   pending = false,
-  onApprove,
-  onReject,
 }) {
   const isManager = role === "owner" || role === "HRManager";
   const currentStatus = pending
@@ -148,24 +146,6 @@ export function ProfileOverlay({
               {member.bio || "No bio available."}
             </p>
           </div>
-
-          {/* Approve / Reject — pending account request (Owner / Manager only) */}
-          {pending && isManager && (
-            <div className="grid grid-cols-2 gap-3 shrink-0">
-              <button
-                onClick={onApprove}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold rounded-full py-2.5 border-none cursor-pointer"
-              >
-                Approve
-              </button>
-              <button
-                onClick={onReject}
-                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 border-none cursor-pointer"
-              >
-                Reject
-              </button>
-            </div>
-          )}
 
           <button
             onClick={onClose}

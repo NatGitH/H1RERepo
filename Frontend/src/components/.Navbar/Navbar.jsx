@@ -22,6 +22,11 @@ export default function Navbar() {
   // Audit_Logs has no is_read column (frozen schema), so Activity "read" state is
   // tracked client-side: any audit id NOT in this set is shown as new (orange dot).
   const readAuditsRef = useRef(new Set(JSON.parse(localStorage.getItem("hire_read_audits") || "[]")));
+  // Notifications are shared rows (company-wide ones are seen by the owner), so
+  // "Read All" / "Clear" are tracked PER-USER client-side too — one person's action
+  // never mutates another user's view. Read = dot removed; cleared = hidden.
+  const readNotifsRef    = useRef(new Set(JSON.parse(localStorage.getItem("hire_read_notifs") || "[]")));
+  const clearedNotifsRef = useRef(new Set(JSON.parse(localStorage.getItem("hire_cleared_notifs") || "[]")));
 
   const { auth, logout } = useAuth();
   const role = auth.role;
@@ -97,15 +102,24 @@ export default function Navbar() {
             );
           }
         });
+        // Keep the persisted read/cleared sets to only ids the server still returns
+        // (latest 20) so they can't grow without bound.
+        const ids = new Set(data.map((n) => n.id));
+        readNotifsRef.current    = new Set([...readNotifsRef.current].filter((id) => ids.has(id)));
+        clearedNotifsRef.current = new Set([...clearedNotifsRef.current].filter((id) => ids.has(id)));
+        localStorage.setItem("hire_read_notifs", JSON.stringify([...readNotifsRef.current]));
+        localStorage.setItem("hire_cleared_notifs", JSON.stringify([...clearedNotifsRef.current]));
         setNotifList(
-          data.map((n) => ({
-            id:      n.id,
-            title:   n.title,
-            message: n.message,
-            time:    n.created_at,
-            unread:  !n.is_read,
-            icon:    ICON_MAP[n.type] || "🔔",
-          }))
+          data
+            .filter((n) => !clearedNotifsRef.current.has(n.id)) // per-user "Clear"
+            .map((n) => ({
+              id:      n.id,
+              title:   n.title,
+              message: n.message,
+              time:    n.created_at,
+              unread:  !readNotifsRef.current.has(n.id),        // per-user "read"
+              icon:    ICON_MAP[n.type] || "🔔",
+            }))
         );
       }
     } catch (err) {
@@ -147,14 +161,20 @@ export default function Navbar() {
     return () => clearInterval(interval);
   }, [auth.token]);
 
-  // Clear (delete) all notifications. Audit logs are permanent and untouched.
-  const clearNotifications = async () => {
+  // Clear all notifications FROM THIS USER'S VIEW only (client-side, per-user) —
+  // hides them without deleting the shared server rows, so other users are unaffected.
+  const clearNotifications = () => {
+    notifList.forEach((n) => clearedNotifsRef.current.add(n.id));
+    localStorage.setItem("hire_cleared_notifs", JSON.stringify([...clearedNotifsRef.current]));
     setNotifList([]);
-    try {
-      await apiFetch("/api/notifications/clear/", { method: "POST", token: auth.token });
-    } catch (err) {
-      console.error(err);
-    }
+  };
+
+  // Mark all notifications read for THIS USER only (client-side, per-user) — removes
+  // the orange dots without touching the shared server rows.
+  const markAllNotifsRead = () => {
+    notifList.forEach((n) => readNotifsRef.current.add(n.id));
+    localStorage.setItem("hire_read_notifs", JSON.stringify([...readNotifsRef.current]));
+    setNotifList((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
   // Mark all Activity items as read (client-side only — Audit_Logs is permanent).
@@ -353,12 +373,22 @@ export default function Navbar() {
                   Activity
                 </button>
                 {panelTab === "notifs" && notifList.length > 0 && (
-                  <button
-                    onClick={clearNotifications}
-                    className="ml-auto text-teal-500 text-sm font-semibold bg-transparent border-none cursor-pointer hover:text-teal-600"
-                  >
-                    Clear
-                  </button>
+                  <div className="ml-auto flex items-center gap-3">
+                    {notifList.some((n) => n.unread) && (
+                      <button
+                        onClick={markAllNotifsRead}
+                        className="text-teal-500 text-sm font-semibold bg-transparent border-none cursor-pointer hover:text-teal-600"
+                      >
+                        Read All
+                      </button>
+                    )}
+                    <button
+                      onClick={clearNotifications}
+                      className="text-teal-500 text-sm font-semibold bg-transparent border-none cursor-pointer hover:text-teal-600"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 )}
                 {panelTab === "activity" && auditList.some((a) => a.unread) && (
                   <button

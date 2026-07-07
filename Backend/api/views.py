@@ -1390,6 +1390,7 @@ def remove_evaluation(request, evaluation_id):
     try:
         payload    = decode_token(request)
         company_id = payload.get("company_id")
+        user_id    = payload.get("user_id")
 
         from supabase import create_client
         sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
@@ -1407,12 +1408,19 @@ def remove_evaluation(request, evaluation_id):
         resume_id    = ev[0].get("resume_id")
         applicant_id = None
         file_path    = None
+        appl_name    = "An applicant"
         if resume_id:
             res = sb.table("Resumes").select("applicant_id, file_path").eq(
                 "resume_id", resume_id).execute().data
             if res:
                 applicant_id = res[0].get("applicant_id")
                 file_path    = res[0].get("file_path")
+        # Resolve the name for the audit entry BEFORE the rows are deleted.
+        if applicant_id:
+            _an = sb.table("Applicants").select("full_name").eq(
+                "applicant_id", applicant_id).execute().data
+            if _an and _an[0].get("full_name"):
+                appl_name = _an[0]["full_name"]
 
         # Delete children first, then parents.
         # Clear rows that FK this evaluation/applicant so the deletes don't hit a
@@ -1438,6 +1446,12 @@ def remove_evaluation(request, evaluation_id):
                     sb.storage.from_(bucket).remove([path])
             except Exception as storage_err:
                 print("resume storage cleanup error:", storage_err)
+
+        # AUDIT (permanent) — shows in the bell's Activity tab. applicant_id=None
+        # because the applicant row was just deleted (the name is in the message).
+        log_audit(company_id=company_id, action_type="APPLICANT_REMOVED",
+                  message=f"{get_user_fullname(user_id)} removed {appl_name}",
+                  performed_by_user_id=user_id, applicant_id=None, requirement_id=req_id)
 
         return JsonResponse({"message": "Applicant removed"})
 

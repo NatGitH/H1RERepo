@@ -15,9 +15,12 @@ export default function HRForgotPassword() {
     try {
       setLoading(true);
       setError("");
+      // From the Login-as-Owner page we tag the request as an owner reset so the
+      // backend returns an explicit error when the email isn't a registered company.
+      const isOwner = sessionStorage.getItem("pwreset_origin") === "/Login-Owner";
       await apiFetch("/api/auth/send-reset-code/", {
         method: "POST",
-        body: { email: email.trim() },
+        body: { email: email.trim(), ...(isOwner ? { origin: "owner" } : {}) },
       });
       sessionStorage.setItem("pwreset_email", email.trim());
       navigate("/Verify-Code");

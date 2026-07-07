@@ -180,3 +180,19 @@ class AuditLog(models.Model):
     class Meta:
         db_table = '"Audit_Logs"'
         managed  = False
+
+class EmailLog(models.Model):
+    # Written via the ORM (bypasses RLS) so Django can log applicant emails it
+    # sends directly — e.g. interview invitations. Rejection emails are logged
+    # by the n8n "Reject Email & Cleanup" workflow with the service key.
+    email_log_id     = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    applicant_id     = models.UUIDField()
+    evaluation_id    = models.UUIDField()
+    sent_by_user_id  = models.UUIDField(null=True, blank=True)
+    recipient_email  = models.CharField(max_length=255)
+    message          = models.TextField()
+    sent_date        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Email_Logs"'
+        managed  = False

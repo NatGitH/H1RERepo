@@ -279,7 +279,7 @@ export default function Profile() {
 
   const ownerMenuItems = [
     { label: "Change Company Logo",     action: () => { setShowOwnerDotsMenu(false); setShowLogoModal(true); } },
-    { label: "Change Company Password", action: () => { setShowOwnerDotsMenu(false); setShowCompanyPassModal(true); } },
+    { label: "Change Staff Password",   action: () => { setShowOwnerDotsMenu(false); setShowCompanyPassModal(true); } },
     { label: "Change Company Name",     action: () => { setShowOwnerDotsMenu(false); setShowCompanyNameModal(true); } },
     { label: "Change Password",         action: () => { setShowOwnerDotsMenu(false); setShowOwnerPassModal(true); } },
     { label: "Manage Subscription",     action: () => { setShowOwnerDotsMenu(false); setShowSubscriptionModal(true); } },

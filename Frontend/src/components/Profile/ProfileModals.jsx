@@ -306,7 +306,7 @@ export function ChangeCompanyPasswordModal({ token, onClose }) {
         className="bg-white rounded-3xl p-8 w-full max-w-md mx-4"
         style={{ border: "2px solid #1a1a2e", boxShadow: "4px 4px 0px #000000" }}
       >
-        <h2 className="text-xl font-extrabold text-[#0B2447] text-center mb-6">Change Company Password</h2>
+        <h2 className="text-xl font-extrabold text-[#0B2447] text-center mb-6">Change Staff Password</h2>
 
         {success ? (
           <div className="flex flex-col items-center gap-6">

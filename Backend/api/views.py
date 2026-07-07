@@ -10,7 +10,7 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog, EmailLog
 
 ph = PasswordHasher()
 
@@ -673,13 +673,21 @@ def forgot_password(request):
 def send_reset_code(request):
     """Email a 6-digit password-reset code (stored in the Django cache for 10 min)."""
     try:
-        data  = json.loads(request.body)
-        email = data.get("email", "").strip()
+        data   = json.loads(request.body)
+        email  = data.get("email", "").strip()
+        origin = (data.get("origin") or "").strip()
 
         # The Change Password modal is used by BOTH HR users and company owners.
         user    = HRUser.objects.filter(email=email).first()
         company = None if user else Company.objects.filter(owner_email=email).first()
-        # Don't reveal whether the email exists.
+
+        # Owner flow (Login-as-Owner "Forgot Password"): the email must belong to a
+        # registered company owner — surface an explicit error instead of the
+        # generic message so the owner knows the address isn't recognised.
+        if origin == "owner" and not company:
+            return JsonResponse({"error": "No company is registered with this email."}, status=404)
+
+        # Don't reveal whether the email exists (HR / generic flow).
         if not user and not company:
             return JsonResponse({"message": "If that email exists, a code was sent."})
 
@@ -1274,6 +1282,21 @@ def update_evaluation_status(request, evaluation_id):
                         },
                         timeout=5,
                     )
+                    # Record the sent invitation in Email_Logs (the applicant-email
+                    # audit record). Guarded — logging must never break the status
+                    # update. Written via the ORM to bypass the table's RLS.
+                    try:
+                        EmailLog.objects.create(
+                            email_log_id=uuid.uuid4(),
+                            applicant_id=res_rows[0]["applicant_id"],
+                            evaluation_id=evaluation_id,
+                            sent_by_user_id=(user_id or None),
+                            recipient_email=recipient,
+                            message=(f"Interview invitation for {req.get('job_title', '')} "
+                                     f"on {date_display}") + (f" — {message}" if message else ""),
+                        )
+                    except Exception as log_err:
+                        print("interview email log error:", log_err)
                 else:
                     print("interview email skipped: applicant has no valid email on file")
             except Exception as n8n_err:
@@ -1365,6 +1388,13 @@ def remove_evaluation(request, evaluation_id):
                 file_path    = res[0].get("file_path")
 
         # Delete children first, then parents.
+        # Clear rows that FK this evaluation/applicant so the deletes don't hit a
+        # Postgres 23503 (e.g. an Audit_Logs entry from a prior interview, or an
+        # Email_Logs row). Audit_Logs.applicant_id is nullable -> null it (keeps
+        # the permanent entry); Email_Logs FKs are NOT NULL -> delete the rows.
+        EmailLog.objects.filter(evaluation_id=evaluation_id).delete()
+        if applicant_id:
+            AuditLog.objects.filter(applicant_id=applicant_id).update(applicant_id=None)
         sb.table("Evaluation_Pros").delete().eq("evaluation_id", str(evaluation_id)).execute()
         sb.table("Evaluation_Cons").delete().eq("evaluation_id", str(evaluation_id)).execute()
         sb.table("Evaluations").delete().eq("evaluation_id", str(evaluation_id)).execute()
@@ -1455,6 +1485,14 @@ def remove_interview(request, evaluation_id):
 
         # Delete interview + evaluation + resume + applicant (full removal).
         Interview.objects.filter(evaluation_id=evaluation_id).delete()
+        # Clear child rows that reference this evaluation/applicant first, or the
+        # Evaluations/Applicants deletes below hit FK violations (Postgres 23503):
+        #  - Email_Logs FKs evaluation_id + applicant_id (NOT NULL) -> delete rows.
+        #  - Audit_Logs FKs applicant_id (nullable) -> null it so the permanent
+        #    audit entries survive (the applicant name lives in the details text).
+        EmailLog.objects.filter(evaluation_id=evaluation_id).delete()
+        if applicant_id:
+            AuditLog.objects.filter(applicant_id=applicant_id).update(applicant_id=None)
         sb.table("Evaluation_Pros").delete().eq("evaluation_id", str(evaluation_id)).execute()
         sb.table("Evaluation_Cons").delete().eq("evaluation_id", str(evaluation_id)).execute()
         sb.table("Evaluations").delete().eq("evaluation_id", str(evaluation_id)).execute()
@@ -2227,7 +2265,10 @@ def update_company_password(request):
         try:
             ph.verify(company.staff_password, current_password)
         except argon2.exceptions.VerifyMismatchError:
-            return JsonResponse({"error": "Current password is incorrect"}, status=401)
+            # 400 (not 401): a 401 on an authenticated request makes the frontend
+            # api wrapper treat the session as expired and bounce the owner to the
+            # login screen instead of showing the error inline.
+            return JsonResponse({"error": "Wrong Password"}, status=400)
 
         company.staff_password = ph.hash(new_password)
         company.save()

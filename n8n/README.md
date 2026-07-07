@@ -11,9 +11,8 @@ checklist that keeps them working after the move to Render.
 | **H!RE - Account Registration Email** | Webhook `/register-confirmation` | ✅ | Welcome email |
 | **H!RE - Password Reset Email** | Webhook `/password-reset` | ✅ | Reset link, 30-min expiry |
 | **H!RE - Interview Invitation Email** | Webhook `/interview-invitation` | ✅ | Fired by Django on `interview_sent` |
-| **H!RE - Reject Email & Cleanup** | Schedule (every 15 min) | ✅ | Replaces the old "Evaluation Clean Up". After the grace period + email it now **hard-deletes** the applicant's data (see below) instead of archiving. |
+| **H!RE - Reject Email & Cleanup** | Schedule (every 15 min) | ✅ | Replaces the old "Evaluation Clean Up". After the grace period it emails, logs to `Email_Logs`, and **soft-deletes** (`application_status='removed'`) — the applicant is **kept** so the email log persists. |
 | **H!RE - Interview Reminder** | Schedule (daily) | ✅ | NEW — emails applicants ~1 day before their interview |
-| **H!RE - Interview Cleanup** | Schedule (every 30 min) | ✅ | NEW — hard-deletes an applicant's data (incl. resume Storage file) **2 hours after** their interview time. Writes an `INTERVIEW_COMPLETED` audit entry. Ships inactive. |
 | **H!RE - Subscription Expiry Reminder** | Schedule (daily) | ✅ | NEW — emails owners ~7 days before their plan expires |
 | **H!RE - Company Approval Email** | Webhook `/company-approval` | ✅ | NEW — emails owner on admin approve/reject (fired by `admin_approve_reject_company`) |
 | **H!RE - Password Reset Code** | Webhook `/password-reset-code` | ✅ | NEW — emails the 6-digit code for the in-profile Change Password flow (fired by `send_reset_code`) |
@@ -33,7 +32,6 @@ password-reset-code, interview-invitation, company-approval, evaluate-resume.
 - H!RE - Password Reset Code (webhook)
 - H!RE - Reject Email & Cleanup (schedule) — and **deactivate the old "Evaluation Clean Up"** in the n8n instance
 - H!RE - Interview Reminder (schedule)
-- H!RE - Interview Cleanup (schedule) — needs `SUPABASE_SERVICE_KEY`
 - H!RE - Subscription Expiry Reminder (schedule)
 
 Already active: Account Registration, Evaluate Resume, Interview Invitation, Password Reset.
@@ -54,43 +52,30 @@ Supabase + Gmail credentials.
 > Note: `/auth/forgot-password/` (JWT link flow) + the "Password Reset Email" workflow are
 > now redundant — the public reset uses the code flow. Harmless to leave; nothing calls them.
 
-## Reject → Email & Cleanup (how it works) — HARD DELETE after the grace period
+## Reject → Email & Cleanup (how it works) — SOFT DELETE, no schema change
 
-> **DB is frozen** — no columns may be added/removed/changed. The *scheduling* still
-> rides on the existing `application_status` varchar (`'rejected'`), but once the grace
-> window passes the applicant's rows are now **physically deleted** (product decision,
-> 2026-07-07), not archived to `'removed'`.
+> **DB is frozen** — no columns may be added/removed/changed. This flow therefore
+> soft-deletes by writing a new *value* into the existing `application_status` varchar
+> (`'removed'`), not a new column. Applicants are **kept** so their `Email_Logs` (the
+> rejection email record) persist for the audit trail.
 
 1. Runs every 15 min.
 2. Finds `Evaluations` where `application_status = 'rejected'` **and** `rejected_at`
-   is older than 1 hour (the cancelable grace window).
+   is older than 1 hour (the cancelable grace window). (Rows already archived are
+   `application_status = 'removed'`, so they no longer match.)
 3. Looks up the resume + applicant, builds a branded rejection email that includes
    the applicant's **H!RE Score** and **AI summary**, and sends it via Gmail.
-4. Writes an `Email_Logs` row (the email is sent while the data still exists).
+4. Writes an `Email_Logs` row (audit record of the rejection notice).
 5. **Audit Removal** writes a permanent `APPLICANT_REMOVED` audit entry.
-6. **Purge applicant** hard-deletes the data with the service key, children→parents:
-   nulls `Audit_Logs.applicant_id` (the audit text keeps the name), then deletes
-   `Email_Logs`, `Evaluation_Pros`, `Evaluation_Cons`, `Evaluations`, `Resumes`,
-   and finally the `Applicants` row.
+6. Sets `application_status = 'removed'` on the evaluation.
 
-The **permanent record** now lives in `Audit_Logs` (the bell's Activity tab), not in
-the retained applicant rows. Deleting the evaluation also means it no longer matches
-the step-2 query, so it isn't re-processed. The resume's **Storage file is also
-deleted** (`DELETE /storage/v1/object/<bucket>` with the `file_path` prefix) so it
-doesn't accumulate.
+Nothing is physically deleted — the evaluation, resume, pros/cons, and email log all
+stay in the database for the paper's **audit-trail requirement**. Django's
+`get_evaluations` skips any row with `application_status = 'removed'`, so the applicant
+disappears from the Applicants UI as intended.
 
 **Cancel Rejection** flips the status back to `pending` before the hour is up, so the
-row never matches the query — no email, no deletion. ✔️
-
-## Interview Cleanup (how it works) — HARD DELETE once the interview is over
-
-Runs every 30 min. Finds `Interviews` whose `interview_date` is **more than 2 hours in
-the past** (`cutoff = now - 2*60*60*1000`), then for each one resolves
-evaluation→resume→applicant, writes an `INTERVIEW_COMPLETED` audit entry (company-scoped
-via the `[c:<id>]` marker), deletes the resume Storage file, and hard-deletes the same
-children→parents chain as the reject purge (plus the `Interviews` row). Ships
-**inactive**; needs `SUPABASE_SERVICE_KEY`. All requests are guarded (`try/catch`) so one
-bad row can't halt the run.
+row never matches the query — no email, no removal. ✔️
 
 ### Batch processing (all rejected rows per trigger)
 - The **Get rejected > 1h** node has `returnAll: true`, so every trigger pulls the

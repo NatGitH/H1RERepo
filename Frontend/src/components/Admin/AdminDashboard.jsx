@@ -8,7 +8,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import { API_BASE_URL } from "../../api";
+import { API_BASE_URL, apiFetch } from "../../api";
+import { MetricsView, AiLogTable, fmtHours } from "../Metrics/MetricsView";
 
 export default function AdminDashboard() {
   const { auth, logout } = useAuth();
@@ -29,9 +30,36 @@ export default function AdminDashboard() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [planModal, setPlanModal]         = useState(null);
 
+  // Revision #4 — platform-wide metrics + AI-procedure log (lazy-loaded on tab open)
+  const [adminMetrics, setAdminMetrics]   = useState(null);
+  const [adminLogs, setAdminLogs]         = useState([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+
   useEffect(() => {
     fetchAll();
   }, []);
+
+  useEffect(() => {
+    if (activeNav !== "metrics" || adminMetrics) return;
+    let cancelled = false;
+    (async () => {
+      setMetricsLoading(true);
+      try {
+        const [m, l] = await Promise.all([
+          apiFetch("/api/admin/metrics/", { token: auth.token }),
+          apiFetch("/api/ai-logs/", { token: auth.token }),
+        ]);
+        if (cancelled) return;
+        setAdminMetrics(m);
+        setAdminLogs(Array.isArray(l) ? l : []);
+      } catch {
+        if (!cancelled) setAdminMetrics({ overall: null, companies: [] });
+      } finally {
+        if (!cancelled) setMetricsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeNav]);
 
   const fetchAll = async () => {
     try {
@@ -364,6 +392,14 @@ const handleDelete = async (company_id) => {
             Companies
           </button>
           <button
+            onClick={() => setActiveNav("metrics")}
+            className={`text-base font-semibold pb-1 bg-transparent border-0 border-b-2 border-solid cursor-pointer transition-colors ${
+              activeNav === "metrics" ? "text-white border-sky-400" : "text-slate-400 border-transparent"
+            }`}
+          >
+            Metrics
+          </button>
+          <button
             onClick={() => { logout(); navigate("/"); }}
             className="flex items-center gap-1 text-red-400 hover:text-red-300 text-sm font-medium bg-transparent border-none cursor-pointer"
           >
@@ -374,6 +410,61 @@ const handleDelete = async (company_id) => {
       </nav>
 
       <div className="max-w-[1200px] mx-auto px-6 py-6">
+
+        {activeNav === "metrics" && (
+          <div
+            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447] flex flex-col"
+            style={{ boxShadow: "6px 6px 0px #0B2447", height: "calc(100vh - 104px)", overflow: "hidden" }}
+          >
+            <div
+              className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg px-6 h-[50px] flex items-center justify-center mb-6 shrink-0 self-start"
+              style={{ boxShadow: "3px 3px 0px #0B2447" }}
+            >
+              Platform Metrics
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-5">
+              {metricsLoading ? (
+                <p className="text-slate-400 text-sm">Loading metrics...</p>
+              ) : (
+                <>
+                  <MetricsView metrics={adminMetrics?.overall} title="Across all companies" />
+
+                  <div className="bg-white border-2 border-slate-200 rounded-2xl p-4">
+                    <p className="text-[0.7rem] font-bold uppercase tracking-wide text-slate-400 m-0 mb-2">By company</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="text-left text-slate-400">
+                            {["Company", "Evaluated", "Shortlist %", "Hired", "Avg Score", "Avg TTS", "Avg TTF"].map((h) => (
+                              <th key={h} className="py-1.5 px-2 font-bold whitespace-nowrap border-b border-slate-200">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(adminMetrics?.companies || []).length === 0 ? (
+                            <tr><td colSpan={7} className="py-4 text-center text-slate-400">No data yet.</td></tr>
+                          ) : adminMetrics.companies.map((c) => (
+                            <tr key={c.company_id} className="border-b border-slate-100">
+                              <td className="py-1.5 px-2 font-semibold text-[#0B2447] whitespace-nowrap">{c.company_name}</td>
+                              <td className="py-1.5 px-2 tabular-nums">{c.total_evaluated}</td>
+                              <td className="py-1.5 px-2 tabular-nums">{c.shortlist_rate != null ? `${c.shortlist_rate}%` : "—"}</td>
+                              <td className="py-1.5 px-2 tabular-nums">{c.hired}</td>
+                              <td className="py-1.5 px-2 tabular-nums">{c.avg_hire_score ?? "—"}</td>
+                              <td className="py-1.5 px-2 tabular-nums">{fmtHours(c.avg_time_to_shortlist_hours)}</td>
+                              <td className="py-1.5 px-2 tabular-nums">{fmtHours(c.avg_time_to_fill_hours)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <AiLogTable logs={adminLogs} model={adminMetrics?.model} />
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {activeNav === "home" && (
           <div

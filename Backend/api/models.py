@@ -196,3 +196,26 @@ class EmailLog(models.Model):
     class Meta:
         db_table = '"Email_Logs"'
         managed  = False
+
+class AIEvaluationLog(models.Model):
+    # AI-procedure log (revision #4): one row per evaluation capturing the model +
+    # weights version and the sub-scores behind the H!RE Score, for internal review
+    # of AI behaviour over time. Written/read via the ORM (bypasses RLS).
+    ai_log_id       = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    evaluation_id   = models.UUIDField(null=True, blank=True)
+    company_id      = models.UUIDField(null=True, blank=True)
+    requirement_id  = models.UUIDField(null=True, blank=True)
+    model_name      = models.CharField(max_length=120, null=True, blank=True)
+    weights_version = models.CharField(max_length=160, null=True, blank=True)
+    semantic_score  = models.FloatField(null=True, blank=True)
+    skills_match    = models.FloatField(null=True, blank=True)
+    role_relevance  = models.FloatField(null=True, blank=True)
+    impact          = models.FloatField(null=True, blank=True)
+    soft_signals    = models.FloatField(null=True, blank=True)
+    llm_score       = models.FloatField(null=True, blank=True)
+    hire_score      = models.FloatField(null=True, blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"AI_Evaluation_Logs"'
+        managed  = False

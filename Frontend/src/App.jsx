@@ -31,6 +31,8 @@ import Employer from './components/Employer/Employer'
 
 import Profile from './components/Profile/Profile'
 
+import Metrics from './components/Metrics/Metrics'
+
 import LoginAdmin from './components/Admin/LoginAdmin'
 import AdminDashboard from './components/Admin/AdminDashboard'
 
@@ -74,6 +76,12 @@ function App() {
             <Route path="/Profile" element={<Profile />} />
 
             <Route path="/Employer" element={<Employer/>}/>
+
+            <Route path="/Metrics" element={
+              <ProtectedRoute allowedRoles={["owner", "HRManager"]}>
+                <Metrics />
+              </ProtectedRoute>
+            }/>
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

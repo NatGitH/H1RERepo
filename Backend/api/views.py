@@ -11,7 +11,13 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog, EmailLog
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog, EmailLog, AIEvaluationLog
+
+# AI-procedure versioning (revision #4). Keep in sync with the n8n Evaluate
+# workflow: the LLM model runs there, the weighted blend is defined in its parse
+# node. These labels are stamped on every AI_Evaluation_Logs row for review.
+AI_MODEL_NAME      = "openai/gpt-oss-120b"
+AI_WEIGHTS_VERSION = "v1 — llm = 0.50*skills + 0.30*role + 0.10*impact + 0.10*soft; hire = 0.90*llm + 0.10*semantic"
 
 ph = PasswordHasher()
 
@@ -989,6 +995,33 @@ def evaluate_resume(request):
         except Exception as ar_err:
             print("auto-reject error:", ar_err)
 
+        # AI-procedure log (revision #4): record the model + weights version and the
+        # sub-scores behind this H!RE Score for internal review over time. Guarded —
+        # logging must never break the evaluation response.
+        try:
+            def _num(v):
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+            sk, ro = _num(result.get("skills_match")), _num(result.get("role_relevance"))
+            im, so = _num(result.get("impact")), _num(result.get("soft_signals"))
+            llm = None
+            if None not in (sk, ro, im, so):
+                llm = round(0.50 * sk + 0.30 * ro + 0.10 * im + 0.10 * so, 2)
+            AIEvaluationLog.objects.create(
+                evaluation_id=result.get("evaluation_id"),
+                company_id=company_id,
+                requirement_id=req.requirement_id,
+                model_name=result.get("model_name") or AI_MODEL_NAME,
+                weights_version=AI_WEIGHTS_VERSION,
+                semantic_score=_num(result.get("semantic_score")),
+                skills_match=sk, role_relevance=ro, impact=im, soft_signals=so,
+                llm_score=llm, hire_score=_num(result.get("hire_score")),
+            )
+        except Exception as log_err:
+            print("ai log error:", log_err)
+
         return JsonResponse(result, status=201)
 
     except JobRequirement.DoesNotExist:
@@ -1101,7 +1134,7 @@ def update_evaluation_status(request, evaluation_id):
         data   = json.loads(request.body)
         status = data.get("status", "").strip()
 
-        if status not in ["pending", "shortlisted", "rejected", "interview_sent"]:
+        if status not in ["pending", "shortlisted", "rejected", "interview_sent", "hired"]:
             return JsonResponse({"error": "Invalid status"}, status=400)
 
         feats = plan_features(get_company_plan(payload.get("company_id")))
@@ -1138,6 +1171,12 @@ def update_evaluation_status(request, evaluation_id):
         elif status == "shortlisted":
             update_data["action_made_by_user_id"] = str(user_id) if user_id else None
             update_data["rejected_at"] = None
+            # Stamp the first shortlist time for the time-to-shortlist metric (#4).
+            update_data["shortlisted_at"] = datetime.datetime.utcnow().isoformat()
+        elif status == "hired":
+            # Terminal "hired" outcome — powers time-to-fill (#4).
+            update_data["action_made_by_user_id"] = str(user_id) if user_id else None
+            update_data["hired_at"] = datetime.datetime.utcnow().isoformat()
         elif status == "pending":
             update_data["rejected_at"] = None
         elif status == "interview_sent":
@@ -1288,6 +1327,17 @@ def update_evaluation_status(request, evaluation_id):
         elif status == "shortlisted":
             notify_company(company_id_tok, "applicant_shortlisted", "Applicant Shortlisted",
                            f"{appl_name} was shortlisted by {actor}.")
+        elif status == "hired":
+            notify_company(company_id_tok, "applicant_hired", "Applicant Hired",
+                           f"{appl_name} was marked as hired by {actor}.")
+            log_audit(
+                company_id=company_id_tok,
+                action_type="APPLICANT_HIRED",
+                message=f"{appl_name} was marked as hired by {actor}",
+                performed_by_user_id=user_id,
+                applicant_id=audit_applicant_id,
+                requirement_id=audit_requirement_id,
+            )
         elif status == "rejected":
             notify_company(company_id_tok, "applicant_rejected", "Applicant Rejected",
                            f"{appl_name} was rejected by {actor}. Removal in 1 hour unless cancelled.")
@@ -3027,6 +3077,171 @@ def admin_delete_company(request):
             print("company deleted email error:", n8n_err)
 
         return JsonResponse({"message": "Company permanently deleted"})
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# ---------------------------------------------------------------------------
+# Revision #4 — metrics & measurable outcomes (Specific Objectives)
+# ---------------------------------------------------------------------------
+
+def _parse_dt(s):
+    if not s:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+def _metrics_from_rows(rows):
+    """Compute funnel + efficiency metrics from a list of Evaluations rows."""
+    rows = [r for r in rows if r.get("application_status") != "removed"]
+    total = len(rows)
+    by_status = {"pending": 0, "shortlisted": 0, "interview_sent": 0, "hired": 0, "rejected": 0}
+    bands = {"strong": 0, "good": 0, "fair": 0, "weak": 0}
+    tts, ttf, scores = [], [], []
+    for r in rows:
+        st = r.get("application_status") or "pending"
+        if st in by_status:
+            by_status[st] += 1
+        hs = r.get("hire_score")
+        if hs is not None:
+            try:
+                hs = float(hs)
+                scores.append(hs)
+                if   hs >= 80: bands["strong"] += 1
+                elif hs >= 60: bands["good"]   += 1
+                elif hs >= 45: bands["fair"]   += 1
+                else:          bands["weak"]   += 1
+            except (ValueError, TypeError):
+                pass
+        c = _parse_dt(r.get("created_at"))
+        s = _parse_dt(r.get("shortlisted_at"))
+        h = _parse_dt(r.get("hired_at"))
+        if c and s and s >= c: tts.append((s - c).total_seconds() / 3600)
+        if c and h and h >= c: ttf.append((h - c).total_seconds() / 3600)
+
+    def avg(xs):
+        return round(sum(xs) / len(xs), 1) if xs else None
+
+    advanced = by_status["shortlisted"] + by_status["interview_sent"] + by_status["hired"]
+    return {
+        "total_evaluated": total,
+        "by_status": by_status,
+        "shortlisted_or_beyond": advanced,
+        "hired": by_status["hired"],
+        "shortlist_rate": round(advanced / total * 100, 1) if total else None,
+        "hire_rate": round(by_status["hired"] / total * 100, 1) if total else None,
+        "score_bands": bands,
+        "avg_hire_score": avg(scores),
+        "avg_time_to_shortlist_hours": avg(tts),
+        "avg_time_to_fill_hours": avg(ttf),
+        "time_to_shortlist_n": len(tts),
+        "time_to_fill_n": len(ttf),
+    }
+
+
+def _eval_rows_for_requirements(req_ids):
+    if not req_ids:
+        return []
+    from django.conf import settings
+    from supabase import create_client
+    sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+    return sb.table("Evaluations").select(
+        "application_status, hire_score, created_at, shortlisted_at, hired_at, requirement_id"
+    ).in_("requirement_id", req_ids).execute().data or []
+
+
+@csrf_exempt
+def get_metrics(request):
+    """Company-scoped hiring metrics (owner / HR Manager) — revision #4."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") not in ("owner", "HRManager"):
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        company_id = payload.get("company_id")
+        req_ids = [str(r) for r in JobRequirement.objects.filter(
+            company_id=company_id).values_list("requirement_id", flat=True)]
+        data = _metrics_from_rows(_eval_rows_for_requirements(req_ids))
+        data["model"] = {"name": AI_MODEL_NAME, "weights_version": AI_WEIGHTS_VERSION}
+        return JsonResponse(data)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def admin_get_metrics(request):
+    """Platform-wide metrics + per-company breakdown (admin) — revision #4."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        from django.conf import settings
+        from supabase import create_client
+        from collections import defaultdict
+        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+        rows = sb.table("Evaluations").select(
+            "application_status, hire_score, created_at, shortlisted_at, hired_at, requirement_id"
+        ).execute().data or []
+        overall = _metrics_from_rows(rows)
+
+        reqmap  = {str(r.requirement_id): str(r.company_id) for r in JobRequirement.objects.all()}
+        compmap = {str(c.company_id): c.company_name for c in Company.objects.all()}
+        grouped = defaultdict(list)
+        for r in rows:
+            cid = reqmap.get(str(r.get("requirement_id")))
+            if cid:
+                grouped[cid].append(r)
+        companies = []
+        for cid, rs in grouped.items():
+            m = _metrics_from_rows(rs)
+            companies.append({"company_id": cid, "company_name": compmap.get(cid, "—"), **m})
+        companies.sort(key=lambda x: -x["total_evaluated"])
+        return JsonResponse({
+            "overall": overall,
+            "companies": companies,
+            "model": {"name": AI_MODEL_NAME, "weights_version": AI_WEIGHTS_VERSION},
+        })
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def get_ai_logs(request):
+    """AI-procedure log (revision #4): model + weights version and sub-scores per
+    evaluation. Admin sees all; owner / HR Manager see their own company."""
+    try:
+        payload = decode_token(request)
+        role = payload.get("role")
+        qs = AIEvaluationLog.objects.all().order_by("-created_at")
+        if role == "admin":
+            pass
+        elif role in ("owner", "HRManager"):
+            qs = qs.filter(company_id=payload.get("company_id"))
+        else:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        out = [{
+            "ai_log_id":       str(x.ai_log_id),
+            "evaluation_id":   str(x.evaluation_id) if x.evaluation_id else None,
+            "model_name":      x.model_name,
+            "weights_version": x.weights_version,
+            "semantic_score":  x.semantic_score,
+            "skills_match":    x.skills_match,
+            "role_relevance":  x.role_relevance,
+            "impact":          x.impact,
+            "soft_signals":    x.soft_signals,
+            "llm_score":       x.llm_score,
+            "hire_score":      x.hire_score,
+            "created_at":      x.created_at.isoformat() if x.created_at else None,
+        } for x in qs[:200]]
+        return JsonResponse(out, safe=False)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:

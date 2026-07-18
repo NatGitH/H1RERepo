@@ -44,6 +44,7 @@ export default function Navbar() {
   applicant_shortlisted: "⭐",
   applicant_rejected:    "🚫",
   applicant_pending:     "↩️",
+  applicant_hired:       "🎉",
 };
 
   const AUDIT_TITLE = {
@@ -65,8 +66,10 @@ export default function Navbar() {
     PLAN_REJECTED:        "Plan Declined",
     PLAN_SET:             "Plan Set",
     APPLICANT_REMOVED:    "Applicant Removed",
+    APPLICANT_HIRED:      "Applicant Hired",
   };
   const auditIcon = (t = "") =>
+    t === "APPLICANT_HIRED"     ? "🎉" :
     t.startsWith("REQUIREMENT") ? "📋" :
     t.startsWith("INTERVIEW")   ? "📅" :
     t.startsWith("ROLE")        ? "🔀" :
@@ -191,11 +194,13 @@ export default function Navbar() {
       { label: "Applicants", path: "/Applicants" },
       { label: "Employer", path: "/Employer" },
       { label: "Requirements", path: "/Requirements" },
+      { label: "Metrics", path: "/Metrics" },
     ],
     HRManager: [
       { label: "Applicants", path: "/Applicants" },
       { label: "Employer", path: "/Employer" },
       { label: "Requirements", path: "/Requirements" },
+      { label: "Metrics", path: "/Metrics" },
     ],
     HRStaff: [
       { label: "Applicants", path: "/Applicants" },

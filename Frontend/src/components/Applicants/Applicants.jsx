@@ -205,6 +205,23 @@ export default function Applicants() {
     }
   };
 
+  const handleMarkHired = async () => {
+    if (!selectedInterview) return;
+    if (!(await window.showConfirm(`Mark ${selectedInterview.applicant_name || "this applicant"} as hired?`, { confirmText: "Mark Hired" }))) return;
+    try {
+      await apiFetch(`/api/evaluations/${selectedInterview.evaluation_id}/status/`, {
+        method: "PATCH",
+        token: auth.token,
+        body: { status: "hired" },
+      });
+      setApplicants((prev) => prev.map((a) => (a.evaluation_id === selectedInterview.evaluation_id ? { ...a, status: "hired" } : a)));
+      setSelectedInterview(null);
+      window.showAlert("Applicant marked as hired.", { type: "success" });
+    } catch (err) {
+      window.showAlert(getErrorMessage(err, "Failed to mark as hired."));
+    }
+  };
+
   const handleSendInterview = () => {
     if (!interviewDate) return window.showAlert("Please choose an interview date and time.");
     if (new Date(phtLocalToISO(interviewDate)) <= new Date())
@@ -915,10 +932,16 @@ export default function Applicants() {
               )}
               <p className="text-slate-400 text-xs m-0">Handled by: {selectedInterview.action_made_by || "—"}</p>
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 shrink-0">
+            <div className="px-6 py-4 border-t border-slate-200 shrink-0 flex gap-3">
+              <button
+                onClick={handleMarkHired}
+                className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer"
+              >
+                ✓ Mark as Hired
+              </button>
               <button
                 onClick={() => setShowRemoveInterview(true)}
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer"
               >
                 🗑 Remove Interview
               </button>

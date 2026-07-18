@@ -65,4 +65,9 @@ urlpatterns = [
     path("notifications/mark-read/", views.mark_notifications_read),
     path("notifications/clear/",     views.clear_notifications),
     path("audit-logs/",              views.get_audit_logs),
+
+    # Revision #4 — metrics & AI-procedure review
+    path("metrics/",        views.get_metrics),
+    path("admin/metrics/",  views.admin_get_metrics),
+    path("ai-logs/",        views.get_ai_logs),
 ]

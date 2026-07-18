@@ -432,7 +432,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ {\n  evaluation_id: $('Evaluations').item.json.evaluation_id,\n  resume_id: $('Resume').item.json.resume_id,\n  hire_score: $('Code in JavaScript').item.json.hire_score,\n  summary: $('Code in JavaScript').item.json.summary,\n  pros: $('Code in JavaScript').item.json.pros,\n  cons: $('Code in JavaScript').item.json.cons,\n  file_url: $('HTTP Request').item.json.Key\n} }}",
+        "responseBody": "={{ {\n  evaluation_id: $('Evaluations').item.json.evaluation_id,\n  resume_id: $('Resume').item.json.resume_id,\n  hire_score: $('Code in JavaScript').item.json.hire_score,\n  summary: $('Code in JavaScript').item.json.summary,\n  pros: $('Code in JavaScript').item.json.pros,\n  cons: $('Code in JavaScript').item.json.cons,\n  semantic_score: $('Code in JavaScript').item.json.semantic_score,\n  skills_match: $('Code in JavaScript').item.json.skills_match,\n  role_relevance: $('Code in JavaScript').item.json.role_relevance,\n  impact: $('Code in JavaScript').item.json.impact,\n  soft_signals: $('Code in JavaScript').item.json.soft_signals,\n  model_name: 'openai/gpt-oss-120b',\n  file_url: $('HTTP Request').item.json.Key\n} }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",

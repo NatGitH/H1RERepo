@@ -95,6 +95,41 @@ export async function apiFetch(path, { method = "GET", body, headers = {}, token
   return data;
 }
 
+// ---- Philippine Time (PHT, UTC+8) helpers -------------------------------
+// H!RE operates in Metro Manila, so interview times are always PHT regardless
+// of the viewer's or recruiter's browser timezone.
+const PH_TZ = "Asia/Manila";
+
+// Treat a <input type="datetime-local"> wall-clock value ("2026-07-30T08:54")
+// as Philippine Time and return the correct UTC ISO instant to store/send.
+// This makes storage deterministic no matter the recruiter's browser timezone.
+export function phtLocalToISO(local) {
+  if (!local) return null;
+  const withSecs = local.length === 16 ? `${local}:00` : local;
+  const d = new Date(`${withSecs}+08:00`);
+  return isNaN(d) ? null : d.toISOString();
+}
+
+// Format a stored ISO instant for display in PHT, e.g. "Jul 30, 2026, 8:54 AM".
+export function fmtPHT(iso, { withZone = true } = {}) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const s = d.toLocaleString("en-PH", {
+    timeZone: PH_TZ, dateStyle: "medium", timeStyle: "short",
+  });
+  return withZone ? `${s} (PHT)` : s;
+}
+
+// Current PHT wall-clock as a "YYYY-MM-DDTHH:MM" string for datetime-local `min`.
+export function phtNowLocal() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TZ, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date()).reduce((a, p) => (a[p.type] = p.value, a), {});
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
 export function getErrorMessage(err, fallback = "Something went wrong. Please try again.") {
   if (err instanceof ApiError) return err.message;
   if (err && err.message && err.message !== "Failed to fetch") return err.message;

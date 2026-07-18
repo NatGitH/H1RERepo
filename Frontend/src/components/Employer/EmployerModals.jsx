@@ -1,5 +1,6 @@
 import { useState } from "react";
 import RemoveInterviewModal from "../Functions/RemoveInterviewModal";
+import { fmtPHT } from "../../api";
 
 const UserIcon = () => (
   <svg className="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -208,7 +209,7 @@ export function ProfileOverlay({
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 text-sm">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex flex-col gap-1">
                 {selectedInterview.interview_date && (
-                  <p className="text-blue-700 m-0"><span className="font-semibold">📅 Interview Date:</span> {new Date(selectedInterview.interview_date).toLocaleString()}</p>
+                  <p className="text-blue-700 m-0"><span className="font-semibold">📅 Interview Date:</span> {fmtPHT(selectedInterview.interview_date)}</p>
                 )}
                 {selectedInterview.interview_location && (
                   <p className="text-blue-700 m-0 break-words"><span className="font-semibold">📍 Location / Link:</span> {selectedInterview.interview_location}</p>
@@ -217,7 +218,7 @@ export function ProfileOverlay({
               <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
                 <p className="text-[#0B2447] m-0 font-bold">💼 {selectedInterview.job_title || "Untitled Requirement"}</p>
                 {selectedInterview.job_description && (
-                  <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Description:</span> {selectedInterview.job_description}</p>
+                  <p className="text-slate-600 m-0 whitespace-pre-line break-words"><span className="font-semibold text-[#0B2447]">Description:</span> {selectedInterview.job_description}</p>
                 )}
                 {selectedInterview.job_qualifications && (
                   <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Qualifications:</span> {selectedInterview.job_qualifications}</p>

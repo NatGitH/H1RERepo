@@ -1178,8 +1178,12 @@ def update_evaluation_status(request, evaluation_id):
             )
 
             try:
-                dt = datetime.datetime.fromisoformat(interview_date.replace("Z", ""))
-                date_display = dt.strftime("%B %d, %Y at %I:%M %p")
+                from zoneinfo import ZoneInfo
+                _s  = str(interview_date).replace("Z", "+00:00")
+                _dt = datetime.datetime.fromisoformat(_s)
+                if _dt.tzinfo is None:
+                    _dt = _dt.replace(tzinfo=ZoneInfo("UTC"))
+                date_display = _dt.astimezone(ZoneInfo("Asia/Manila")).strftime("%B %d, %Y at %I:%M %p") + " (PHT)"
             except Exception:
                 date_display = interview_date
 
@@ -1265,8 +1269,12 @@ def update_evaluation_status(request, evaluation_id):
         if status == "interview_sent":
             raw_dt = data.get("interview_date")
             try:
-                _d = datetime.datetime.fromisoformat(str(raw_dt).replace("Z", ""))
-                when = _d.strftime("%m/%d/%Y %I:%M %p")
+                from zoneinfo import ZoneInfo
+                _s = str(raw_dt).replace("Z", "+00:00")
+                _d = datetime.datetime.fromisoformat(_s)
+                if _d.tzinfo is None:
+                    _d = _d.replace(tzinfo=ZoneInfo("UTC"))
+                when = _d.astimezone(ZoneInfo("Asia/Manila")).strftime("%m/%d/%Y %I:%M %p") + " (PHT)"
             except Exception:
                 when = raw_dt
             log_audit(
@@ -2647,13 +2655,17 @@ def get_audit_logs(request):
 @require_POST
 def login_admin(request):
     try:
-        data     = json.loads(request.body)
-        username = data.get("username", "").strip()
-        email    = data.get("email", "").strip()
-        password = data.get("password", "").strip()
+        data       = json.loads(request.body)
+        # Single identity field: accept either the admin's email OR username.
+        identifier = (data.get("identifier") or data.get("username") or data.get("email") or "").strip()
+        password   = data.get("password", "").strip()
+
+        if not identifier or not password:
+            return JsonResponse({"error": "Invalid credentials"}, status=401)
 
         from .models import Admin
-        admin = Admin.objects.get(admin_username=username, admin_email=email)
+        from django.db.models import Q
+        admin = Admin.objects.get(Q(admin_username=identifier) | Q(admin_email=identifier))
 
         if admin.admin_password != password:
             return JsonResponse({"error": "Invalid credentials"}, status=401)
@@ -2661,13 +2673,14 @@ def login_admin(request):
         token = make_token({
             "role":     "admin",
             "admin_id": str(admin.admin_id),
-            "email":    email,
+            "email":    admin.admin_email,
         })
 
         return JsonResponse({
             "token":    token,
             "role":     "admin",
             "admin_id": str(admin.admin_id),
+            "email":    admin.admin_email,
         })
 
     except Exception as e:

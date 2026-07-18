@@ -1,0 +1,171 @@
+{
+  "name": "H!RE - Subscription Expiry Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -360,
+        0
+      ],
+      "id": "c3000000-0000-4000-8000-000000000001",
+      "name": "Daily"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Companies",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "subscription_expiry",
+              "condition": "gte",
+              "keyValue": "={{ new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString() }}"
+            },
+            {
+              "keyName": "subscription_expiry",
+              "condition": "lt",
+              "keyValue": "={{ new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "c3000000-0000-4000-8000-000000000002",
+      "name": "Companies expiring in ~7d",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// One reminder ~7 days before expiry. Daily run + a 24h window (6-7 days out)\n// makes each company match exactly once.\nconst lo = Date.now() + 6 * 24 * 60 * 60 * 1000;\nconst hi = Date.now() + 7 * 24 * 60 * 60 * 1000;\nreturn $input.all().filter(item => {\n  if (!item.json.subscription_expiry) return false;\n  const t = new Date(item.json.subscription_expiry).getTime();\n  return t >= lo && t < hi;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        0
+      ],
+      "id": "c3000000-0000-4000-8000-000000000003",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $input.first().json;\nconst name = c.company_name || 'there';\nconst plan = c.subscription_plan || 'your';\nlet when = c.subscription_expiry;\ntry { when = new Date(c.subscription_expiry).toLocaleDateString('en-US', { dateStyle: 'long' }); } catch (e) {}\nconst email = (c.owner_email || '').trim();\n\nreturn [{\n  json: {\n    recipient_email: email,\n    email_subject: 'Your H!RE subscription expires soon',\n    email_html: `<div style=\"font-family: Arial, sans-serif; max-width:600px; margin:0 auto; color:#0d1b3e;\">\\n  <h2 style=\"color:#f97316;\">Subscription Reminder</h2>\\n  <p>Hi ${name},</p>\\n  <p>Your <strong>${plan}</strong> plan is set to expire on <strong>${when}</strong> (about 7 days from now).</p>\\n  <p>To avoid any interruption to your hiring workflow, please renew your subscription from your Company Profile before it lapses.</p>\\n  <br/>\\n  <p>Best regards,<br/><strong>The H!RE Team</strong></p>\\n</div>`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "c3000000-0000-4000-8000-000000000004",
+      "name": "Email Content"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "c3000000-0000-4000-8000-000000000005",
+      "name": "Send reminder",
+      "webhookId": "hire-subscription-reminder",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily": {
+      "main": [
+        [
+          {
+            "node": "Companies expiring in ~7d",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Companies expiring in ~7d": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Content": {
+      "main": [
+        [
+          {
+            "node": "Send reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,385 @@
+{
+  "name": "H!RE - Interview Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -360,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Daily"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Interviews",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "interview_status",
+              "condition": "eq",
+              "keyValue": "scheduled"
+            },
+            {
+              "keyName": "interview_date",
+              "condition": "gte",
+              "keyValue": "={{ new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }}"
+            },
+            {
+              "keyName": "interview_date",
+              "condition": "lt",
+              "keyValue": "={{ new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Interviews ~1 day out",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep only interviews happening 24-48h from now (one reminder per interview,\n// since this runs once a day the window matches each interview exactly once).\nconst lo = Date.now() + 24 * 60 * 60 * 1000;\nconst hi = Date.now() + 48 * 60 * 60 * 1000;\nreturn $input.all().filter(item => {\n  if (item.json.interview_status !== 'scheduled') return false;\n  if (!item.json.interview_date) return false;\n  const t = new Date(item.json.interview_date).getTime();\n  return t >= lo && t < hi;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Evaluations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "evaluation_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.evaluation_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000004",
+      "name": "Get Evaluation",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Resumes",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "resume_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.resume_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000005",
+      "name": "Get Resume",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Applicants",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "applicant_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.applicant_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        640,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000006",
+      "name": "Get Applicant",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Job_Requirements",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requirement_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get Evaluation').item.json.requirement_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000007",
+      "name": "Get Requirement",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const interview  = $('Code in JavaScript').item.json;\nconst applicant  = $('Get Applicant').item.json;\nconst requirement = $('Get Requirement').item.json || {};\n\nconst name  = applicant.full_name || 'Applicant';\nconst email = (applicant.email || '').trim();\nconst has_valid_email = email.includes('@') && !email.includes('placeholder');\n\nlet when = interview.interview_date;\ntry { when = new Date(interview.interview_date).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' }); } catch (e) {}\nconst jobTitle = requirement.job_title || 'the role';\nconst note = interview.message ? `<p>${interview.message}</p>` : '';\n\nreturn [{\n  json: {\n    recipient_email: email,\n    has_valid_email,\n    email_subject: `Reminder: Your H!RE interview for ${jobTitle}`,\n    email_html: `<div style=\"font-family: Arial, sans-serif; max-width:600px; margin:0 auto; color:#0d1b3e;\">\\n  <h2 style=\"color:#f97316;\">Interview Reminder</h2>\\n  <p>Hi ${name},</p>\\n  <p>This is a friendly reminder about your upcoming interview for <strong>${jobTitle}</strong>.</p>\\n  <div style=\"background:#f1f5f9; border-radius:8px; padding:16px; margin:16px 0;\">\\n    <p style=\"margin:0;\"><strong>When:</strong> ${when}</p>\\n  </div>\\n  ${note}\\n  <p>We look forward to speaking with you!</p>\\n  <br/>\\n  <p>Best regards,<br/><strong>The H!RE Recruitment Team</strong></p>\\n</div>`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000008",
+      "name": "Email Content"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1000000-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.has_valid_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1240,
+        0
+      ],
+      "id": "b2000000-0000-4000-8000-000000000009",
+      "name": "Valid email?"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -80
+      ],
+      "id": "b2000000-0000-4000-8000-00000000000a",
+      "name": "Send reminder",
+      "webhookId": "hire-interview-reminder",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily": {
+      "main": [
+        [
+          {
+            "node": "Interviews ~1 day out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interviews ~1 day out": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Get Evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Get Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Resume": {
+      "main": [
+        [
+          {
+            "node": "Get Applicant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Applicant": {
+      "main": [
+        [
+          {
+            "node": "Get Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Requirement": {
+      "main": [
+        [
+          {
+            "node": "Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Content": {
+      "main": [
+        [
+          {
+            "node": "Valid email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid email?": {
+      "main": [
+        [
+          {
+            "node": "Send reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,369 @@
+{
+  "name": "H!RE - Match Resume",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "match-resume",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1872,
+        400
+      ],
+      "id": "aa000000-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "webhookId": "hire-match-resume"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9e969a98-b335-43f1-b51a-a4964c4266d9",
+              "leftValue": "={{ $binary.resume.mimeType }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        400
+      ],
+      "id": "945016e0-4374-4a78-94af-fe85b912d9ee",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1344,
+        384
+      ],
+      "id": "9b5eae70-1019-492b-bc10-cf8fce93ae7d",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b1a7c0de-0000-4000-8000-0000000000aa",
+              "leftValue": "={{ ($json.text || '').trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1180,
+        384
+      ],
+      "id": "b1a7c0de-0000-4000-8000-0000000000ab",
+      "name": "PDF has text?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.OCR_SPACE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "resume"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1344,
+        576
+      ],
+      "id": "e8156e11-6836-4497-af37-e28afe15435b",
+      "name": "Extract from Images"
+    },
+    {
+      "parameters": {
+        "jsCode": "// OCR.space returns ParsedResults[0].ParsedText; normalize to .text\nconst r = $input.first().json;\nconst text = (r.ParsedResults && r.ParsedResults[0] && r.ParsedResults[0].ParsedText) || r.text || '';\nreturn [{ json: { text }, binary: $input.first().binary }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        576
+      ],
+      "id": "8b5c0695-ad66-49bc-92e5-b9ae2ee0dcde",
+      "name": "Normalize OCR Text"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { best_requirement_id: $json.best_requirement_id, best_score: $json.best_score, best_reason: $json.best_reason } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -60,
+        384
+      ],
+      "id": "aa000000-0000-4000-8000-000000000011",
+      "name": "Respond"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the routing menu for the LLM: resume excerpt + numbered list of openings.\n// Also compute a cheap keyword-overlap fallback pick used only if the LLM call fails.\nconst resumeText = String($input.first().json.text || '').replace(/\\s+/g, ' ').trim();\nlet reqs = [];\ntry { reqs = JSON.parse($('Webhook').first().json.body.requirements || '[]'); } catch (e) {}\nif (!Array.isArray(reqs)) reqs = [];\n\nconst clean = (s) => String(s || '').replace(/\\s+/g, ' ').trim();\nconst cut = (s, n) => clean(s).slice(0, n);\n\nconst menu = reqs.map((r, i) =>\n  `[${i + 1}] ${cut(r.job_title, 120)}\\n    Description: ${cut(r.description, 600)}\\n    Qualifications: ${cut(r.qualifications, 600)}`\n).join('\\n\\n');\n\nconst reqIds = reqs.map((r) => r.requirement_id);\n\n// Cheap keyword-overlap fallback (no external call).\nconst stop = new Set(('a an and or the to of in for with on at by from as is are be we you your our their they will who this that role job work works working experience years ability strong good skills knowledge team teams including etc').split(' '));\nconst toks = (s) => String(s || '').toLowerCase().match(/[a-z][a-z+#.]{1,}/g) || [];\nconst resumeSet = new Set(toks(resumeText).filter((w) => !stop.has(w)));\nlet fbIdx = 0, fbBest = -1;\nreqs.forEach((r, i) => {\n  const rt = toks(`${r.job_title} ${r.qualifications} ${r.description}`).filter((w) => !stop.has(w));\n  const seen = new Set();\n  let hit = 0;\n  rt.forEach((w) => { if (!seen.has(w)) { seen.add(w); if (resumeSet.has(w)) hit++; } });\n  const score = seen.size ? hit / Math.sqrt(seen.size) : 0;\n  if (score > fbBest) { fbBest = score; fbIdx = i; }\n});\n\nreturn [{ json: {\n  resume_excerpt: resumeText.slice(0, 6000),\n  req_menu: menu,\n  req_count: reqs.length,\n  req_ids: JSON.stringify(reqIds),\n  fallback_id: reqIds[fbIdx] || (reqIds[0] || null),\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -820,
+        384
+      ],
+      "id": "aa000000-0000-4000-8000-000000000020",
+      "name": "Build Prompt Context"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a job-matching router for the H!RE hiring platform. Choose which ONE open position best fits this candidate, based on the ACTUAL work they have done and the hard skills they demonstrate — NOT on job-title wording, keyword overlap, or which posting sounds most impressive.\n\nCANDIDATE RESUME (raw text):\n{{ $json.resume_excerpt }}\n\nOPEN POSITIONS (choose exactly one, by its number):\n{{ $json.req_menu }}\n\nRules:\n- Judge fit by the candidate's real experience and demonstrated skills versus what each position actually needs.\n- A resume that clearly belongs to a different field is a WEAK fit even if a few words overlap.\n- Ignore how prestigious or senior a posting sounds; match on genuine capability to do that job.\n- If nothing fits well, still pick the CLOSEST of the options.\n- best_index MUST be an integer from 1 to {{ $json.req_count }} matching the [n] labels above.\n\nSTRICT OUTPUT — return ONLY one JSON object, nothing before or after, no markdown. Inside the string do NOT use double quotes or line breaks:\n{\"best_index\": 1, \"reason\": \"short phrase\"}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -560,
+        384
+      ],
+      "id": "aa000000-0000-4000-8000-000000000021",
+      "name": "Router Agent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        576
+      ],
+      "id": "aa000000-0000-4000-8000-000000000022",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "1wZAR4BxHTZ02Ngf",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map the LLM's chosen index back to a requirement_id, with validation + fallback.\nconst rawOut = $input.first().json.output || $input.first().json.content || $input.first().json.text || '';\nconst ctx = $('Build Prompt Context').first().json;\nlet reqIds = [];\ntry { reqIds = JSON.parse(ctx.req_ids || '[]'); } catch (e) {}\nconst fallbackId = ctx.fallback_id || (reqIds[0] || null);\n\nlet parsed = null;\ntry {\n  const m = String(rawOut).replace(/```json|```/g, '').match(/\\{[\\s\\S]*\\}/);\n  parsed = JSON.parse(m ? m[0] : rawOut);\n} catch (e) { parsed = null; }\n\nconst idx = parsed ? Number(parsed.best_index) : NaN;\nlet bestId, reason;\nif (Number.isInteger(idx) && idx >= 1 && idx <= reqIds.length) {\n  bestId = reqIds[idx - 1];\n  reason = (parsed && parsed.reason) ? String(parsed.reason).slice(0, 200) : 'LLM match';\n} else {\n  bestId = fallbackId;\n  reason = 'fallback (keyword overlap)';\n}\n\nreturn [{ json: { best_requirement_id: bestId, best_score: null, best_reason: reason } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        384
+      ],
+      "id": "aa000000-0000-4000-8000-000000000023",
+      "name": "Parse Pick"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "PDF has text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF has text?": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from Images": {
+      "main": [
+        [
+          {
+            "node": "Normalize OCR Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize OCR Text": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompt Context": {
+      "main": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Pick",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Pick": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

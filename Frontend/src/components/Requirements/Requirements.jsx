@@ -104,11 +104,11 @@ const Modal = ({ req, onClose, onEdit, onDelete, onProposeDelete, role }) => {
 
         <div className="mb-3">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Description</p>
-          <p className="text-slate-700 text-sm leading-relaxed">{req.description}</p>
+          <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line break-words">{req.description}</p>
         </div>
         <div className="mb-5">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Qualifications</p>
-          <p className="text-slate-700 text-sm leading-relaxed">{req.qualifications}</p>
+          <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line break-words">{req.qualifications}</p>
         </div>
 
         <div className="flex gap-3 flex-wrap">

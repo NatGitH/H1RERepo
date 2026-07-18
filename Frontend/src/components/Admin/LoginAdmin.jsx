@@ -9,7 +9,7 @@ export default function LoginAdmin() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [form, setForm]     = useState({ username: "", email: "", password: "" });
+  const [form, setForm]     = useState({ identifier: "", password: "" });
   const [error, setError]   = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,9 +24,8 @@ export default function LoginAdmin() {
       const data = await apiFetch("/api/auth/login-admin/", {
         method: "POST",
         body: {
-          username: form.username,
-          email:    form.email,
-          password: form.password,
+          identifier: form.identifier,
+          password:   form.password,
         },
       });
 
@@ -34,7 +33,7 @@ export default function LoginAdmin() {
         token:   data.token,
         role:    data.role,
         adminId: data.admin_id,
-        email:   form.email,
+        email:   data.email || form.identifier,
       });
 
       navigate("/Admin-Dashboard");
@@ -68,25 +67,13 @@ export default function LoginAdmin() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username:</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email or Username:</label>
             <input
               type="text"
-              name="username"
-              value={form.username}
+              name="identifier"
+              value={form.identifier}
               onChange={handleChange}
-              placeholder="Enter username"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="name@example.com"
+              placeholder="Enter email or username"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
           </div>

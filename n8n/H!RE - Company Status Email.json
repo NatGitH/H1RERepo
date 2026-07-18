@@ -1,0 +1,96 @@
+{
+  "name": "H!RE - Company Status Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-status",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -320,
+        0
+      ],
+      "id": "c7000000-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "webhookId": "hire-company-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $json.body || {};\nconst name = b.name || 'there';\nconst status = (b.status || '').toLowerCase();\nlet subject, intro, detail;\nif (status === 'revoked') {\n  subject = 'H!RE — Your company account has been revoked';\n  intro = 'has been revoked';\n  detail = 'Your account access has been suspended. To restore your account, please contact the H!RE Admins at hiree.noreply@gmail.com.';\n} else if (status === 'restored') {\n  subject = 'H!RE — Your company account has been restored';\n  intro = 'has been restored';\n  detail = 'Your account is active again and you can log in as usual. Welcome back!';\n} else {\n  subject = 'H!RE — Your company account has been deleted';\n  intro = 'has been permanently deleted';\n  detail = 'This action is permanent and your account can no longer be restored. If you have questions, contact hiree.noreply@gmail.com.';\n}\nconst html = `<div style=\"font-family: Arial, sans-serif; max-width:600px; margin:0 auto; color:#0d1b3e;\">\n  <h2 style=\"color:#f97316;\">Company Account Update</h2>\n  <p>Hi ${name},</p>\n  <p>Your H!RE company account <strong>${name}</strong> ${intro}.</p>\n  <div style=\"background:#f1f5f9; border-radius:8px; padding:16px; margin:16px 0;\">${detail}</div>\n  <br/>\n  <p>Best regards,<br/><strong>The H!RE Team</strong></p>\n</div>`;\nreturn [{ json: { sendTo: b.email, subject, html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        0
+      ],
+      "id": "c7000000-0000-4000-8000-000000000002",
+      "name": "Build Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.sendTo }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        120,
+        0
+      ],
+      "id": "c7000000-0000-4000-8000-000000000003",
+      "name": "Send a message",
+      "webhookId": "hire-company-status-send",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

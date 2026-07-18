@@ -6,7 +6,8 @@ import PersonIcon from "@mui/icons-material/Person";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useAuth } from "../../.Context/AuthContext";
-import { apiFetch, getErrorMessage } from "../../api";
+import { apiFetch, getErrorMessage, phtLocalToISO, fmtPHT, phtNowLocal } from "../../api";
+import RemoveInterviewModal from "../Functions/RemoveInterviewModal";
 
 export default function Applicants() {
   const { auth } = useAuth();
@@ -27,6 +28,12 @@ export default function Applicants() {
   const [meetingLink, setMeetingLink] = useState("");
   const [interviewMessage, setInterviewMessage] = useState("");
   const [sortBy, setSortBy] = useState("status");
+
+  // Tabs: the main evaluated-applicants grid vs. the "For Interview" list
+  // (relocated here from My Profile so all applicant management lives in one place).
+  const [view, setView] = useState("applicants");
+  const [selectedInterview, setSelectedInterview] = useState(null);
+  const [showRemoveInterview, setShowRemoveInterview] = useState(false);
 
   const canSetAutoReject = auth.role === "owner" || auth.role === "HRManager";
   const [autoReject, setAutoReject] = useState("");
@@ -181,14 +188,31 @@ export default function Applicants() {
     }
   };
 
+  const handleRemoveInterview = async (reason) => {
+    if (!selectedInterview) return;
+    try {
+      await apiFetch(`/api/evaluations/${selectedInterview.evaluation_id}/remove-interview/`, {
+        method: "POST",
+        token: auth.token,
+        body: { reason },
+      });
+      setApplicants((prev) => prev.filter((a) => a.evaluation_id !== selectedInterview.evaluation_id));
+      setShowRemoveInterview(false);
+      setSelectedInterview(null);
+      window.showAlert("Interview removed and the applicant was notified.", { type: "success" });
+    } catch (err) {
+      window.showAlert(getErrorMessage(err, "Failed to remove the interview."));
+    }
+  };
+
   const handleSendInterview = () => {
     if (!interviewDate) return window.showAlert("Please choose an interview date and time.");
-    if (new Date(interviewDate) <= new Date())
+    if (new Date(phtLocalToISO(interviewDate)) <= new Date())
       return window.showAlert("The interview date must be in the future.");
     if (!meetingLink.trim())
       return window.showAlert(meetingType === "Online Meeting" ? "Please paste the meeting link." : "Please enter the location.");
     handleStatusUpdate(selected.evaluation_id, "interview_sent", {
-      interview_date: new Date(interviewDate).toISOString(),
+      interview_date: phtLocalToISO(interviewDate),
       meeting_type: meetingType,
       meeting_link: meetingLink.trim(),
       message: interviewMessage.trim(),
@@ -212,7 +236,7 @@ export default function Applicants() {
         body: {
           applicant_name: selected?.applicant_name || "Applicant",
           job_title: selected?.job_title || "",
-          interview_date: new Date(interviewDate).toISOString(),
+          interview_date: phtLocalToISO(interviewDate),
         },
       });
       if (data?.meet_link) setMeetingLink(data.meet_link);
@@ -295,6 +319,17 @@ export default function Applicants() {
     : score >= 45 ? "text-yellow-500"
     : "text-red-500";
 
+  // Interview-stage applicants (relocated from Profile). Owners/managers see all;
+  // HR Staff see only the ones they personally handled.
+  const canSeeAllInterviews = auth.role === "owner" || auth.role === "HRManager";
+  const interviewApplicants = applicants
+    .filter((ev) => ev.status === "interview_sent" && (canSeeAllInterviews || ev.action_made_by_user_id === auth.user_id))
+    .filter((a) =>
+      (a.applicant_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (a.job_title || "").toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => new Date(a.interview_date || "9999") - new Date(b.interview_date || "9999"));
+
   return (
     <section className="px-4 pt-1 bg-[#0B2447] h-[calc(100vh-56px)] overflow-hidden flex flex-col">
       <div
@@ -304,10 +339,28 @@ export default function Applicants() {
         <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
           <div className="flex items-center gap-2">
             <div
-              className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
+              className="flex items-center gap-1 rounded-full border-2 border-[#0B2447] p-1 h-[50px]"
               style={{ boxShadow: "3px 3px 0px #0B2447" }}
             >
-              Evaluated Applicants
+              {[
+                { key: "applicants", label: "Evaluated" },
+                { key: "interview",  label: "For Interview", count: interviewApplicants.length },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setView(t.key)}
+                  className={`flex items-center gap-1.5 rounded-full px-4 h-full text-sm font-extrabold whitespace-nowrap border-none cursor-pointer transition-colors ${
+                    view === t.key ? "bg-[#0B2447] text-white" : "bg-transparent text-[#0B2447] hover:bg-slate-100"
+                  }`}
+                >
+                  {t.label}
+                  {t.count > 0 && (
+                    <span className={`rounded-full text-[0.65rem] font-black px-1.5 py-0.5 ${view === t.key ? "bg-white text-[#0B2447]" : "bg-[#0B2447] text-white"}`}>
+                      {t.count}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
             <div className="relative group">
@@ -346,7 +399,7 @@ export default function Applicants() {
               </div>
             </div>
 
-            {canSetAutoReject && (
+            {canSetAutoReject && view === "applicants" && (
               <div className="flex items-center gap-1.5 border-2 border-[#0B2447] rounded-full pl-3 pr-1.5 py-1">
                 <span className="text-xs font-bold text-[#0B2447] whitespace-nowrap">Auto-reject below</span>
                 <input
@@ -375,6 +428,7 @@ export default function Applicants() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {view === "applicants" && (
             <div className="relative">
               <select
                 value={sortBy}
@@ -392,6 +446,7 @@ export default function Applicants() {
                 style={{ fontSize: 20 }}
               />
             </div>
+            )}
 
             <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[240px]">
               <input
@@ -407,6 +462,7 @@ export default function Applicants() {
         </div>
 
         <div className="flex gap-6 items-stretch flex-1 min-h-0">
+          {view === "applicants" && (
           <label className="border-[3px] border-dashed border-teal-400 rounded-2xl w-[170px] min-w-[170px] flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-teal-50 transition-colors px-4 py-8 flex-shrink-0">
             <input
               type="file"
@@ -432,9 +488,46 @@ export default function Applicants() {
                 : "upload one or more resumes"}
             </p>
           </label>
+          )}
 
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-            {loading ? (
+            {view === "interview" ? (
+              interviewApplicants.length > 0 ? (
+                <div className="flex flex-wrap gap-4 w-full content-start">
+                  {interviewApplicants.map((applicant) => (
+                    <div key={applicant.evaluation_id} className="flex flex-col gap-2 flex-[1_1_240px] max-w-[280px]">
+                      <div className="flex items-center gap-1.5 text-[0.78rem] font-bold text-[#0B2447]">
+                        <span>💼</span> <span className="truncate">{applicant.job_title || "Untitled Requirement"}</span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedInterview(applicant)}
+                        className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer text-left transition-colors hover:bg-slate-50 w-full"
+                      >
+                        <div className="flex flex-col gap-2 flex-1 min-w-0">
+                          <span className="bg-slate-100 border border-slate-300 rounded-full px-4 py-1 text-[0.82rem] font-semibold text-[#0f172a] self-start truncate max-w-full">
+                            {applicant.applicant_name || "Unknown Applicant"}
+                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="bg-slate-100 border border-slate-300 rounded-full px-3 py-1 text-[0.78rem] font-semibold text-[#0f172a]">
+                              H!RE Score: <span className={`font-bold ${scoreColor(applicant.hire_score)}`}>{applicant.hire_score}%</span>
+                            </span>
+                            <span className="rounded-full px-3 py-1 text-[0.7rem] font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                              Interview Scheduled
+                            </span>
+                          </div>
+                          {applicant.interview_date && (
+                            <span className="text-[0.72rem] text-slate-500">📅 {fmtPHT(applicant.interview_date)}</span>
+                          )}
+                        </div>
+                        <span className="text-slate-400 text-lg shrink-0">›</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-sm">No applicants scheduled for interview yet.</p>
+              )
+            ) : loading ? (
               <div className="flex flex-col items-center justify-center gap-3 h-full">
                 <div className="w-10 h-10 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />
                 <p className="text-slate-500 text-sm">Loading evaluations...</p>
@@ -661,7 +754,7 @@ export default function Applicants() {
                 if (s === "interview_sent") return (
                   <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center">
                     <p className="text-blue-600 font-bold text-sm m-0">✓ Interview Invitation Sent</p>
-                    {selected.interview_date && <p className="text-slate-600 text-xs mt-1 m-0">Scheduled: {new Date(selected.interview_date).toLocaleString()}</p>}
+                    {selected.interview_date && <p className="text-slate-600 text-xs mt-1 m-0">Scheduled: {fmtPHT(selected.interview_date)}</p>}
                   </div>
                 );
                 return (
@@ -709,7 +802,7 @@ export default function Applicants() {
             </p>
 
             <label className="block text-xs font-bold text-[#0B2447] mb-1">Interview Date & Time</label>
-            <input type="datetime-local" value={interviewDate} min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} onChange={(e) => setInterviewDate(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
+            <input type="datetime-local" value={interviewDate} min={phtNowLocal()} onChange={(e) => setInterviewDate(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-teal-400" />
 
             <label className="block text-xs font-bold text-[#0B2447] mb-1">Meeting Type</label>
             <div className="grid grid-cols-2 gap-2 mb-4">
@@ -743,6 +836,103 @@ export default function Applicants() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedInterview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          onClick={() => setSelectedInterview(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg flex flex-col overflow-hidden"
+            style={{ maxHeight: "85vh", border: "2px solid #1a1a2e", boxShadow: "6px 6px 0px #000000" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+              <h3 className="font-extrabold text-[#0B2447] text-base m-0">{selectedInterview.applicant_name || "Unknown Applicant"}</h3>
+              <button
+                onClick={() => setSelectedInterview(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-slate-100 transition bg-transparent cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-3 text-sm">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex flex-col gap-1">
+                {selectedInterview.interview_date && (
+                  <p className="text-blue-700 m-0">
+                    <span className="font-semibold">📅 Interview Date:</span>{" "}
+                    {fmtPHT(selectedInterview.interview_date)}
+                  </p>
+                )}
+                {selectedInterview.interview_location && (
+                  <p className="text-blue-700 m-0 break-words">
+                    <span className="font-semibold">📍 Location / Link:</span> {selectedInterview.interview_location}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                <p className="text-[#0B2447] m-0 font-bold">💼 {selectedInterview.job_title || "Untitled Requirement"}</p>
+                {selectedInterview.job_description && (
+                  <p className="text-slate-600 m-0 whitespace-pre-line break-words"><span className="font-semibold text-[#0B2447]">Description:</span> {selectedInterview.job_description}</p>
+                )}
+                {selectedInterview.job_qualifications && (
+                  <p className="text-slate-600 m-0 whitespace-pre-line break-words"><span className="font-semibold text-[#0B2447]">Qualifications:</span> {selectedInterview.job_qualifications}</p>
+                )}
+              </div>
+
+              <p className="text-slate-600 m-0">
+                <span className="font-semibold text-[#0B2447]">H!RE Score:</span>{" "}
+                <span className={`font-bold ${scoreColor(selectedInterview.hire_score)}`}>{selectedInterview.hire_score}%</span>
+              </p>
+              {selectedInterview.applicant_email && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Email:</span> {selectedInterview.applicant_email}</p>
+              )}
+              {selectedInterview.applicant_phone && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">Phone:</span> {selectedInterview.applicant_phone}</p>
+              )}
+              {selectedInterview.summary && (
+                <p className="text-slate-600 m-0"><span className="font-semibold text-[#0B2447]">AI Summary:</span> {selectedInterview.summary}</p>
+              )}
+              {selectedInterview.pros?.length > 0 && (
+                <div>
+                  <p className="font-semibold text-green-600 m-0 mb-1">Pros</p>
+                  <ul className="list-disc pl-5 m-0 text-slate-600">
+                    {selectedInterview.pros.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </div>
+              )}
+              {selectedInterview.cons?.length > 0 && (
+                <div>
+                  <p className="font-semibold text-red-500 m-0 mb-1">Cons</p>
+                  <ul className="list-disc pl-5 m-0 text-slate-600">
+                    {selectedInterview.cons.map((c, i) => <li key={i}>{c}</li>)}
+                  </ul>
+                </div>
+              )}
+              <p className="text-slate-400 text-xs m-0">Handled by: {selectedInterview.action_made_by || "—"}</p>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 shrink-0">
+              <button
+                onClick={() => setShowRemoveInterview(true)}
+                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold rounded-full py-2.5 text-sm border-none cursor-pointer"
+              >
+                🗑 Remove Interview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedInterview && showRemoveInterview && (
+        <RemoveInterviewModal
+          applicantName={selectedInterview.applicant_name || "this applicant"}
+          onCancel={() => setShowRemoveInterview(false)}
+          onConfirm={handleRemoveInterview}
+        />
       )}
     </section>
   );

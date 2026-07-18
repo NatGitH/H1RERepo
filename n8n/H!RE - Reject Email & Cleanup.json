@@ -1,0 +1,390 @@
+{
+  "name": "H!RE - Reject Email & Cleanup",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -320,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Every 15 min"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Evaluations",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "application_status",
+              "condition": "eq",
+              "keyValue": "rejected"
+            },
+            {
+              "keyName": "rejected_at",
+              "condition": "lt",
+              "keyValue": "={{ new Date(Date.now() - 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Get rejected > 1h",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);\nreturn $input.all().filter(item => {\n  if (item.json.application_status !== 'rejected') return false;\n  if (!item.json.rejected_at) return false;\n  return new Date(item.json.rejected_at) < oneHourAgo;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Resumes",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "resume_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.resume_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        304,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Get Resume",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Applicants",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "applicant_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get Resume').item.json.applicant_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        512,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Get Applicant",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n  });\n}\nconst evaluation = $('Code in JavaScript').item.json;\nconst applicant = $input.first().json;\nconst summary = evaluation.ai_summary || 'No summary available.';\nconst name = applicant.full_name || 'Applicant';\n\nconst plain = `Hi ${name}, after careful review we have decided not to move forward with your application. Summary: ${summary}`;\n\nreturn [{\n  json: {\n    email_log_id: uuidv4(),\n    evaluation_id: evaluation.evaluation_id,\n    resume_id: evaluation.resume_id,\n    applicant_id: applicant.applicant_id,\n    recipient_email: applicant.email,\n    full_name: name,\n    message_plain: plain,\n    email_subject: 'Application Update from H!RE',\n    email_html: `<div style=\"font-family: Arial, sans-serif; max-width:600px; margin:0 auto; color:#0d1b3e;\">\\n  <h2 style=\"color:#f97316;\">Application Update</h2>\\n  <p>Hi ${name},</p>\\n  <p>Thank you for taking the time to apply. After careful review, we have decided not to move forward with your application at this time.</p>\\n  <div style=\"background:#eef2ff; border-left:4px solid #6366f1; border-radius:6px; padding:8px 12px; margin:0 0 12px; font-size:12px; font-weight:bold; color:#4338ca;\">✨ AI Generated Summarization</div>\\n  <div style=\"background:#f1f5f9; border-radius:8px; padding:16px; margin:16px 0;\">\\n    <p style=\"margin:0;\"><strong>Evaluation summary:</strong> ${summary}</p>\\n  </div>\\n  <p>We genuinely appreciate your interest and wish you the very best in your job search.</p>\\n  <br/>\\n  <p>Best regards,<br/><strong>The H!RE Recruitment Team</strong></p>\\n</div>`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Email Content"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Send rejection email",
+      "webhookId": "hire-reject-send",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "tableId": "Email_Logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "email_log_id",
+              "fieldValue": "={{ $('Email Content').item.json.email_log_id }}"
+            },
+            {
+              "fieldId": "applicant_id",
+              "fieldValue": "={{ $('Email Content').item.json.applicant_id }}"
+            },
+            {
+              "fieldId": "evaluation_id",
+              "fieldValue": "={{ $('Email Content').item.json.evaluation_id }}"
+            },
+            {
+              "fieldId": "recipient_email",
+              "fieldValue": "={{ $('Email Content').item.json.recipient_email }}"
+            },
+            {
+              "fieldId": "message",
+              "fieldValue": "={{ $('Email Content').item.json.message_plain }}"
+            },
+            {
+              "fieldId": "sent_date",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "Log Email (audit)",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Permanent audit: applicant removed after the 1-hour rejection grace period.\n// Uses the service key directly (Audit_Logs + Job_Requirements are RLS-blocked\n// for the anon key). Fully guarded so it never breaks the cleanup run.\nconst SB = 'https://kzszvpmwvvtfvcgdzgnj.supabase.co';\nconst KEY = $env.SUPABASE_SERVICE_KEY;\nfunction uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);});}\nconst ec = $('Email Content').item.json;\nconst ev = $('Code in JavaScript').item.json;\nconst requirement_id = ev.requirement_id;\nconst applicant_id = ec.applicant_id || null;\nconst name = ec.full_name || 'An applicant';\nlet company_id = null;\ntry {\n  const rq = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SB}/rest/v1/Job_Requirements?select=company_id&requirement_id=eq.${requirement_id}`,\n    headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },\n    json: true,\n  });\n  if (Array.isArray(rq) && rq[0]) company_id = rq[0].company_id;\n} catch (e) {}\nif (company_id) {\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${SB}/rest/v1/Audit_Logs`,\n      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },\n      body: {\n        audit_log_id: uuidv4(),\n        applicant_id: applicant_id,\n        requirement_id: requirement_id || null,\n        action_type: 'APPLICANT_REMOVED',\n        action_details: `[c:${company_id}] ${name} was removed after the 1-hour rejection grace period.`,\n      },\n      json: true,\n    });\n  } catch (e) {}\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1564,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-0000000000aa",
+      "name": "Audit Removal",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "Evaluations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "evaluation_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Email Content').item.json.evaluation_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "application_status",
+              "fieldValue": "removed"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "Archive (status=removed)",
+      "credentials": {
+        "supabaseApi": {
+          "id": "iuTadMY5adk9SnoG",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 15 min": {
+      "main": [
+        [
+          {
+            "node": "Get rejected > 1h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get rejected > 1h": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Get Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Resume": {
+      "main": [
+        [
+          {
+            "node": "Get Applicant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Applicant": {
+      "main": [
+        [
+          {
+            "node": "Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Content": {
+      "main": [
+        [
+          {
+            "node": "Send rejection email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send rejection email": {
+      "main": [
+        [
+          {
+            "node": "Log Email (audit)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Email (audit)": {
+      "main": [
+        [
+          {
+            "node": "Archive (status=removed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive (status=removed)": {
+      "main": [
+        [
+          {
+            "node": "Audit Removal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

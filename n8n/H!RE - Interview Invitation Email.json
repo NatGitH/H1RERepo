@@ -1,0 +1,78 @@
+{
+  "name": "H!RE - Interview Invitation Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "interview-invitation",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        144
+      ],
+      "id": "f0126fac-f5c0-42db-8b29-63aca3f871d0",
+      "name": "Webhook",
+      "webhookId": "hire-interview-invitation"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.email }}",
+        "subject": "=H!RE — You've Advanced: Interview for {{ $json.body.job_title }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color:#0d1b3e;\">\n  <h2 style=\"color:#f97316;\">Good day, {{ $json.body.full_name }}!</h2>\n  <p>We are pleased to inform you that you have advanced to the next step of the recruitment process.</p>\n  <p>After reviewing your application, we would like to invite you to interview for the <strong>{{ $json.body.job_title }}</strong> position at <strong>{{ $json.body.company_name }}</strong>.</p>\n  <div style=\"background:#f1f5f9; border-radius:8px; padding:16px; margin:16px 0;\">\n    <p style=\"margin:0 0 8px;\"><strong>Interview Date:</strong> {{ $json.body.interview_date }}</p>\n    <p style=\"margin:0 0 8px;\"><strong>Format:</strong> {{ $json.body.meeting_type }}</p>\n    <p style=\"margin:0 0 8px;\"><strong>Where:</strong> {{ $json.body.meeting_link }}</p>\n    <p style=\"margin:0;\"><strong>Your interviewer would be:</strong> {{ $json.body.interviewer_name }}</p>\n  </div>\n  <p>{{ $json.body.message }}</p>\n  <p>Kindly read this message carefully. We look forward to speaking with you soon!</p>\n  <br/>\n  <p>Best regards,<br/><strong>The H!RE Recruitment Team</strong></p>\n</div>",
+        "options": {
+          "ccList": "={{ $json.body.cc }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        112,
+        144
+      ],
+      "id": "d8f0672c-089a-45cd-ab25-79b80865fe65",
+      "name": "Send a message",
+      "webhookId": "hire-interview-send",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "versionId": "1d5ca252-db8c-489e-a761-304ea7b39fcb",
+  "meta": {
+    "instanceId": "4cb4753f189c03c13c560a0eadb324c7d7fc4ae5c2020b5edef05abe98329218"
+  },
+  "nodeGroups": [],
+  "id": "ZSGn3HH9JFGG3qIs",
+  "tags": []
+}

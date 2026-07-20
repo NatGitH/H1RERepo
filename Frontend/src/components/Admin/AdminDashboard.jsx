@@ -29,17 +29,62 @@ export default function AdminDashboard() {
   const [showNotifs, setShowNotifs]       = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [planModal, setPlanModal]         = useState(null);
+  const [revokeReason, setRevokeReason]   = useState("");
 
   // Revision #4 — platform-wide metrics + AI-procedure log (lazy-loaded on tab open)
   const [adminMetrics, setAdminMetrics]   = useState(null);
   const [adminLogs, setAdminLogs]         = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
 
+  // Revision #12 — dynamic admin user management
+  const [adminUsers, setAdminUsers]       = useState([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [showAddAdmin, setShowAddAdmin]   = useState(false);
+  const [adminForm, setAdminForm]         = useState({ username: "", email: "", password: "" });
+  const [savingAdmin, setSavingAdmin]     = useState(false);
+  const [deleteAdmin, setDeleteAdmin]     = useState(null);
+
+  const fetchAdmins = async () => {
+    setAdminsLoading(true);
+    try {
+      const data = await apiFetch("/api/admin/admins/", { token: auth.token });
+      setAdminUsers(Array.isArray(data) ? data : []);
+    } catch { setAdminUsers([]); }
+    finally { setAdminsLoading(false); }
+  };
+
+  const handleAddAdmin = async () => {
+    if (!adminForm.username.trim() || !adminForm.email.trim() || !adminForm.password) {
+      window.showAlert("Please fill in all fields."); return;
+    }
+    if (adminForm.password.length < 8) { window.showAlert("Password must be at least 8 characters."); return; }
+    setSavingAdmin(true);
+    try {
+      await apiFetch("/api/admin/admins/create/", {
+        method: "POST", token: auth.token,
+        body: { username: adminForm.username.trim(), email: adminForm.email.trim(), password: adminForm.password },
+      });
+      setShowAddAdmin(false);
+      setAdminForm({ username: "", email: "", password: "" });
+      fetchAdmins();
+    } catch (err) { window.showAlert(err.message); }
+    finally { setSavingAdmin(false); }
+  };
+
+  const handleDeleteAdmin = async (id) => {
+    try {
+      await apiFetch("/api/admin/admins/delete/", { method: "POST", token: auth.token, body: { admin_id: id } });
+      setDeleteAdmin(null);
+      fetchAdmins();
+    } catch (err) { window.showAlert(err.message); }
+  };
+
   useEffect(() => {
     fetchAll();
   }, []);
 
   useEffect(() => {
+    if (activeNav === "admins") { fetchAdmins(); return; }
     if (activeNav !== "metrics" || adminMetrics) return;
     let cancelled = false;
     (async () => {
@@ -152,12 +197,12 @@ export default function AdminDashboard() {
     } catch (err) { window.showAlert(err.message); }
   };
 
-  const handleRevoke = async (company_id) => {
+  const handleRevoke = async (company_id, reason) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/companies/revoke/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ company_id }),
+        body: JSON.stringify({ company_id, reason }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -234,11 +279,15 @@ const handleDelete = async (company_id) => {
   const runConfirm = () => {
     if (!confirmAction) return;
     const { type, id, apId } = confirmAction;
-    if (type === "revoke") handleRevoke(id);
+    if (type === "revoke") {
+      if (!revokeReason.trim()) { window.showAlert("Please enter a reason for revoking."); return; }
+      handleRevoke(id, revokeReason.trim());
+    }
     else if (type === "restore") handleRestore(id);
     else if (type === "delete") handleDelete(id);
     else if (type === "reject") handleApproveReject(apId, "rejected");
     setConfirmAction(null);
+    setRevokeReason("");
   };
 
   const toDateInput = (val) => {
@@ -400,6 +449,14 @@ const handleDelete = async (company_id) => {
             Metrics
           </button>
           <button
+            onClick={() => setActiveNav("admins")}
+            className={`text-base font-semibold pb-1 bg-transparent border-0 border-b-2 border-solid cursor-pointer transition-colors ${
+              activeNav === "admins" ? "text-white border-sky-400" : "text-slate-400 border-transparent"
+            }`}
+          >
+            Admins
+          </button>
+          <button
             onClick={() => { logout(); navigate("/"); }}
             className="flex items-center gap-1 text-red-400 hover:text-red-300 text-sm font-medium bg-transparent border-none cursor-pointer"
           >
@@ -461,6 +518,60 @@ const handleDelete = async (company_id) => {
 
                   <AiLogTable logs={adminLogs} model={adminMetrics?.model} />
                 </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeNav === "admins" && (
+          <div
+            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447] flex flex-col"
+            style={{ boxShadow: "6px 6px 0px #0B2447", height: "calc(100vh - 104px)", overflow: "hidden" }}
+          >
+            <div className="flex items-center justify-between mb-6 shrink-0 gap-4 flex-wrap">
+              <div
+                className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg px-6 h-[50px] flex items-center justify-center"
+                style={{ boxShadow: "3px 3px 0px #0B2447" }}
+              >
+                Admin Users
+              </div>
+              <button
+                onClick={() => { setAdminForm({ username: "", email: "", password: "" }); setShowAddAdmin(true); }}
+                className="bg-[#0B2447] hover:bg-[#162553] text-white font-bold text-sm px-5 py-2.5 rounded-full border-none cursor-pointer"
+              >
+                + Add Admin
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+              {adminsLoading ? (
+                <p className="text-slate-400 text-sm">Loading admins...</p>
+              ) : adminUsers.length === 0 ? (
+                <p className="text-slate-400 text-sm">No admin users.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {adminUsers.map((a) => (
+                    <div key={a.admin_id} className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4">
+                      <div className="w-10 h-10 rounded-full bg-[#0B2447] text-white flex items-center justify-center font-bold shrink-0">
+                        {(a.admin_username || "A").slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="font-bold text-[#0B2447] text-sm truncate">
+                          {a.admin_username}
+                          {a.is_self && <span className="ml-2 text-[0.65rem] font-black bg-teal-100 text-teal-700 rounded-full px-2 py-0.5">You</span>}
+                        </span>
+                        <span className="text-xs text-slate-500 truncate">{a.admin_email}</span>
+                      </div>
+                      <button
+                        onClick={() => setDeleteAdmin(a)}
+                        disabled={a.is_self}
+                        title={a.is_self ? "You can't remove your own account" : "Remove admin"}
+                        className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-full px-4 py-2 border-2 border-red-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -897,7 +1008,7 @@ const handleDelete = async (company_id) => {
           <div
             className="fixed inset-0 z-[60] flex items-center justify-center px-4"
             style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-            onClick={() => setConfirmAction(null)}
+            onClick={() => { setConfirmAction(null); setRevokeReason(""); }}
           >
             <div
               className="bg-white rounded-2xl w-full max-w-sm p-6"
@@ -905,16 +1016,30 @@ const handleDelete = async (company_id) => {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-lg font-bold text-[#0B2447] mb-2">{cfg.title}</h3>
-              <p className="text-sm text-slate-500 mb-6">{cfg.msg}</p>
+              <p className="text-sm text-slate-500 mb-4">{cfg.msg}</p>
+              {confirmAction.type === "revoke" && (
+                <div className="mb-6">
+                  <label className="block text-xs font-bold text-[#0B2447] mb-1">Reason for revoking <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={revokeReason}
+                    onChange={(e) => setRevokeReason(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Terms of service violation, non-payment, fraudulent documents…"
+                    className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-red-400 resize-none"
+                  />
+                  <p className="text-[0.7rem] text-slate-400 mt-1">Recorded in the audit log and included in the company's notice email.</p>
+                </div>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={runConfirm}
-                  className={`flex-1 text-white font-bold py-2.5 rounded-lg transition border-none cursor-pointer ${cfg.color}`}
+                  disabled={confirmAction.type === "revoke" && !revokeReason.trim()}
+                  className={`flex-1 text-white font-bold py-2.5 rounded-lg transition border-none cursor-pointer disabled:opacity-50 ${cfg.color}`}
                 >
                   {cfg.label}
                 </button>
                 <button
-                  onClick={() => setConfirmAction(null)}
+                  onClick={() => { setConfirmAction(null); setRevokeReason(""); }}
                   className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition bg-white cursor-pointer"
                 >
                   Cancel
@@ -924,6 +1049,37 @@ const handleDelete = async (company_id) => {
           </div>
         );
       })()}
+
+      {showAddAdmin && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setShowAddAdmin(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6" style={{ border: "2px solid #1a1a2e", boxShadow: "8px 8px 0px #000000" }} onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[#0B2447] mb-4">Add Admin</h3>
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">Username</label>
+            <input value={adminForm.username} onChange={(e) => setAdminForm((f) => ({ ...f, username: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0B2447] mb-3" />
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">Email</label>
+            <input type="email" value={adminForm.email} onChange={(e) => setAdminForm((f) => ({ ...f, email: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0B2447] mb-3" />
+            <label className="block text-xs font-bold text-[#0B2447] mb-1">Password</label>
+            <input type="password" value={adminForm.password} onChange={(e) => setAdminForm((f) => ({ ...f, password: e.target.value }))} placeholder="At least 8 characters" className="w-full border-2 border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0B2447] mb-5" />
+            <div className="flex gap-3">
+              <button onClick={handleAddAdmin} disabled={savingAdmin} className="flex-1 bg-[#0B2447] hover:bg-[#162553] text-white font-bold py-2.5 rounded-lg border-none cursor-pointer disabled:opacity-50">{savingAdmin ? "Adding..." : "Add Admin"}</button>
+              <button onClick={() => setShowAddAdmin(false)} className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 bg-white cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteAdmin && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setDeleteAdmin(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6" style={{ border: "2px solid #1a1a2e", boxShadow: "8px 8px 0px #000000" }} onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[#0B2447] mb-2">Remove Admin</h3>
+            <p className="text-sm text-slate-500 mb-6">Remove <b>{deleteAdmin.admin_username}</b> as an admin? They will no longer be able to sign in.</p>
+            <div className="flex gap-3">
+              <button onClick={() => handleDeleteAdmin(deleteAdmin.admin_id)} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-lg border-none cursor-pointer">Remove</button>
+              <button onClick={() => setDeleteAdmin(null)} className="flex-1 border-2 border-slate-300 text-slate-600 font-bold py-2.5 rounded-lg hover:bg-slate-50 bg-white cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {planModal && (
         <div

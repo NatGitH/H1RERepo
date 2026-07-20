@@ -11,7 +11,24 @@ from .models import Company, HRUser, Roles
 import uuid
 import argon2
 from argon2 import PasswordHasher
-from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog, EmailLog, AIEvaluationLog
+from .models import JobRequirement, ApprovalRequirement, EmployerAccountRequest, Notification, ApprovalNotification, ApprovalCompany, Document, Interview, AuditLog, EmailLog, AIEvaluationLog, SubscriptionPayment
+
+# Subscription plan pricing (revision #10 — payment history). PHP / month.
+PLAN_PRICES = {"free": 0, "standard": 899, "enterprise": 1999}
+
+def log_payment(company_id, plan, status="paid", note=""):
+    """Record one subscription payment/event row. Guarded — never breaks the caller."""
+    try:
+        SubscriptionPayment.objects.create(
+            payment_id=uuid.uuid4(),
+            company_id=company_id,
+            plan=(plan or "").lower(),
+            amount=PLAN_PRICES.get((plan or "").lower(), 0),
+            status=status,
+            note=note,
+        )
+    except Exception as e:
+        print("log_payment error:", e)
 
 # AI-procedure versioning (revision #4). Keep in sync with the n8n Evaluate
 # workflow: the LLM model runs there, the weighted blend is defined in its parse
@@ -203,6 +220,7 @@ def register_company(request):
 
         log_audit(company_id=company.company_id, action_type="COMPANY_CREATED",
                   message=f"Company account '{company_name}' was created.")
+        log_payment(company.company_id, plan, note="Initial subscription")
 
         try:
             from supabase import create_client
@@ -2430,6 +2448,7 @@ def admin_approve_reject_plan(request):
             company.subscription_start  = now
             company.subscription_expiry = now + datetime.timedelta(days=30)
             company.save()
+            log_payment(company_id, requested_plan, note="Plan change approved")
             title = "Plan Change Approved"
             msg   = f"Your subscription plan change to '{requested_plan}' has been approved."
         else:
@@ -2498,6 +2517,7 @@ def admin_set_subscription(request):
         company.subscription_start  = now
         company.subscription_expiry = new_expiry
         company.save()
+        log_payment(company_id, new_plan, note="Set by H!RE admin")
 
         try:
             Notification.objects.create(
@@ -2717,7 +2737,15 @@ def login_admin(request):
         from django.db.models import Q
         admin = Admin.objects.get(Q(admin_username=identifier) | Q(admin_email=identifier))
 
-        if admin.admin_password != password:
+        # New admins (created via admin management) are argon2-hashed. Legacy seeded
+        # admins may still be plaintext — fall back to a direct compare for those.
+        stored = admin.admin_password or ""
+        if stored.startswith("$argon2"):
+            try:
+                ph.verify(stored, password)
+            except argon2.exceptions.VerifyMismatchError:
+                return JsonResponse({"error": "Invalid credentials"}, status=401)
+        elif stored != password:
             return JsonResponse({"error": "Invalid credentials"}, status=401)
 
         token = make_token({
@@ -2947,6 +2975,10 @@ def admin_revoke_company(request):
 
         data       = json.loads(request.body)
         company_id = (data.get("company_id") or "").strip()
+        reason     = (data.get("reason") or "").strip()
+
+        if not reason:
+            return JsonResponse({"error": "A reason for revoking is required."}, status=400)
 
         company = Company.objects.get(company_id=company_id)
         company.subscription_plan = "free"
@@ -2958,11 +2990,21 @@ def admin_revoke_company(request):
         approval.time_of_action       = datetime.datetime.utcnow()
         approval.save()
 
+        # Permanent record of the revocation + its reason (Audit_Logs).
+        try:
+            log_audit(
+                company_id=company_id,
+                action_type="COMPANY_REVOKED",
+                message=f"The H!RE admin revoked {company.company_name} — reason: {reason}",
+            )
+        except Exception as audit_err:
+            print("revoke audit error:", audit_err)
+
         try:
             if company.owner_email:
                 requests.post(
                     f"{settings.N8N_BASE_URL}/webhook/company-status",
-                    json={"email": company.owner_email, "name": company.company_name, "status": "revoked"},
+                    json={"email": company.owner_email, "name": company.company_name, "status": "revoked", "reason": reason},
                     timeout=5,
                 )
         except Exception as n8n_err:
@@ -3144,15 +3186,35 @@ def _metrics_from_rows(rows):
     }
 
 
-def _eval_rows_for_requirements(req_ids):
-    if not req_ids:
-        return []
+# Full column set (needs the metrics_ai_logs.sql migration). Falls back to the
+# always-present columns so metrics degrade (no efficiency) instead of 500ing if
+# the migration hasn't been run yet.
+_EVAL_FULL_COLS = "application_status, hire_score, created_at, shortlisted_at, hired_at, requirement_id"
+_EVAL_MIN_COLS  = "application_status, hire_score, requirement_id"
+
+
+def _eval_select(cols, req_ids=None):
     from django.conf import settings
     from supabase import create_client
     sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
-    return sb.table("Evaluations").select(
-        "application_status, hire_score, created_at, shortlisted_at, hired_at, requirement_id"
-    ).in_("requirement_id", req_ids).execute().data or []
+    q = sb.table("Evaluations").select(cols)
+    if req_ids is not None:
+        q = q.in_("requirement_id", req_ids)
+    return q.execute().data or []
+
+
+def _eval_rows(req_ids=None):
+    """Fetch evaluation rows for metrics, tolerating a missing migration."""
+    try:
+        return _eval_select(_EVAL_FULL_COLS, req_ids)
+    except Exception:
+        return _eval_select(_EVAL_MIN_COLS, req_ids)
+
+
+def _eval_rows_for_requirements(req_ids):
+    if not req_ids:
+        return []
+    return _eval_rows(req_ids)
 
 
 @csrf_exempt
@@ -3181,13 +3243,8 @@ def admin_get_metrics(request):
         payload = decode_token(request)
         if payload.get("role") != "admin":
             return JsonResponse({"error": "Forbidden"}, status=403)
-        from django.conf import settings
-        from supabase import create_client
         from collections import defaultdict
-        sb = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
-        rows = sb.table("Evaluations").select(
-            "application_status, hire_score, created_at, shortlisted_at, hired_at, requirement_id"
-        ).execute().data or []
+        rows = _eval_rows()
         overall = _metrics_from_rows(rows)
 
         reqmap  = {str(r.requirement_id): str(r.company_id) for r in JobRequirement.objects.all()}
@@ -3207,6 +3264,109 @@ def admin_get_metrics(request):
             "companies": companies,
             "model": {"name": AI_MODEL_NAME, "weights_version": AI_WEIGHTS_VERSION},
         })
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def get_payments(request):
+    """Subscription payment history for the caller's company (revision #10)."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") not in ("owner", "HRManager"):
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        rows = SubscriptionPayment.objects.filter(
+            company_id=payload.get("company_id")).order_by("-created_at")[:50]
+        out = [{
+            "payment_id": str(p.payment_id),
+            "plan":       p.plan,
+            "amount":     float(p.amount) if p.amount is not None else None,
+            "status":     p.status,
+            "note":       p.note,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        } for p in rows]
+        return JsonResponse(out, safe=False)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def admin_list_admins(request):
+    """List admin users (revision #12 — dynamic admin management)."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        from .models import Admin
+        me = str(payload.get("admin_id"))
+        out = [{
+            "admin_id": str(a.admin_id),
+            "admin_username": a.admin_username,
+            "admin_email": a.admin_email,
+            "is_self": str(a.admin_id) == me,
+        } for a in Admin.objects.all().order_by("admin_username")]
+        return JsonResponse(out, safe=False)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def admin_create_admin(request):
+    """Create a new admin with an argon2-hashed password (revision #12)."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        from .models import Admin
+        from django.db.models import Q
+        data     = json.loads(request.body)
+        username = (data.get("username") or "").strip()
+        email    = (data.get("email") or "").strip()
+        password = (data.get("password") or "").strip()
+        if not username or not email or not password:
+            return JsonResponse({"error": "Username, email, and password are required."}, status=400)
+        if len(password) < 8:
+            return JsonResponse({"error": "Password must be at least 8 characters."}, status=400)
+        if Admin.objects.filter(Q(admin_username=username) | Q(admin_email=email)).exists():
+            return JsonResponse({"error": "An admin with that username or email already exists."}, status=409)
+        Admin.objects.create(
+            admin_id=uuid.uuid4(),
+            admin_username=username,
+            admin_email=email,
+            admin_password=ph.hash(password),
+        )
+        return JsonResponse({"message": "Admin added"})
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def admin_delete_admin(request):
+    """Remove an admin (revision #12). Can't remove yourself or the last admin."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        from .models import Admin
+        data   = json.loads(request.body)
+        target = (data.get("admin_id") or "").strip()
+        me     = str(payload.get("admin_id"))
+        if target == me:
+            return JsonResponse({"error": "You can't remove your own admin account."}, status=400)
+        if Admin.objects.count() <= 1:
+            return JsonResponse({"error": "Can't remove the last admin."}, status=400)
+        Admin.objects.filter(admin_id=target).delete()
+        return JsonResponse({"message": "Admin removed"})
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
     except Exception as e:

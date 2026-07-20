@@ -70,4 +70,12 @@ urlpatterns = [
     path("metrics/",        views.get_metrics),
     path("admin/metrics/",  views.admin_get_metrics),
     path("ai-logs/",        views.get_ai_logs),
+
+    # Revision #10 — subscription payment history
+    path("payments/", views.get_payments),
+
+    # Revision #12 — dynamic admin user management
+    path("admin/admins/",        views.admin_list_admins),
+    path("admin/admins/create/", views.admin_create_admin),
+    path("admin/admins/delete/", views.admin_delete_admin),
 ]

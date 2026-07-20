@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { apiFetch, getErrorMessage } from "../../api";
+import { useState, useRef, useEffect } from "react";
+import { apiFetch, getErrorMessage, fmtPHT } from "../../api";
 import qrCode from "../../assets/qr code.svg";
 import PasswordInput from "../Functions/PasswordInput";
 
@@ -518,6 +518,16 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
   const [error, setError]               = useState("");
   const [confirmed, setConfirmed]       = useState(false);
   const [requested, setRequested]       = useState(false);
+  const [history, setHistory]           = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await apiFetch("/api/payments/", { token });
+        setHistory(Array.isArray(data) ? data : []);
+      } catch { setHistory([]); }
+    })();
+  }, [token]);
 
   const handleSelect = (planType) => {
     setSelectedPlan(planType);
@@ -600,6 +610,28 @@ export function ManageSubscriptionModal({ currentPlan = "free", currentExpiry = 
                   </button>
                 );
               })}
+            </div>
+
+            <div className="border-2 border-slate-200 rounded-2xl p-4 mb-6">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400 m-0 mb-2">Payment history</p>
+              {history.length === 0 ? (
+                <p className="text-xs text-slate-400 m-0">No payments recorded yet.</p>
+              ) : (
+                <div className="max-h-[160px] overflow-y-auto flex flex-col divide-y divide-slate-100">
+                  {history.map((p) => (
+                    <div key={p.payment_id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-semibold text-[#0B2447] capitalize">{p.plan} plan</span>
+                        <span className="text-[0.7rem] text-slate-400 truncate">{p.note}{p.created_at ? ` · ${fmtPHT(p.created_at, { withZone: false })}` : ""}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-bold tabular-nums text-[#0B2447]">{p.amount ? `₱${p.amount.toLocaleString()}` : "Free"}</span>
+                        <span className="text-[0.62rem] font-black uppercase bg-green-100 text-green-700 rounded-full px-2 py-0.5">{p.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {error && <p className="text-red-500 text-xs text-center mb-3">{error}</p>}

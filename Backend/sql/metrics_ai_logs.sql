@@ -24,5 +24,8 @@ create table if not exists public."AI_Evaluation_Logs" (
 -- matching how Audit_Logs / Email_Logs are handled. No anon policy needed.
 
 -- 2) Efficiency timestamps on Evaluations for time-to-shortlist / time-to-fill.
+--    The table had no creation timestamp, so add one (default now() auto-fills new
+--    rows inserted by the n8n Evaluate workflow). Existing rows get the migration time.
+alter table public."Evaluations" add column if not exists created_at     timestamptz default now();
 alter table public."Evaluations" add column if not exists shortlisted_at timestamptz;
 alter table public."Evaluations" add column if not exists hired_at       timestamptz;

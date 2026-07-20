@@ -62,6 +62,7 @@ export default function Navbar() {
     EMPLOYER_REJECTED:    "Employer Rejected",
     COMPANY_APPROVED:     "Company Approved",
     COMPANY_CREATED:      "Company Created",
+    COMPANY_REVOKED:      "Company Revoked",
     PLAN_APPROVED:        "Plan Approved",
     PLAN_REJECTED:        "Plan Declined",
     PLAN_SET:             "Plan Set",

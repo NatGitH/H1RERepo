@@ -219,3 +219,17 @@ class AIEvaluationLog(models.Model):
     class Meta:
         db_table = '"AI_Evaluation_Logs"'
         managed  = False
+
+class SubscriptionPayment(models.Model):
+    # Subscription payment history (revision #10): one row per subscription event.
+    payment_id  = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    company_id  = models.UUIDField(null=True, blank=True)
+    plan        = models.CharField(max_length=40, null=True, blank=True)
+    amount      = models.FloatField(null=True, blank=True)
+    status      = models.CharField(max_length=40, null=True, blank=True)
+    note        = models.CharField(max_length=255, null=True, blank=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Subscription_Payments"'
+        managed  = False

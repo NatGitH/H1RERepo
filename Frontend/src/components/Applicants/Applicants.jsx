@@ -34,6 +34,7 @@ export default function Applicants() {
   const [view, setView] = useState("applicants");
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [showRemoveInterview, setShowRemoveInterview] = useState(false);
+  const [showAutoReject, setShowAutoReject] = useState(false);
 
   const canSetAutoReject = auth.role === "owner" || auth.role === "HRManager";
   const [autoReject, setAutoReject] = useState("");
@@ -417,29 +418,61 @@ export default function Applicants() {
             </div>
 
             {canSetAutoReject && view === "applicants" && (
-              <div className="flex items-center gap-1.5 border-2 border-[#0B2447] rounded-full pl-3 pr-1.5 py-1">
-                <span className="text-xs font-bold text-[#0B2447] whitespace-nowrap">Auto-reject below</span>
-                <input
-                  type="number" min="0" max="100"
-                  value={autoRejectInput}
-                  onChange={(e) => setAutoRejectInput(e.target.value)}
-                  placeholder="—"
-                  className="w-12 text-center text-xs font-bold text-[#0B2447] border border-slate-300 rounded-md px-1 py-0.5 outline-none"
-                />
-                <span className="text-xs font-bold text-[#0B2447]">%</span>
+              <div className="relative">
                 <button
-                  onClick={() => saveAutoReject(false)}
-                  className="text-[0.7rem] font-bold text-white bg-teal-400 hover:bg-teal-500 rounded-full px-2 py-0.5 border-none cursor-pointer"
+                  onClick={() => { setAutoRejectInput(autoReject); setShowAutoReject((v) => !v); }}
+                  className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full pl-3 pr-2 py-1.5 bg-white cursor-pointer hover:bg-slate-50"
                 >
-                  Save
+                  <span className="text-xs font-bold text-[#0B2447] whitespace-nowrap">Auto-reject</span>
+                  <span className={`text-[0.68rem] font-black rounded-full px-2 py-0.5 ${autoReject !== "" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                    {autoReject !== "" ? `On · below ${autoReject}%` : "Off"}
+                  </span>
+                  <KeyboardArrowDownIcon style={{ fontSize: 16, color: "#0B2447" }} />
                 </button>
-                <button
-                  onClick={() => saveAutoReject(autoReject !== "")}
-                  title={autoReject !== "" ? "Auto-reject is on — click to disable" : "Auto-reject is off — click to enable"}
-                  className={`text-[0.7rem] font-bold text-white rounded-full px-2.5 py-0.5 border-none cursor-pointer ${autoReject !== "" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}`}
-                >
-                  {autoReject !== "" ? "Enabled" : "Disabled"}
-                </button>
+
+                {showAutoReject && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowAutoReject(false)} />
+                    <div
+                      className="absolute left-0 top-12 z-50 w-[320px] bg-white rounded-2xl p-4 text-left"
+                      style={{ border: "2px solid #0B2447", boxShadow: "4px 4px 0px #0B2447" }}
+                    >
+                      <p className="font-extrabold text-[#0B2447] text-sm m-0 mb-1">Auto-reject low scores</p>
+                      <p className="text-xs text-slate-500 leading-relaxed m-0 mb-3">
+                        New uploads with a H!RE Score below your threshold are automatically rejected.
+                        The applicant is emailed only after a <span className="font-semibold">1-hour grace period</span>, so you can still cancel.
+                      </p>
+                      <label className="block text-xs font-bold text-[#0B2447] mb-1">Reject applicants scoring below</label>
+                      <div className="flex items-center gap-2 mb-4">
+                        <input
+                          type="number" min="0" max="100"
+                          value={autoRejectInput}
+                          onChange={(e) => setAutoRejectInput(e.target.value)}
+                          placeholder="e.g. 45"
+                          className="w-20 text-center text-sm font-bold text-[#0B2447] border-2 border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-teal-400"
+                        />
+                        <span className="text-sm font-bold text-[#0B2447]">%</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { saveAutoReject(false); setShowAutoReject(false); }}
+                          disabled={autoRejectInput === "" || autoRejectInput === null}
+                          className="flex-1 text-xs font-bold text-white bg-teal-500 hover:bg-teal-600 rounded-full px-3 py-2 border-none cursor-pointer disabled:opacity-50"
+                        >
+                          Save &amp; Enable
+                        </button>
+                        {autoReject !== "" && (
+                          <button
+                            onClick={() => { saveAutoReject(true); setShowAutoReject(false); }}
+                            className="flex-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-full px-3 py-2 border-2 border-red-200 cursor-pointer"
+                          >
+                            Turn Off
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

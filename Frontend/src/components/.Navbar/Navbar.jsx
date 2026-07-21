@@ -193,13 +193,13 @@ export default function Navbar() {
   const NAV_LINKS_BY_ROLE = {
     owner: [
       { label: "Applicants", path: "/Applicants" },
-      { label: "Employer", path: "/Employer" },
+      { label: "Staffs", path: "/Employer" },
       { label: "Requirements", path: "/Requirements" },
       { label: "Metrics", path: "/Metrics" },
     ],
     HRManager: [
       { label: "Applicants", path: "/Applicants" },
-      { label: "Employer", path: "/Employer" },
+      { label: "Staffs", path: "/Employer" },
       { label: "Requirements", path: "/Requirements" },
       { label: "Metrics", path: "/Metrics" },
     ],

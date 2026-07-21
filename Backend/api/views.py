@@ -2505,7 +2505,9 @@ def admin_set_subscription(request):
         company = Company.objects.get(company_id=company_id)
         now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
 
-        if expiry_str:
+        if new_plan == "free":
+            new_expiry = None            # free tier has no expiry
+        elif expiry_str:
             try:
                 exp_date = datetime.datetime.strptime(expiry_str, "%Y-%m-%d")
                 new_expiry = exp_date.replace(hour=23, minute=59, second=59,
@@ -3288,6 +3290,31 @@ def get_payments(request):
             "status":     p.status,
             "note":       p.note,
             "created_at": p.created_at.isoformat() if p.created_at else None,
+        } for p in rows]
+        return JsonResponse(out, safe=False)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def admin_get_payments(request):
+    """All companies' subscription payment history (admin view)."""
+    try:
+        payload = decode_token(request)
+        if payload.get("role") != "admin":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        compmap = {str(c.company_id): c.company_name for c in Company.objects.all()}
+        rows = SubscriptionPayment.objects.all().order_by("-created_at")[:300]
+        out = [{
+            "payment_id":   str(p.payment_id),
+            "company_name": compmap.get(str(p.company_id), "—"),
+            "plan":         p.plan,
+            "amount":       float(p.amount) if p.amount is not None else None,
+            "status":       p.status,
+            "note":         p.note,
+            "created_at":   p.created_at.isoformat() if p.created_at else None,
         } for p in rows]
         return JsonResponse(out, safe=False)
     except jwt.ExpiredSignatureError:

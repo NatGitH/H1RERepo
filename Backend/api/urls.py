@@ -72,7 +72,8 @@ urlpatterns = [
     path("ai-logs/",        views.get_ai_logs),
 
     # Revision #10 — subscription payment history
-    path("payments/", views.get_payments),
+    path("payments/",       views.get_payments),
+    path("admin/payments/", views.admin_get_payments),
 
     # Revision #12 — dynamic admin user management
     path("admin/admins/",        views.admin_list_admins),

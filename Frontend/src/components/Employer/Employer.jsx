@@ -136,7 +136,7 @@ export default function Employer() {
             className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg tracking-wide w-[260px] h-[50px] flex items-center justify-center whitespace-nowrap"
             style={{ boxShadow: "3px 3px 0px #0B2447" }}
           >
-            Employer
+            Staffs
           </div>
           <div className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full px-4 py-2 w-[260px]">
             <input
@@ -153,7 +153,7 @@ export default function Employer() {
           <div className="bg-[#fde8c0] rounded-[24px] p-6 flex flex-col min-h-0">
             <div className="flex items-start justify-between gap-4 mb-5 flex-shrink-0">
               <h2 className="text-[1.3rem] font-extrabold text-[#0f172a] leading-snug m-0">
-                Pending Account Creation
+                Pending Account
               </h2>
               <span className="px-3 py-1.5 rounded-full text-[0.8rem] font-bold whitespace-nowrap border-2 border-[#e07b2a] text-[#e07b2a] bg-transparent">
                 {pending.length} pending

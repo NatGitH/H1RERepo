@@ -44,6 +44,19 @@ export default function AdminDashboard() {
   const [savingAdmin, setSavingAdmin]     = useState(false);
   const [deleteAdmin, setDeleteAdmin]     = useState(null);
 
+  const [companyTab, setCompanyTab]       = useState("active");   // Companies sub-tab
+  const [adminPayments, setAdminPayments] = useState([]);          // subscription history
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+
+  const fetchAdminPayments = async () => {
+    setPaymentsLoading(true);
+    try {
+      const data = await apiFetch("/api/admin/payments/", { token: auth.token });
+      setAdminPayments(Array.isArray(data) ? data : []);
+    } catch { setAdminPayments([]); }
+    finally { setPaymentsLoading(false); }
+  };
+
   const fetchAdmins = async () => {
     setAdminsLoading(true);
     try {
@@ -85,6 +98,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (activeNav === "admins") { fetchAdmins(); return; }
+    if (activeNav === "payments") { fetchAdminPayments(); return; }
     if (activeNav !== "metrics" || adminMetrics) return;
     let cancelled = false;
     (async () => {
@@ -178,7 +192,7 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      window.showAlert(`Plan set to ${plan}. Expires ${data.subscription_expiry}.`, { type: "success" });
+      window.showAlert(plan === "free" ? "Plan set to free (no expiry)." : `Plan set to ${plan}. Expires ${data.subscription_expiry}.`, { type: "success" });
       fetchAll();
     } catch (err) { window.showAlert(err.message); }
   };
@@ -301,6 +315,24 @@ const handleDelete = async (company_id) => {
     const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
   };
+
+  // Nudge the plan-modal expiry by ± a month or a year (never into the past).
+  const stepExpiry = (unit, delta) => {
+    setPlanModal((m) => {
+      const base = m.expiry ? new Date(`${m.expiry}T00:00:00`) : new Date();
+      if (unit === "month") base.setMonth(base.getMonth() + delta);
+      if (unit === "year")  base.setFullYear(base.getFullYear() + delta);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (base < today) return m;
+      return { ...m, expiry: toDateInput(base) };
+    });
+  };
+
+  // Free tier never expires; otherwise show the stored expiry date.
+  const expiryText = (c) =>
+    (!c.subscription_expiry || (c.subscription_plan || "").toLowerCase() === "free")
+      ? "No expiry"
+      : `Expires ${c.subscription_expiry}`;
 
   const filteredCompanies = companies.filter((c) =>
     c.company_name.toLowerCase().includes(search.toLowerCase())
@@ -449,6 +481,14 @@ const handleDelete = async (company_id) => {
             Metrics
           </button>
           <button
+            onClick={() => setActiveNav("payments")}
+            className={`text-base font-semibold pb-1 bg-transparent border-0 border-b-2 border-solid cursor-pointer transition-colors ${
+              activeNav === "payments" ? "text-white border-sky-400" : "text-slate-400 border-transparent"
+            }`}
+          >
+            Payments
+          </button>
+          <button
             onClick={() => setActiveNav("admins")}
             className={`text-base font-semibold pb-1 bg-transparent border-0 border-b-2 border-solid cursor-pointer transition-colors ${
               activeNav === "admins" ? "text-white border-sky-400" : "text-slate-400 border-transparent"
@@ -523,6 +563,55 @@ const handleDelete = async (company_id) => {
           </div>
         )}
 
+        {activeNav === "payments" && (
+          <div
+            className="bg-white rounded-3xl p-8 border-2 border-[#0B2447] flex flex-col"
+            style={{ boxShadow: "6px 6px 0px #0B2447", height: "calc(100vh - 104px)", overflow: "hidden" }}
+          >
+            <div
+              className="font-extrabold text-[#0B2447] rounded-full border-2 border-[#0B2447] text-lg px-6 h-[50px] flex items-center justify-center mb-6 shrink-0 self-start"
+              style={{ boxShadow: "3px 3px 0px #0B2447" }}
+            >
+              Subscription History
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+              {paymentsLoading ? (
+                <p className="text-slate-400 text-sm">Loading history...</p>
+              ) : adminPayments.length === 0 ? (
+                <p className="text-slate-400 text-sm">No subscription payments recorded yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="text-left text-slate-400">
+                        {["Date", "Company", "Plan", "Amount", "Type", "Status"].map((h) => (
+                          <th key={h} className="py-2 px-3 font-bold whitespace-nowrap border-b-2 border-slate-200">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminPayments.map((p) => (
+                        <tr key={p.payment_id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-2 px-3 whitespace-nowrap text-slate-500">
+                            {p.created_at ? new Date(p.created_at).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric" }) : "—"}
+                          </td>
+                          <td className="py-2 px-3 font-semibold text-[#0B2447] whitespace-nowrap">{p.company_name}</td>
+                          <td className="py-2 px-3 capitalize">{p.plan}</td>
+                          <td className="py-2 px-3 tabular-nums font-bold">{p.amount ? `₱${p.amount.toLocaleString()}` : "Free"}</td>
+                          <td className="py-2 px-3 text-slate-500 whitespace-nowrap">{p.note}</td>
+                          <td className="py-2 px-3">
+                            <span className="text-[0.62rem] font-black uppercase bg-green-100 text-green-700 rounded-full px-2 py-0.5">{p.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeNav === "admins" && (
           <div
             className="bg-white rounded-3xl p-8 border-2 border-[#0B2447] flex flex-col"
@@ -591,20 +680,21 @@ const handleDelete = async (company_id) => {
 
             <div className="grid grid-cols-4 gap-4 mb-6 max-[900px]:grid-cols-2 shrink-0">
               {[
-                { label: "Total Companies",    value: totalCompaniesCount,          sub: "approved",      color: "text-teal-500" },
-                { label: "Pending Approval",   value: pending.length,               sub: "Needs Review",  color: "text-orange-500" },
-                { label: "Active Subscription",value: activeSubscriptionCount,      sub: "Total",         color: "text-teal-500" },
-                { label: "Revoked Accounts",   value: stats?.revoked || 0,          sub: "Total",         color: "text-red-500" },
+                { label: "Total Companies",    value: totalCompaniesCount,     sub: "View companies →",  color: "text-teal-500",   go: () => { setCompanyTab("active");  setActiveNav("companies"); } },
+                { label: "Pending Approval",   value: pending.length,          sub: "Review below ↓",    color: "text-orange-500", go: () => { const el = document.getElementById("pending-approvals"); if (el) el.scrollIntoView({ behavior: "smooth" }); } },
+                { label: "Active Subscription",value: activeSubscriptionCount, sub: "View active →",     color: "text-teal-500",   go: () => { setCompanyTab("active");  setActiveNav("companies"); } },
+                { label: "Revoked Accounts",   value: stats?.revoked || 0,     sub: "View revoked →",    color: "text-red-500",    go: () => { setCompanyTab("revoked"); setActiveNav("companies"); } },
               ].map((stat) => (
-                <div
+                <button
                   key={stat.label}
-                  className="rounded-2xl p-5 border"
+                  onClick={stat.go}
+                  className="text-left rounded-2xl p-5 border cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
                   style={{ backgroundColor: "#e6fbf8", borderColor: "#b2f0e6" }}
                 >
                   <p className="text-xs font-semibold text-slate-500 mb-1">{stat.label}</p>
                   <p className="text-3xl font-extrabold text-[#0B2447]">{stat.value}</p>
                   <p className={`text-xs font-semibold mt-1 ${stat.color}`}>{stat.sub}</p>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -612,7 +702,7 @@ const handleDelete = async (company_id) => {
               <div className="border-2 border-slate-200 rounded-2xl p-5 flex flex-col min-h-0">
                 <div className="overflow-y-auto flex-1 min-h-0 pr-1 flex flex-col gap-6">
                 <div>
-                <div className="flex items-center justify-between mb-3">
+                <div id="pending-approvals" className="flex items-center justify-between mb-3">
                   <h2 className="font-extrabold text-[#0B2447] text-base">Pending Companies Approval</h2>
                   {pending.length > 0 && (
                     <span className="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full">
@@ -744,7 +834,7 @@ const handleDelete = async (company_id) => {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-[#0B2447] text-xs truncate">{c.company_name}</p>
                         <p className="text-[0.7rem] text-slate-400">Plan: {c.subscription_plan}</p>
-                        <p className="text-[0.7rem] text-slate-400">Expires {c.subscription_expiry}</p>
+                        <p className="text-[0.7rem] text-slate-400">{expiryText(c)}</p>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
                         <span className={`text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full capitalize ${getSubStatusColor(c.subscription_status)}`}>
@@ -805,8 +895,24 @@ const handleDelete = async (company_id) => {
               </div>
             </div>
 
+            <div className="flex items-center gap-1 rounded-full border-2 border-[#0B2447] p-1 self-start mb-4 shrink-0">
+              {[
+                { key: "active",  label: "Active",  count: filteredCompanies.filter((c) => c.approval_status === "approved").length },
+                { key: "revoked", label: "Revoked", count: filteredCompanies.filter((c) => c.approval_status === "rejected").length },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setCompanyTab(t.key)}
+                  className={`flex items-center gap-1.5 rounded-full px-5 py-1.5 text-sm font-extrabold border-none cursor-pointer transition-colors ${companyTab === t.key ? "bg-[#0B2447] text-white" : "bg-transparent text-[#0B2447] hover:bg-slate-100"}`}
+                >
+                  {t.label}
+                  <span className={`text-[0.65rem] font-black rounded-full px-1.5 py-0.5 ${companyTab === t.key ? "bg-white text-[#0B2447]" : "bg-slate-200 text-[#0B2447]"}`}>{t.count}</span>
+                </button>
+              ))}
+            </div>
+
             <div className="overflow-y-auto flex-1 min-h-0 pr-1">
-            <h3 className="font-bold text-[#0B2447] text-sm mb-3">Active</h3>
+            {companyTab === "active" && (
             <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 mb-8 items-start">
               {sortCompanies(filteredCompanies.filter((c) => c.approval_status === "approved")).map((c) => (
                 <div
@@ -829,7 +935,7 @@ const handleDelete = async (company_id) => {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
-                      <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                      <p className="text-xs text-slate-400">{expiryText(c)}</p>
                       <p className="text-xs text-slate-400">{c.active_employees} employees active</p>
                     </div>
                     <div className="flex flex-col gap-1 items-end">
@@ -873,8 +979,9 @@ const handleDelete = async (company_id) => {
                 <p className="text-slate-400 text-sm col-span-2">No active companies.</p>
               )}
             </div>
+            )}
 
-            <h3 className="font-bold text-red-500 text-sm mb-3">Revoked</h3>
+            {companyTab === "revoked" && (
             <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1 items-start">
               {filteredCompanies.filter((c) => c.approval_status === "rejected").map((c) => (
                 <div
@@ -897,7 +1004,7 @@ const handleDelete = async (company_id) => {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500">Plan: {c.subscription_plan}</p>
-                      <p className="text-xs text-slate-400">Expires {c.subscription_expiry}</p>
+                      <p className="text-xs text-slate-400">{expiryText(c)}</p>
                       <p className="text-xs text-slate-400">{c.active_employees} employees active</p>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -936,6 +1043,7 @@ const handleDelete = async (company_id) => {
                 <p className="text-slate-400 text-sm col-span-2">No revoked companies.</p>
               )}
             </div>
+            )}
             </div>
           </div>
         )}
@@ -1112,14 +1220,31 @@ const handleDelete = async (company_id) => {
               ))}
             </div>
 
-            <label className="block text-xs font-bold text-[#0B2447] mb-2">Expires On</label>
-            <input
-              type="date"
-              value={planModal.expiry}
-              min={toDateInput(new Date())}
-              onChange={(e) => setPlanModal((m) => ({ ...m, expiry: e.target.value }))}
-              className="w-full border-2 border-slate-300 rounded-lg px-3 py-2 text-sm text-[#0B2447] outline-none focus:border-[#0B2447] mb-6"
-            />
+            {planModal.plan === "free" ? (
+              <div className="border-2 border-slate-200 rounded-lg px-3 py-3 mb-6 bg-slate-50">
+                <p className="text-xs text-slate-500 m-0">The free tier has no expiry date — access doesn't lapse.</p>
+              </div>
+            ) : (
+              <>
+                <label className="block text-xs font-bold text-[#0B2447] mb-2">Expires On</label>
+                <div className="flex items-center gap-2 mb-2">
+                  {[["month", "Month"], ["year", "Year"]].map(([unit, label]) => (
+                    <div key={unit} className="flex items-center gap-1 border-2 border-slate-200 rounded-lg px-1 py-0.5">
+                      <button onClick={() => stepExpiry(unit, -1)} className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-[#0B2447] font-bold border-none cursor-pointer leading-none">−</button>
+                      <span className="text-[0.7rem] font-bold text-slate-500 w-11 text-center">{label}</span>
+                      <button onClick={() => stepExpiry(unit, 1)} className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-[#0B2447] font-bold border-none cursor-pointer leading-none">+</button>
+                    </div>
+                  ))}
+                </div>
+                <input
+                  type="date"
+                  value={planModal.expiry}
+                  min={toDateInput(new Date())}
+                  onChange={(e) => setPlanModal((m) => ({ ...m, expiry: e.target.value }))}
+                  className="w-full border-2 border-slate-300 rounded-lg px-3 py-2 text-sm text-[#0B2447] outline-none focus:border-[#0B2447] mb-6"
+                />
+              </>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -1130,8 +1255,8 @@ const handleDelete = async (company_id) => {
               </button>
               <button
                 onClick={() => {
-                  if (!planModal.expiry) { window.showAlert("Please pick an expiry date."); return; }
-                  handleSetPlan(planModal.id, planModal.plan, planModal.expiry);
+                  if (planModal.plan !== "free" && !planModal.expiry) { window.showAlert("Please pick an expiry date."); return; }
+                  handleSetPlan(planModal.id, planModal.plan, planModal.plan === "free" ? "" : planModal.expiry);
                   setPlanModal(null);
                 }}
                 className="flex-1 text-white font-bold py-2.5 rounded-lg transition border-none cursor-pointer bg-[#0B2447] hover:bg-[#162553]"

@@ -34,11 +34,12 @@ export default function Applicants() {
   const [view, setView] = useState("applicants");
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [showRemoveInterview, setShowRemoveInterview] = useState(false);
-  const [showAutoReject, setShowAutoReject] = useState(false);
 
-  const canSetAutoReject = auth.role === "owner" || auth.role === "HRManager";
+  // Auto-reject now lives on the upload screen (requirement picker), so every
+  // company user who can upload resumes can set it for their batch.
   const [autoReject, setAutoReject] = useState("");
   const [autoRejectInput, setAutoRejectInput] = useState("");
+  const [arEnabled, setArEnabled] = useState(false);
 
   const feats = (() => {
     const M = {
@@ -81,23 +82,10 @@ export default function Applicants() {
     } catch {  }
   };
 
-  const saveAutoReject = async (clear = false) => {
-    try {
-      const body = { threshold: clear ? "" : autoRejectInput };
-      const data = await apiFetch("/api/auto-reject/", { method: "POST", token: auth.token, body });
-      const t = data?.threshold;
-      setAutoReject(t === null || t === undefined ? "" : String(t));
-      setAutoRejectInput(t === null || t === undefined ? "" : String(t));
-      window.showAlert(data.message || "Saved.", { type: "success" });
-    } catch (err) {
-      window.showAlert(getErrorMessage(err, "Failed to save auto-reject."));
-    }
-  };
-
   useEffect(() => {
     fetchEvaluations();
     fetchRequirements();
-    if (canSetAutoReject) fetchAutoReject();
+    fetchAutoReject();
   }, []);
 
   const MAX_FILE_MB = 20;
@@ -121,6 +109,9 @@ export default function Applicants() {
     if (valid.length === 0) return;
 
     setPendingFiles(valid);
+    // Seed the auto-reject control from the company's saved threshold.
+    setArEnabled(autoReject !== "");
+    setAutoRejectInput(autoReject);
     setShowReqPicker(true);
   };
 
@@ -132,6 +123,19 @@ export default function Applicants() {
     setUploading(true);
     setShowReqPicker(false);
     setUploadProgress({ done: 0, total: pendingFiles.length });
+
+    // Apply the auto-reject choice before the batch runs so it affects these uploads.
+    try {
+      const ar = await apiFetch("/api/auto-reject/", {
+        method: "POST",
+        token: auth.token,
+        body: { threshold: arEnabled ? autoRejectInput : "" },
+      });
+      const t = ar?.threshold;
+      setAutoReject(t === null || t === undefined ? "" : String(t));
+    } catch {
+      // Non-blocking: if saving the threshold fails, still evaluate the resumes.
+    }
 
     const failed = [];
     for (let i = 0; i < pendingFiles.length; i++) {
@@ -417,64 +421,6 @@ export default function Applicants() {
               </div>
             </div>
 
-            {canSetAutoReject && view === "applicants" && (
-              <div className="relative">
-                <button
-                  onClick={() => { setAutoRejectInput(autoReject); setShowAutoReject((v) => !v); }}
-                  className="flex items-center gap-2 border-2 border-[#0B2447] rounded-full pl-3 pr-2 py-1.5 bg-white cursor-pointer hover:bg-slate-50"
-                >
-                  <span className="text-xs font-bold text-[#0B2447] whitespace-nowrap">Auto-reject</span>
-                  <span className={`text-[0.68rem] font-black rounded-full px-2 py-0.5 ${autoReject !== "" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
-                    {autoReject !== "" ? `On · below ${autoReject}%` : "Off"}
-                  </span>
-                  <KeyboardArrowDownIcon style={{ fontSize: 16, color: "#0B2447" }} />
-                </button>
-
-                {showAutoReject && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowAutoReject(false)} />
-                    <div
-                      className="absolute left-0 top-12 z-50 w-[320px] bg-white rounded-2xl p-4 text-left"
-                      style={{ border: "2px solid #0B2447", boxShadow: "4px 4px 0px #0B2447" }}
-                    >
-                      <p className="font-extrabold text-[#0B2447] text-sm m-0 mb-1">Auto-reject low scores</p>
-                      <p className="text-xs text-slate-500 leading-relaxed m-0 mb-3">
-                        New uploads with a H!RE Score below your threshold are automatically rejected.
-                        The applicant is emailed only after a <span className="font-semibold">1-hour grace period</span>, so you can still cancel.
-                      </p>
-                      <label className="block text-xs font-bold text-[#0B2447] mb-1">Reject applicants scoring below</label>
-                      <div className="flex items-center gap-2 mb-4">
-                        <input
-                          type="number" min="0" max="100"
-                          value={autoRejectInput}
-                          onChange={(e) => setAutoRejectInput(e.target.value)}
-                          placeholder="e.g. 45"
-                          className="w-20 text-center text-sm font-bold text-[#0B2447] border-2 border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-teal-400"
-                        />
-                        <span className="text-sm font-bold text-[#0B2447]">%</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { saveAutoReject(false); setShowAutoReject(false); }}
-                          disabled={autoRejectInput === "" || autoRejectInput === null}
-                          className="flex-1 text-xs font-bold text-white bg-teal-500 hover:bg-teal-600 rounded-full px-3 py-2 border-none cursor-pointer disabled:opacity-50"
-                        >
-                          Save &amp; Enable
-                        </button>
-                        {autoReject !== "" && (
-                          <button
-                            onClick={() => { saveAutoReject(true); setShowAutoReject(false); }}
-                            className="flex-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-full px-3 py-2 border-2 border-red-200 cursor-pointer"
-                          >
-                            Turn Off
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -691,10 +637,45 @@ export default function Applicants() {
                 ))}
               </div>
             )}
+            <div className="border-2 border-slate-200 rounded-xl p-3 mb-4">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={arEnabled}
+                  onChange={(e) => {
+                    setArEnabled(e.target.checked);
+                    if (e.target.checked && !autoRejectInput) setAutoRejectInput("45");
+                  }}
+                  className="accent-teal-400 w-4 h-4"
+                />
+                <span className="text-sm font-bold text-[#0B2447]">Auto-reject low scores</span>
+              </label>
+
+              {arEnabled && (
+                <div className="flex items-center gap-2 mt-3 ml-7">
+                  <span className="text-xs font-semibold text-slate-600">Reject applicants scoring below</span>
+                  <input
+                    type="number" min="0" max="100"
+                    value={autoRejectInput}
+                    onChange={(e) => setAutoRejectInput(e.target.value)}
+                    placeholder="45"
+                    className="w-16 text-center text-sm font-bold text-[#0B2447] border-2 border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-teal-400"
+                  />
+                  <span className="text-sm font-bold text-[#0B2447]">%</span>
+                </div>
+              )}
+
+              <p className="text-[0.7rem] text-slate-400 leading-relaxed m-0 mt-2 ml-7">
+                {arEnabled
+                  ? "Resumes in this upload scoring below the threshold are rejected automatically. The applicant is emailed only after a 1-hour grace period, so you can still cancel."
+                  : "Leave off to review every resume yourself."}
+              </p>
+            </div>
+
             <div className="flex gap-3">
               <button
                 onClick={handleUpload}
-                disabled={!selectedReqId}
+                disabled={!selectedReqId || (arEnabled && !autoRejectInput)}
                 className="flex-1 bg-teal-400 hover:bg-teal-500 text-white font-bold py-2.5 rounded-lg transition disabled:opacity-50"
               >
                 {pendingFiles.length > 1 ? `Analyze ${pendingFiles.length} Resumes` : "Analyze Resume"}

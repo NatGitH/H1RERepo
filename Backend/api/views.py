@@ -823,8 +823,10 @@ def auto_reject_threshold(request):
         if request.method == "GET":
             return JsonResponse({"threshold": get_auto_reject_threshold(company_id)})
 
-        if role not in ["owner", "HRManager"]:
-            return JsonResponse({"error": "Only owners and HR managers can set auto-reject"}, status=403)
+        # Auto-reject is set on the upload screen (per batch), so any company user
+        # who can upload resumes may set it — including HR Staff.
+        if role not in ["owner", "HRManager", "HRStaff"]:
+            return JsonResponse({"error": "Not allowed to set auto-reject"}, status=403)
 
         data = json.loads(request.body)
         raw  = data.get("threshold", None)

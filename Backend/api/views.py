@@ -3661,9 +3661,16 @@ def hr_signup(request):
         except Exception:
             pass
 
+        # Signup collects no name, but the Users table requires firstname/lastname/
+        # username. Seed them from the email (editable later in Profile) so the NOT
+        # NULL columns are satisfied even before the nullable migration runs.
+        local = email.split("@")[0]
         user = HRUser.objects.create(
             user_id=uuid.uuid4(),
             email=email,
+            username=email,
+            firstname=local,
+            lastname="",
             password=ph.hash(password),
             birthdate=birthdate,
             bio=bio or None,

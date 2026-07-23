@@ -20,7 +20,11 @@ create index if not exists idx_company_access_email   on public."Company_Access"
 create index if not exists idx_company_access_user    on public."Company_Access" (user_id);
 create index if not exists idx_company_access_company on public."Company_Access" (company_id);
 
--- An HR identity has no company or global role at signup (role is per-company in
--- Company_Access), so these must be nullable on Users.
+-- An HR identity has no company/global role and no name at signup, so relax these
+-- NOT NULL constraints on Users (role is per-company in Company_Access; name is
+-- optional and editable in Profile).
 alter table public."Users" alter column role_id    drop not null;
 alter table public."Users" alter column company_id drop not null;
+alter table public."Users" alter column firstname  drop not null;
+alter table public."Users" alter column lastname   drop not null;
+alter table public."Users" alter column username   drop not null;

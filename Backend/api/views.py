@@ -3651,6 +3651,16 @@ def hr_signup(request):
                 or HRUser.objects.filter(email__iexact=email).exists()):
             return JsonResponse({"error": "That email is already registered."}, status=409)
 
+        # Users.role_id is legacy (real role is per-company in Company_Access). If the
+        # column is still NOT NULL, seed it with an existing HRStaff role so signup works.
+        default_role_id = None
+        try:
+            r = Roles.objects.filter(role_name__iexact="HRStaff").first() or Roles.objects.filter(role_name__icontains="staff").first()
+            if r:
+                default_role_id = r.role_id
+        except Exception:
+            pass
+
         user = HRUser.objects.create(
             user_id=uuid.uuid4(),
             email=email,
@@ -3659,7 +3669,7 @@ def hr_signup(request):
             bio=bio or None,
             account_status="active",   # self-signup — no approval needed
             company_id=None,
-            role_id=None,
+            role_id=default_role_id,
         )
 
         # Link any invites already waiting for this email to the new account.

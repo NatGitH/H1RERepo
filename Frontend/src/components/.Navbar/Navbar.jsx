@@ -26,8 +26,38 @@ export default function Navbar() {
   const readNotifsRef    = useRef(new Set(JSON.parse(localStorage.getItem("hire_read_notifs") || "[]")));
   const clearedNotifsRef = useRef(new Set(JSON.parse(localStorage.getItem("hire_cleared_notifs") || "[]")));
 
-  const { auth, logout } = useAuth();
+  const { auth, logout, login } = useAuth();
   const role = auth.role;
+
+  // Revision #7 — HR company switcher (switch active company without logging out).
+  const HR_ROLES = ["HRStaff", "HRManager"];
+  const [showCompanySwitch, setShowCompanySwitch] = useState(false);
+  const [myCompanies, setMyCompanies] = useState([]);
+
+  const openSwitcher = async () => {
+    setShowCompanySwitch((v) => !v);
+    try {
+      const d = await apiFetch("/api/auth/my-companies/", { token: auth.token });
+      setMyCompanies(Array.isArray(d) ? d : []);
+    } catch { /* keep whatever we had */ }
+  };
+
+  const switchCompany = async (company_id) => {
+    if (company_id === auth.companyId) { setShowCompanySwitch(false); return; }
+    try {
+      const d = await apiFetch("/api/auth/select-company/", { method: "POST", token: auth.token, body: { company_id } });
+      login({
+        token: d.token, role: d.role, user_id: d.user_id, companyId: d.company_id, companyName: d.company_name,
+        profile_picture: auth.profile_picture, email: auth.email, firstname: auth.firstname, lastname: auth.lastname,
+        subscription_plan: d.subscription_plan,
+      });
+      setShowCompanySwitch(false);
+      window.location.hash = "#/Applicants";
+      window.location.reload();  // rescope every page to the new company
+    } catch {
+      window.showAlert("Couldn't switch company. Please try again.");
+    }
+  };
 
   const unreadCount =
     notifList.filter((n) => n.unread).length + auditList.filter((a) => a.unread).length;
@@ -250,6 +280,39 @@ export default function Navbar() {
               </span>
             )}
           </button>
+
+          {HR_ROLES.includes(role) && (
+            <div className="relative">
+              <button
+                onClick={openSwitcher}
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1.5 text-white text-sm font-semibold border-none cursor-pointer max-w-[200px] transition-colors"
+                title="Switch company"
+              >
+                <span className="truncate">{auth.companyName || "Company"}</span>
+                <KeyboardArrowDownIcon style={{ fontSize: 18 }} />
+              </button>
+              {showCompanySwitch && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowCompanySwitch(false)} />
+                  <div className="absolute left-0 top-12 z-50 w-64 bg-white rounded-xl py-2 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+                    <p className="text-[0.62rem] font-bold uppercase tracking-wide text-slate-400 px-4 py-1 m-0">Switch company</p>
+                    {myCompanies.length === 0 ? (
+                      <p className="text-xs text-slate-400 px-4 py-2 m-0">Loading…</p>
+                    ) : myCompanies.map((c) => (
+                      <button
+                        key={c.company_id}
+                        onClick={() => switchCompany(c.company_id)}
+                        className={`w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-slate-50 border-none bg-transparent cursor-pointer ${c.company_id === auth.companyId ? "font-bold text-[#0B2447]" : "text-slate-600"}`}
+                      >
+                        <span className="truncate flex-1 text-sm">{c.company_name}</span>
+                        {c.company_id === auth.companyId && <span className="text-teal-500 text-xs">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <ul className="flex items-center gap-6 list-none m-0 p-0 ml-auto h-full">

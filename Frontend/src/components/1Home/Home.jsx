@@ -5,10 +5,8 @@ export default function Home() {
   const navigate = useNavigate();
 
   const actions = [
-    { label: "Create Company",   route: "/create-company",  variant: "blue" },
-    { label: "Login as Owner",   route: "/login-owner",     variant: "dark" },
-    { label: "Login to Company", route: "/login-company",   variant: "blue" },
-    { label: "For H!RE Admins",   route: "/login-admin",     variant: "dark" },
+    { label: "Create Account", route: "/Create-Account", variant: "blue" },
+    { label: "User Login",     route: "/User-Login",     variant: "dark" },
   ];
 
   return (
@@ -39,7 +37,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-7">
+        <div className="grid grid-cols-1 gap-4 mt-7">
           {actions.map((action) => (
             <button
               key={action.route}

@@ -607,6 +607,333 @@ def login_hr(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
+def _pw_ok(stored, password):
+    """Verify a password against an argon2 hash, tolerating legacy plaintext."""
+    stored = stored or ""
+    if stored.startswith("$argon2"):
+        try:
+            ph.verify(stored, password)
+            return True
+        except argon2.exceptions.VerifyMismatchError:
+            return False
+    return stored == password
+
+
+@csrf_exempt
+@require_POST
+def login_unified(request):
+    """Revision #7 — one login for everyone. Detects the account by email across
+    Admin / Company-owner / HR and routes accordingly. HR users authenticate to an
+    identity token, then pick a company at Company Home (select-company)."""
+    try:
+        data     = json.loads(request.body)
+        email    = (data.get("email") or "").strip()
+        password = (data.get("password") or "").strip()
+        if not email or not password:
+            return JsonResponse({"error": "Invalid credentials"}, status=401)
+
+        from .models import Admin
+        # 1) Admin
+        admin = Admin.objects.filter(admin_email__iexact=email).first() \
+             or Admin.objects.filter(admin_username__iexact=email).first()
+        if admin:
+            if not _pw_ok(admin.admin_password, password):
+                return JsonResponse({"error": "Invalid credentials"}, status=401)
+            return JsonResponse({
+                "account_type": "admin",
+                "token": make_token({"role": "admin", "admin_id": str(admin.admin_id), "email": admin.admin_email}),
+                "role": "admin", "admin_id": str(admin.admin_id), "email": admin.admin_email,
+            })
+
+        # 2) Company owner
+        company = Company.objects.filter(owner_email__iexact=email).first()
+        if company:
+            if not _pw_ok(company.owner_password, password):
+                return JsonResponse({"error": "Invalid credentials"}, status=401)
+            try:
+                approval = ApprovalCompany.objects.get(subscribing_company_id=company.company_id)
+                if approval.action_status == "pending":
+                    return JsonResponse({"error": "Your company is pending admin approval. Please wait for approval."}, status=403)
+                if approval.action_status == "rejected":
+                    return JsonResponse({"error": "Your company registration has been rejected. Please contact support."}, status=403)
+            except ApprovalCompany.DoesNotExist:
+                pass
+            return JsonResponse({
+                "account_type": "owner",
+                "token": make_token({"role": "owner", "company_id": str(company.company_id), "email": company.owner_email}),
+                "role": "owner", "company_id": str(company.company_id),
+                "company_name": company.company_name, "company_logo": company.company_logo or None,
+                "subscription_plan": (company.subscription_plan or "free").lower(),
+            })
+
+        # 3) HR identity
+        user = HRUser.objects.filter(email__iexact=email).first()
+        if user:
+            if not _pw_ok(user.password, password):
+                return JsonResponse({"error": "Invalid credentials"}, status=401)
+            return JsonResponse({
+                "account_type": "hr",
+                "token": make_token({"role": "hr_identity", "user_id": str(user.user_id), "email": user.email}),
+                "user_id": str(user.user_id), "email": user.email,
+                "firstname": user.firstname, "lastname": user.lastname,
+                "profile_picture": user.profile_picture or None,
+            })
+
+        return JsonResponse({"error": "Invalid credentials"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def my_companies(request):
+    """Companies this HR user can enter (active access) — fills the login dropdown."""
+    try:
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
+        if not user_id:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        from .models import CompanyAccess
+        out = []
+        for a in CompanyAccess.objects.filter(user_id=user_id, status="active"):
+            c = Company.objects.filter(company_id=a.company_id).first()
+            if not c:
+                continue
+            # skip companies whose access was revoked by the admin
+            appr = ApprovalCompany.objects.filter(subscribing_company_id=a.company_id).first()
+            if appr and appr.action_status == "rejected":
+                continue
+            out.append({
+                "company_id": str(c.company_id), "company_name": c.company_name,
+                "company_logo": c.company_logo or None, "role": a.role,
+            })
+        return JsonResponse(out, safe=False)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def select_company(request):
+    """HR picks (or switches to) a company they have access to → returns a company-
+    scoped token with the role they hold there. Also the in-app company switcher."""
+    try:
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
+        if not user_id:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        data = json.loads(request.body)
+        company_id = (data.get("company_id") or "").strip()
+
+        from .models import CompanyAccess
+        access = CompanyAccess.objects.filter(user_id=user_id, company_id=company_id, status="active").first()
+        if not access:
+            return JsonResponse({"error": "You don't have access to this company."}, status=403)
+
+        appr = ApprovalCompany.objects.filter(subscribing_company_id=company_id).first()
+        if appr and appr.action_status == "rejected":
+            return JsonResponse({"error": "This company's access has been revoked."}, status=403)
+
+        user    = HRUser.objects.get(user_id=user_id)
+        company = Company.objects.filter(company_id=company_id).first()
+        token = make_token({
+            "role": access.role, "user_id": str(user_id),
+            "company_id": str(company_id), "email": user.email,
+        })
+        return JsonResponse({
+            "token": token, "role": access.role, "user_id": str(user_id),
+            "company_id": str(company_id),
+            "company_name": company.company_name if company else "",
+            "company_logo": (company.company_logo or None) if company else None,
+            "subscription_plan": get_company_plan(company_id),
+        })
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def invite_hr(request):
+    """Owner/HR-manager invites an HR to their company by email (revision #7).
+    Records an 'invited' access row and emails the invitee. Works even if they
+    don't have an account yet — the email prompts them to sign up."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+        if role not in ("owner", "HRManager"):
+            return JsonResponse({"error": "Only owners and HR managers can invite."}, status=403)
+
+        data        = json.loads(request.body)
+        email       = (data.get("email") or "").strip().lower()
+        member_role = data.get("role") if data.get("role") in ("HRStaff", "HRManager") else "HRStaff"
+        if not email or "@" not in email:
+            return JsonResponse({"error": "A valid email is required."}, status=400)
+
+        from .models import Admin, CompanyAccess
+        # Global-uniqueness rule: owner/admin emails can't be HR members.
+        if Company.objects.filter(owner_email__iexact=email).exists() or Admin.objects.filter(admin_email__iexact=email).exists():
+            return JsonResponse({"error": "That email belongs to a company owner or admin account."}, status=409)
+
+        existing = CompanyAccess.objects.filter(email=email, company_id=company_id).first()
+        if existing and existing.status == "active":
+            return JsonResponse({"error": "That person is already a member of this company."}, status=409)
+
+        hr = HRUser.objects.filter(email__iexact=email).first()
+        if not existing:
+            CompanyAccess.objects.create(
+                email=email, company_id=company_id, role=member_role, status="invited",
+                user_id=(hr.user_id if hr else None), invited_by=payload.get("user_id"),
+            )
+        else:
+            existing.role = member_role
+            if hr and not existing.user_id:
+                existing.user_id = hr.user_id
+            existing.save()
+
+        company = Company.objects.filter(company_id=company_id).first()
+        inviter = get_user_fullname(payload.get("user_id")) or (company.company_name if company else "A H!RE company")
+        frontend = getattr(settings, "FRONTEND_URL", "")
+        accept_link = f"{frontend}/#/User-Login" if hr else f"{frontend}/#/Create-Account"
+        try:
+            requests.post(
+                f"{settings.N8N_BASE_URL}/webhook/hr-invite",
+                json={"email": email, "company_name": company.company_name if company else "",
+                      "inviter_name": inviter, "has_account": bool(hr), "accept_link": accept_link},
+                timeout=5,
+            )
+        except Exception as n8n_err:
+            print("hr invite email error:", n8n_err)
+
+        return JsonResponse({"message": "Invitation sent"})
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def list_members(request):
+    """Company's HR members + pending invites (owner/HR-manager) — replaces the old
+    Users-based employee list."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+        if role not in ("owner", "HRManager"):
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        from .models import CompanyAccess
+        out = []
+        for a in CompanyAccess.objects.filter(company_id=company_id).order_by("status", "email"):
+            hr = HRUser.objects.filter(email__iexact=a.email).first()
+            name = (f"{hr.firstname} {hr.lastname}".strip() if hr and (hr.firstname or hr.lastname) else None) if hr else None
+            out.append({
+                "access_id": str(a.access_id), "email": a.email, "role": a.role,
+                "status": a.status, "name": name or a.email,
+                "profile_picture": (hr.profile_picture if hr else None),
+                "has_account": bool(hr),
+            })
+        return JsonResponse(out, safe=False)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_member(request):
+    """Owner/HR-manager removes a member/invite or changes their role (revision #7)."""
+    try:
+        payload    = decode_token(request)
+        role       = payload.get("role")
+        company_id = payload.get("company_id")
+        if role not in ("owner", "HRManager"):
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        data      = json.loads(request.body)
+        access_id = (data.get("access_id") or "").strip()
+        action    = data.get("action")
+        from .models import CompanyAccess
+        a = CompanyAccess.objects.filter(access_id=access_id, company_id=company_id).first()
+        if not a:
+            return JsonResponse({"error": "Not found"}, status=404)
+        if action == "remove":
+            a.delete()
+            return JsonResponse({"message": "Removed"})
+        if action == "role":
+            new_role = data.get("role")
+            if new_role not in ("HRStaff", "HRManager"):
+                return JsonResponse({"error": "Invalid role"}, status=400)
+            a.role = new_role
+            a.save()
+            return JsonResponse({"message": "Role updated"})
+        return JsonResponse({"error": "Invalid action"}, status=400)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def my_invites(request):
+    """Pending company invitations for the logged-in HR user (revision #7)."""
+    try:
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
+        if not user_id:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        user = HRUser.objects.filter(user_id=user_id).first()
+        if not user:
+            return JsonResponse([], safe=False)
+        from .models import CompanyAccess
+        out = []
+        for a in CompanyAccess.objects.filter(email__iexact=user.email, status="invited"):
+            c = Company.objects.filter(company_id=a.company_id).first()
+            if not c:
+                continue
+            out.append({"access_id": str(a.access_id), "company_id": str(c.company_id),
+                        "company_name": c.company_name, "company_logo": c.company_logo or None, "role": a.role})
+        return JsonResponse(out, safe=False)
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def respond_invite(request):
+    """HR accepts or declines a pending invite (revision #7)."""
+    try:
+        payload = decode_token(request)
+        user_id = payload.get("user_id")
+        if not user_id:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        user = HRUser.objects.get(user_id=user_id)
+        data      = json.loads(request.body)
+        access_id = (data.get("access_id") or "").strip()
+        accept    = bool(data.get("accept"))
+        from .models import CompanyAccess
+        a = CompanyAccess.objects.filter(access_id=access_id, email__iexact=user.email, status="invited").first()
+        if not a:
+            return JsonResponse({"error": "Invite not found"}, status=404)
+        if accept:
+            a.status  = "active"
+            a.user_id = user_id
+            a.save()
+            return JsonResponse({"message": "Joined"})
+        a.delete()
+        return JsonResponse({"message": "Declined"})
+    except jwt.ExpiredSignatureError:
+        return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @csrf_exempt
 @require_POST
 def update_hr_profile(request):
@@ -3294,6 +3621,69 @@ def get_payments(request):
         return JsonResponse(out, safe=False)
     except jwt.ExpiredSignatureError:
         return JsonResponse({"error": "Token expired"}, status=401)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def hr_signup(request):
+    """Revision #7 — HR self-signup. Creates a company-agnostic HR account (no admin
+    approval). Membership to companies happens later via invites. Enforces global
+    email uniqueness across owner / admin / HR so the unified login can route by email."""
+    try:
+        data      = json.loads(request.body)
+        email     = (data.get("email") or "").strip().lower()
+        password  = (data.get("password") or "").strip()
+        birthdate = (data.get("birthdate") or "").strip()
+        bio       = (data.get("bio") or "").strip()
+
+        if not email or "@" not in email:
+            return JsonResponse({"error": "A valid email is required."}, status=400)
+        if len(password) < 8:
+            return JsonResponse({"error": "Password must be at least 8 characters."}, status=400)
+        if not birthdate:
+            return JsonResponse({"error": "Date of birth is required."}, status=400)
+
+        from .models import Admin
+        if (Company.objects.filter(owner_email__iexact=email).exists()
+                or Admin.objects.filter(admin_email__iexact=email).exists()
+                or HRUser.objects.filter(email__iexact=email).exists()):
+            return JsonResponse({"error": "That email is already registered."}, status=409)
+
+        user = HRUser.objects.create(
+            user_id=uuid.uuid4(),
+            email=email,
+            password=ph.hash(password),
+            birthdate=birthdate,
+            bio=bio or None,
+            account_status="active",   # self-signup — no approval needed
+            company_id=None,
+            role_id=None,
+        )
+
+        # Link any invites already waiting for this email to the new account.
+        try:
+            from .models import CompanyAccess
+            CompanyAccess.objects.filter(email__iexact=email, user_id__isnull=True).update(user_id=user.user_id)
+        except Exception as link_err:
+            print("invite link error:", link_err)
+
+        # Welcome email (reuse the register-confirmation workflow).
+        try:
+            requests.post(
+                f"{settings.N8N_BASE_URL}/webhook/register-confirmation",
+                json={"email": email, "first_name": email.split("@")[0], "last_name": ""},
+                timeout=5,
+            )
+        except Exception as n8n_err:
+            print("hr signup email error:", n8n_err)
+
+        # Short-lived token so step 2 (picture/bio) can attach to the new account.
+        token = make_token({"role": "HRStaff", "user_id": str(user.user_id), "email": email})
+        return JsonResponse({"message": "Account created", "user_id": str(user.user_id),
+                             "email": email, "token": token}, status=201)
+
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 

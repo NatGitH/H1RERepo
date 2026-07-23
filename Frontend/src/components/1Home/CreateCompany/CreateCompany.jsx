@@ -52,16 +52,6 @@ export default function CreateCompany() {
       return;
     }
 
-    if (form.staffPassword !== form.confirmStaffPassword) {
-      setError("Staff passwords do not match.");
-      return;
-    }
-
-    if (form.staffPassword && form.staffPassword.length < 8) {
-      setError("Staff password must be at least 8 characters.");
-      return;
-    }
-
     if (!form.agreed) {
       setError("You must agree to the Data Policies.");
       return;
@@ -81,7 +71,6 @@ export default function CreateCompany() {
       companyName: form.companyName,
       email: form.email,
       password: form.password,
-      staffPassword: form.staffPassword,
     });
     navigate("/company-documents");
   };
@@ -114,8 +103,6 @@ export default function CreateCompany() {
             { label: "Email", name: "email", type: "email", placeholder: "TechStack@gmail.com" },
             { label: "Password", name: "password", type: "password", placeholder: "••••••••••" },
             { label: "Re-Enter Password", name: "confirmPassword", type: "password", placeholder: "••••••••••" },
-            { label: "Staff Password", name: "staffPassword", type: "password", placeholder: "••••••••••" },
-            { label: "Re-Enter Staff Password", name: "confirmStaffPassword", type: "password", placeholder: "••••••••••" },
           ].map(({ label, name, type, placeholder }) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>

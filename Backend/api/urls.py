@@ -71,6 +71,17 @@ urlpatterns = [
     path("admin/metrics/",  views.admin_get_metrics),
     path("ai-logs/",        views.get_ai_logs),
 
+    # Revision #7 — HR self-signup + unified login + company access
+    path("auth/hr-signup/",      views.hr_signup),
+    path("auth/login/",          views.login_unified),
+    path("auth/my-companies/",   views.my_companies),
+    path("auth/select-company/", views.select_company),
+    path("auth/my-invites/",     views.my_invites),
+    path("auth/respond-invite/", views.respond_invite),
+    path("members/",             views.list_members),
+    path("members/invite/",      views.invite_hr),
+    path("members/update/",      views.update_member),
+
     # Revision #10 — subscription payment history
     path("payments/",       views.get_payments),
     path("admin/payments/", views.admin_get_payments),

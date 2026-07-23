@@ -1,0 +1,61 @@
+{
+  "name": "H!RE - HR Invite Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hr-invite",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "aa000000-0000-4000-8000-0000000000e1",
+      "name": "Webhook",
+      "webhookId": "hire-hr-invite"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.email }}",
+        "subject": "=You've been invited to join {{ $json.body.company_name }} on H!RE",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color:#0d1b3e;\">\n  <h2 style=\"color:#f97316;\">You're invited to join {{ $json.body.company_name }}</h2>\n  <p>{{ $json.body.inviter_name }} has invited you to join <strong>{{ $json.body.company_name }}</strong> as an HR user on H!RE.</p>\n  <div style=\"background:#f1f5f9; border-radius:8px; padding:16px; margin:16px 0;\">\n    <p style=\"margin:0 0 12px;\">{{ $json.body.has_account ? 'Log in to your H!RE account, then accept the invitation from your Company Home.' : 'Create your H!RE account to accept the invitation. Once you sign up, the invite will be waiting on your Company Home.' }}</p>\n    <a href=\"{{ $json.body.accept_link }}\" style=\"display:inline-block; background:#2255cc; color:#ffffff; text-decoration:none; font-weight:bold; padding:10px 20px; border-radius:9999px;\">{{ $json.body.has_account ? 'Log in to accept' : 'Create account to accept' }}</a>\n  </div>\n  <p style=\"font-size:12px; color:#64748b;\">If you weren't expecting this, you can safely ignore this email.</p>\n  <br/>\n  <p>Best regards,<br/><strong>The H!RE Team</strong></p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [220, 0],
+      "id": "aa000000-0000-4000-8000-0000000000e2",
+      "name": "Send a message",
+      "webhookId": "hire-hr-invite-send",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "I3kOQilN2qpfYa7Q",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Send a message", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

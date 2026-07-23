@@ -87,7 +87,6 @@ export default function SubscriptionPlan() {
     formData.append("company_name", registrationData.companyName);
     formData.append("email", registrationData.email);
     formData.append("password", registrationData.password);
-    formData.append("staff_password", registrationData.staffPassword);
     formData.append("plan", plan.planType);
 
     try {

@@ -233,3 +233,20 @@ class SubscriptionPayment(models.Model):
     class Meta:
         db_table = '"Subscription_Payments"'
         managed  = False
+
+class CompanyAccess(models.Model):
+    # Revision #7 — the HR<->company ACCESS link (which companies an HR can enter).
+    # NOT a subscription: the company's plan is separate. One HR can have many rows
+    # (one per company); this powers the login dropdown + in-app company switching.
+    access_id   = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    email       = models.CharField(max_length=255)
+    user_id     = models.UUIDField(null=True, blank=True)               # filled once account exists
+    company_id  = models.UUIDField()
+    role        = models.CharField(max_length=30, default="HRStaff")   # within this company
+    status      = models.CharField(max_length=20, default="invited")   # invited | active
+    invited_by  = models.UUIDField(null=True, blank=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = '"Company_Access"'
+        managed  = False

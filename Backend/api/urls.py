@@ -4,7 +4,6 @@ from . import views
 urlpatterns = [
     path("auth/register-company/", views.register_company),
     path("auth/login-owner/", views.login_owner),
-    path("auth/find-company/", views.find_company),
     path("auth/check-approval-status/", views.check_approval_status),
     path("auth/login-hr/",     views.login_hr),
     path("auth/create-hr-account/", views.create_hr_account),
@@ -23,7 +22,6 @@ urlpatterns = [
 
     path("profile/update-company-logo/",        views.update_company_logo),
     path("profile/update-company-name/",        views.update_company_name),
-    path("profile/update-company-password/",    views.update_company_password),
     path("profile/update-company-description/", views.update_company_description),
     path("profile/delete-company/",             views.delete_company),
     path("auth/save-document/", views.save_document),

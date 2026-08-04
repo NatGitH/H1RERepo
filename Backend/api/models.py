@@ -6,7 +6,6 @@ class Company(models.Model):
     company_name         = models.CharField(max_length=255)
     owner_email          = models.CharField(max_length=255, unique=True)
     owner_password       = models.CharField(max_length=255)
-    staff_password       = models.CharField(max_length=255, null=True, blank=True)
     subscription_plan    = models.CharField(max_length=255, null=True, blank=True)
     company_logo         = models.CharField(max_length=255, null=True, blank=True)
     subscription_start   = models.DateTimeField(null=True, blank=True)

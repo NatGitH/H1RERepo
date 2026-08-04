@@ -7,7 +7,6 @@ import {
   ChangePasswordModal,
   ChangeCompanyLogoModal,
   ChangeCompanyNameModal,
-  ChangeCompanyPasswordModal,
   DeleteCompanyModal,
   ManageSubscriptionModal,
 } from "./ProfileModals";
@@ -62,7 +61,6 @@ export default function Profile() {
   const [uploadingLogo, setUploadingLogo]     = useState(false);
 
   const [showCompanyNameModal, setShowCompanyNameModal]   = useState(false);
-  const [showCompanyPassModal, setShowCompanyPassModal]   = useState(false);
   const [showOwnerPassModal, setShowOwnerPassModal]       = useState(false);
   const [showDeleteModal, setShowDeleteModal]             = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -511,13 +509,6 @@ export default function Profile() {
             setShowCompanyNameModal(false);
           }}
           onClose={() => setShowCompanyNameModal(false)}
-        />
-      )}
-
-      {showCompanyPassModal && (
-        <ChangeCompanyPasswordModal
-          token={auth.token}
-          onClose={() => setShowCompanyPassModal(false)}
         />
       )}
 

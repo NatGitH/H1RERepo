@@ -178,7 +178,6 @@ def register_company(request):
         company_name   = request.POST.get("company_name", "").strip()
         email          = request.POST.get("email", "").strip()
         password       = request.POST.get("password", "").strip()
-        staff_password = request.POST.get("staff_password", "").strip()
         plan           = request.POST.get("plan", "free").strip()
 
         if not all([company_name, email, password]):
@@ -186,9 +185,6 @@ def register_company(request):
 
         if len(password) < 8:
             return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
-
-        if staff_password and len(staff_password) < 8:
-            return JsonResponse({"error": "Staff password must be at least 8 characters"}, status=400)
 
         if Company.objects.filter(owner_email=email).exists():
             return JsonResponse({"error": "Email already registered"}, status=400)
@@ -200,13 +196,11 @@ def register_company(request):
         expiry = now + datetime.timedelta(days=30)
 
         hashed       = ph.hash(password)
-        hashed_staff = ph.hash(staff_password) if staff_password else None
 
         company = Company.objects.create(
             company_name=company_name,
             owner_email=email,
             owner_password=hashed,
-            staff_password=hashed_staff,
             subscription_plan=plan,
             subscription_start=now,
             subscription_expiry=expiry,
@@ -391,32 +385,6 @@ def check_company_name(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-@csrf_exempt
-@require_POST
-def find_company(request):
-    try:
-        data           = json.loads(request.body)
-        company_name   = data.get("company_name", "").strip()
-        staff_password = data.get("staff_password", "").strip()
-
-        company = Company.objects.get(company_name=company_name)
-
-        try:
-            ph.verify(company.staff_password, staff_password)
-        except argon2.exceptions.VerifyMismatchError:
-            return JsonResponse({"error": "Invalid credentials"}, status=401)
-        except Exception:
-            return JsonResponse({"error": "Invalid credentials"}, status=401)
-
-        return JsonResponse({
-            "company_id":   str(company.company_id),
-            "company_name": company.company_name,
-        })
-
-    except Company.DoesNotExist:
-        return JsonResponse({"error": "Company not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
 @require_POST
@@ -2535,47 +2503,6 @@ def update_company_name(request):
         company.save()
 
         return JsonResponse({"message": "Company name updated", "company_name": company_name})
-
-    except Company.DoesNotExist:
-        return JsonResponse({"error": "Company not found"}, status=404)
-    except jwt.ExpiredSignatureError:
-        return JsonResponse({"error": "Token expired"}, status=401)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-@csrf_exempt
-@require_POST
-def update_company_password(request):
-    """Updates the staff password (the one HR staff use to log in via find-company)."""
-    try:
-        payload    = decode_token(request)
-        role       = payload.get("role")
-        company_id = payload.get("company_id")
-
-        if role != "owner":
-            return JsonResponse({"error": "Only owners can update the company password"}, status=403)
-
-        data             = json.loads(request.body)
-        current_password = data.get("current_password", "").strip()
-        new_password     = data.get("new_password", "").strip()
-
-        if not current_password or not new_password:
-            return JsonResponse({"error": "Both current and new passwords are required"}, status=400)
-
-        if len(new_password) < 8:
-            return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
-
-        company = Company.objects.get(company_id=company_id)
-
-        try:
-            ph.verify(company.staff_password, current_password)
-        except argon2.exceptions.VerifyMismatchError:
-            return JsonResponse({"error": "Wrong Password"}, status=400)
-
-        company.staff_password = ph.hash(new_password)
-        company.save()
-
-        return JsonResponse({"message": "Company password updated successfully"})
 
     except Company.DoesNotExist:
         return JsonResponse({"error": "Company not found"}, status=404)

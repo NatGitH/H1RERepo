@@ -300,25 +300,24 @@ export default function Applicants() {
 
   const statusRank = (s) => ({ interview_sent: 0, shortlisted: 1, pending: 2, rejected: 3 }[s] ?? 2);
 
-  // Sort options that surface a single status at the top of the list.
-  const priorityStatus = {
+  // Options that show ONLY applicants of a single status.
+  const statusFilter = {
     status_shortlisted: "shortlisted",
     status_pending: "pending",
     status_rejected: "rejected",
   }[sortBy];
 
-  const sortedApplicants = [...filtered].sort((a, b) => {
+  const visibleApplicants = statusFilter
+    ? filtered.filter((a) => a.status === statusFilter)
+    : filtered;
+
+  const sortedApplicants = [...visibleApplicants].sort((a, b) => {
     if (sortBy === "name_asc")
       return (a.applicant_name || "").localeCompare(b.applicant_name || "");
     if (sortBy === "name_desc")
       return (b.applicant_name || "").localeCompare(a.applicant_name || "");
     if (sortBy === "score_desc") return (b.hire_score || 0) - (a.hire_score || 0);
     if (sortBy === "score_asc") return (a.hire_score || 0) - (b.hire_score || 0);
-    if (priorityStatus) {
-      const aMatch = a.status === priorityStatus ? 0 : 1;
-      const bMatch = b.status === priorityStatus ? 0 : 1;
-      if (aMatch !== bMatch) return aMatch - bMatch;
-    }
     return statusRank(a.status) - statusRank(b.status);
   });
 
@@ -448,9 +447,9 @@ export default function Applicants() {
                 <option value="name_desc">Name (Z–A)</option>
                 <option value="score_desc">H!RE Score (High → Low)</option>
                 <option value="score_asc">H!RE Score (Low → High)</option>
-                <option value="status_shortlisted">Shortlisted First</option>
-                <option value="status_pending">Pending First</option>
-                <option value="status_rejected">Rejected First</option>
+                <option value="status_shortlisted">Shortlisted Only</option>
+                <option value="status_pending">Pending Only</option>
+                <option value="status_rejected">Rejected Only</option>
               </select>
               <KeyboardArrowDownIcon
                 className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#0B2447]"
